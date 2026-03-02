@@ -1,12 +1,13 @@
 const baseDomain = process.env.BASE_DOMAIN;
 const isLocal = !baseDomain || baseDomain.includes("localhost") || baseDomain.includes("127.0.0.1");
-const protocol = (process.env.NODE_ENV === "production" && !isLocal) ? "https" : "http";
+const protocol = (baseDomain && baseDomain !== "localhost" && baseDomain !== "127.0.0.1") ? "https" : "http";
 
 const webBaseUrl = (process.env.WEB_BASE_URL || (baseDomain ? `${protocol}://${baseDomain}` : "http://localhost:3000")).replace(/\/+$/, "");
 const appBaseUrl = (process.env.APP_BASE_URL || (baseDomain ? `${protocol}://api.${baseDomain}` : "http://localhost:4000")).replace(/\/+$/, "");
 
 export const config = {
   port: Number(process.env.PORT ?? "4000"),
+  baseDomain,
   appBaseUrl,
   webBaseUrl,
   databaseUrl: process.env.DATABASE_URL ?? "postgres://postgres:postgres@postgres:5432/escapehatch",

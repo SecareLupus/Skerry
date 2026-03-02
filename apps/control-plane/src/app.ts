@@ -15,8 +15,12 @@ export async function buildApp() {
       const allowedOrigins = [
         "http://localhost",
         "http://localhost:3000",
+        "https://localhost",
+        "https://localhost:3000",
         "http://127.0.0.1",
         "http://127.0.0.1:3000",
+        "https://127.0.0.1",
+        "https://127.0.0.1:3000",
         config.webBaseUrl
       ].filter(Boolean);
 
