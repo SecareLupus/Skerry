@@ -1,5 +1,6 @@
 {
     email {$EMAIL}
+    auto_https disable_redirects
 }
 
 # If BASE_DOMAIN is localhost, we shouldn't attempt to get real SSL certs.
