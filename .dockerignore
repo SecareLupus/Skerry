@@ -1,0 +1,11 @@
+.git
+node_modules
+**/node_modules
+.next
+**/out
+**/.env
+**/.env.local
+**/.env.*.local
+docker-compose.yml
+Dockerfile
+docker/

@@ -62,7 +62,7 @@ export async function issueVoiceToken(input: {
       return {
         channelId: input.channelId,
         serverId: input.serverId,
-        sfuUrl: config.voice.url,
+        sfuUrl: config.voice.publicUrl,
         sfuRoomId: channel.voice_sfu_room_id,
         participantUserId: input.actorUserId,
         token,

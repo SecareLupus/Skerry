@@ -1,11 +1,16 @@
-const appBaseUrl = (process.env.APP_BASE_URL ?? "http://localhost:4000").replace(/\/+$/, "");
-const webBaseUrl = (process.env.WEB_BASE_URL ?? "http://localhost:3000").replace(/\/+$/, "");
+const baseDomain = process.env.NEXT_PUBLIC_BASE_DOMAIN;
+const isLocal = !baseDomain || baseDomain.includes("localhost") || baseDomain.includes("127.0.0.1");
+const protocol = (baseDomain && baseDomain !== "localhost" && baseDomain !== "127.0.0.1") ? "https" : "http";
+
+const webBaseUrl = (process.env.WEB_BASE_URL || (baseDomain ? `${protocol}://${baseDomain}` : "http://localhost:3000")).replace(/\/+$/, "");
+const appBaseUrl = (process.env.APP_BASE_URL || (baseDomain === "localhost" ? webBaseUrl : (baseDomain ? `${protocol}://api.${baseDomain}` : "http://localhost:4000"))).replace(/\/+$/, "");
 
 export const config = {
   port: Number(process.env.PORT ?? "4000"),
+  baseDomain,
   appBaseUrl,
   webBaseUrl,
-  databaseUrl: process.env.DATABASE_URL,
+  databaseUrl: process.env.DATABASE_URL ?? "postgres://postgres:postgres@postgres:5432/escapehatch",
   sessionSecret: process.env.SESSION_SECRET ?? "dev-insecure-session-secret",
   sessionTtlSeconds: Number(process.env.SESSION_TTL_SECONDS ?? "604800"), // 7 days
   devAuthBypass: process.env.DEV_AUTH_BYPASS === "true",
@@ -14,41 +19,24 @@ export const config = {
   logFilePath: process.env.LOG_FILE_PATH ?? "",
   rateLimitPerMinute: Number(process.env.RATE_LIMIT_PER_MINUTE ?? "240"),
   oidc: {
-    keycloakIssuer: process.env.OIDC_KEYCLOAK_ISSUER,
+    keycloakIssuer: process.env.OIDC_KEYCLOAK_ISSUER ?? (baseDomain ? `https://keycloak.${baseDomain}/realms/escapehatch` : "http://keycloak:8080/realms/escapehatch"),
     keycloakClientId: process.env.OIDC_KEYCLOAK_CLIENT_ID,
     keycloakClientSecret: process.env.OIDC_KEYCLOAK_CLIENT_SECRET,
     discordClientId: process.env.OIDC_DISCORD_CLIENT_ID,
     discordClientSecret: process.env.OIDC_DISCORD_CLIENT_SECRET,
-    discordAuthorizeUrl:
-      process.env.OIDC_DISCORD_AUTHORIZE_URL ??
-      "https://discord.com/api/oauth2/authorize",
-    discordTokenUrl:
-      process.env.OIDC_DISCORD_TOKEN_URL ??
-      "https://discord.com/api/oauth2/token",
-    discordUserInfoUrl:
-      process.env.OIDC_DISCORD_USERINFO_URL ??
-      "https://discord.com/api/users/@me",
+    discordAuthorizeUrl: "https://discord.com/api/oauth2/authorize",
+    discordTokenUrl: "https://discord.com/api/oauth2/token",
+    discordUserInfoUrl: "https://discord.com/api/users/@me",
     googleClientId: process.env.OIDC_GOOGLE_CLIENT_ID,
     googleClientSecret: process.env.OIDC_GOOGLE_CLIENT_SECRET,
-    googleAuthorizeUrl:
-      process.env.OIDC_GOOGLE_AUTHORIZE_URL ??
-      "https://accounts.google.com/o/oauth2/v2/auth",
-    googleTokenUrl:
-      process.env.OIDC_GOOGLE_TOKEN_URL ??
-      "https://oauth2.googleapis.com/token",
-    googleUserInfoUrl:
-      process.env.OIDC_GOOGLE_USERINFO_URL ??
-      "https://openidconnect.googleapis.com/v1/userinfo",
+    googleAuthorizeUrl: "https://accounts.google.com/o/oauth2/v2/auth",
+    googleTokenUrl: "https://oauth2.googleapis.com/token",
+    googleUserInfoUrl: "https://openidconnect.googleapis.com/v1/userinfo",
     twitchClientId: process.env.OIDC_TWITCH_CLIENT_ID,
     twitchClientSecret: process.env.OIDC_TWITCH_CLIENT_SECRET,
-    twitchAuthorizeUrl:
-      process.env.OIDC_TWITCH_AUTHORIZE_URL ??
-      "https://id.twitch.tv/oauth2/authorize",
-    twitchTokenUrl:
-      process.env.OIDC_TWITCH_TOKEN_URL ?? "https://id.twitch.tv/oauth2/token",
-    twitchUserInfoUrl:
-      process.env.OIDC_TWITCH_USERINFO_URL ??
-      "https://api.twitch.tv/helix/users",
+    twitchAuthorizeUrl: "https://id.twitch.tv/oauth2/authorize",
+    twitchTokenUrl: "https://id.twitch.tv/oauth2/token",
+    twitchUserInfoUrl: "https://api.twitch.tv/helix/users",
   },
   discordBridge: {
     mockMode: process.env.DISCORD_BRIDGE_MOCK === "true",
@@ -56,7 +44,7 @@ export const config = {
     clientSecret: process.env.DISCORD_BRIDGE_CLIENT_SECRET,
     callbackUrl:
       process.env.DISCORD_BRIDGE_CALLBACK_URL ??
-      `${appBaseUrl}/auth/callback/discord`,
+      `${appBaseUrl}/v1/discord/oauth/callback`,
     authorizeUrl:
       process.env.DISCORD_BRIDGE_AUTHORIZE_URL ??
       "https://discord.com/api/oauth2/authorize",
@@ -69,17 +57,18 @@ export const config = {
     userGuildsUrl:
       process.env.DISCORD_BRIDGE_USER_GUILDS_URL ??
       "https://discord.com/api/users/@me/guilds",
-    bridgeSecret: process.env.DISCORD_BRIDGE_SECRET ?? "",
   },
-  discordBotToken: process.env.DISCORD_BRIDGE_BOT_TOKEN ?? "",
+  discordBotToken: (process.env.DISCORD_BRIDGE_BOT_TOKEN || process.env.DISCORD_BOT_TOKEN)?.trim(),
   voice: {
     tokenTtlSeconds: Number(process.env.SFU_TOKEN_TTL_SECONDS ?? "300"),
-    url: process.env.LIVEKIT_URL ?? "ws://localhost:7880",
+    url: process.env.LIVEKIT_URL ?? "ws://livekit:7880",
+    publicUrl: process.env.LIVEKIT_PUBLIC_URL || (baseDomain ? `wss://livekit.${baseDomain}` : "ws://localhost:7880"),
     apiKey: process.env.LIVEKIT_API_KEY ?? "devkey",
     apiSecret: process.env.LIVEKIT_API_SECRET ?? "secret",
   },
   synapse: {
-    baseUrl: process.env.SYNAPSE_BASE_URL?.trim(),
+    baseUrl: (process.env.SYNAPSE_BASE_URL ?? "http://synapse:8008").trim(),
+    publicBaseUrl: (process.env.SYNAPSE_PUBLIC_URL || (baseDomain ? `${protocol}://matrix.${baseDomain}` : "http://localhost:8008"))?.trim(),
     accessToken: process.env.SYNAPSE_ACCESS_TOKEN?.trim(),
     strictProvisioning: process.env.SYNAPSE_STRICT_PROVISIONING === "true",
   },

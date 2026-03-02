@@ -1492,25 +1492,16 @@ export async function registerDomainRoutes(app: FastifyInstance): Promise<void> 
     reply.code(204).send();
   });
 
-  app.post("/v1/discord/bridge/:serverId/relay", async (request, reply) => {
+  app.post("/v1/discord/bridge/:serverId/relay", initializedAuthHandlers, async (request, reply) => {
     const params = z.object({ serverId: z.string().min(1) }).parse(request.params);
-    const secret = request.headers["x-bridge-secret"];
-    const hasSecret = Boolean(config.discordBridge.bridgeSecret && secret === config.discordBridge.bridgeSecret);
 
-    if (!hasSecret) {
-      await requireAuth(request, reply);
-      if (reply.sent) return;
-      await requireInitialized(request, reply);
-      if (reply.sent) return;
-
-      const allowed = await canManageDiscordBridge({
-        productUserId: request.auth!.productUserId,
-        serverId: params.serverId
-      });
-      if (!allowed) {
-        reply.code(403).send({ message: "Forbidden: insufficient server management scope." });
-        return;
-      }
+    const allowed = await canManageDiscordBridge({
+      productUserId: request.auth!.productUserId,
+      serverId: params.serverId
+    });
+    if (!allowed) {
+      reply.code(403).send({ message: "Forbidden: insufficient server management scope." });
+      return;
     }
 
     const payload = z

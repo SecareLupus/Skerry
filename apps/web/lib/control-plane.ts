@@ -23,8 +23,13 @@ import type {
 } from "@escapehatch/shared";
 
 
+const publicBaseDomain = process.env.NEXT_PUBLIC_BASE_DOMAIN ?? "localhost";
+const isLocal = publicBaseDomain === "localhost" || publicBaseDomain === "127.0.0.1";
+const protocol = isLocal ? "http" : "https";
+
 export const controlPlaneBaseUrl =
-  process.env.NEXT_PUBLIC_CONTROL_PLANE_URL ?? "http://localhost:4000";
+  process.env.NEXT_PUBLIC_CONTROL_PLANE_URL ??
+  (publicBaseDomain === "localhost" ? "" : `${protocol}://api.${publicBaseDomain}`);
 
 export interface ViewerSession {
   productUserId: string;

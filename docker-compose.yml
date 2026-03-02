@@ -21,8 +21,7 @@ services:
     environment:
       SYNAPSE_SERVER_NAME: hub-localhost
       SYNAPSE_REPORT_STATS: "no"
-    ports:
-      - "8008:8008"
+    # Port 8008 is now internal only
     volumes:
       - ./docker/synapse:/data
 
@@ -30,20 +29,19 @@ services:
     image: quay.io/keycloak/keycloak:26.0
     env_file:
       - .env
-    command: ["start-dev"]
+    command: [ "start-dev" ]
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KC_BOOTSTRAP_ADMIN_USERNAME}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_BOOTSTRAP_ADMIN_PASSWORD}
-    ports:
-      - "8080:8080"
+    # Port 8080 is now internal only
 
   livekit:
     image: livekit/livekit-server:v1.9.11
     env_file:
       - .env
-    command: ["--dev", "--bind", "0.0.0.0"]
+    command: [ "--dev", "--bind", "0.0.0.0" ]
+    # Signaling port 7880 is now internal only
     ports:
-      - "7880:7880"
       - "7881:7881"
       - "7882:7882/udp"
 
@@ -51,10 +49,79 @@ services:
     image: coturn/coturn:4.6
     env_file:
       - .env
-    command: ["-n", "--log-file=stdout", "--realm=localhost", "--fingerprint"]
+    command: [ "-n", "--log-file=stdout", "--realm=localhost", "--fingerprint" ]
     ports:
       - "3478:3478"
       - "3478:3478/udp"
 
+  control-plane:
+    build:
+      context: .
+      target: control-plane
+      args:
+        NEXT_PUBLIC_BASE_DOMAIN: ${NEXT_PUBLIC_BASE_DOMAIN}
+    env_file:
+      - .env
+    environment:
+      - PORT=4000
+      - DATABASE_URL=postgres://postgres:${POSTGRES_PASSWORD}@postgres:5432/escapehatch
+      - NEXT_PUBLIC_BASE_DOMAIN=${NEXT_PUBLIC_BASE_DOMAIN}
+      - SESSION_SECRET=${SESSION_SECRET}
+      - OIDC_DISCORD_CLIENT_ID=${OIDC_DISCORD_CLIENT_ID}
+      - OIDC_DISCORD_CLIENT_SECRET=${OIDC_DISCORD_CLIENT_SECRET}
+      - OIDC_GOOGLE_CLIENT_ID=${OIDC_GOOGLE_CLIENT_ID}
+      - OIDC_GOOGLE_CLIENT_SECRET=${OIDC_GOOGLE_CLIENT_SECRET}
+      - OIDC_TWITCH_CLIENT_ID=${OIDC_TWITCH_CLIENT_ID}
+      - OIDC_TWITCH_CLIENT_SECRET=${OIDC_TWITCH_CLIENT_SECRET}
+      - DISCORD_BRIDGE_CLIENT_ID=${DISCORD_BRIDGE_CLIENT_ID}
+      - DISCORD_BRIDGE_CLIENT_SECRET=${DISCORD_BRIDGE_CLIENT_SECRET}
+      - DISCORD_BRIDGE_BOT_TOKEN=${DISCORD_BRIDGE_BOT_TOKEN}
+    depends_on:
+      - postgres
+      - synapse
+      - livekit
+    networks:
+      - default
+
+  web:
+    build:
+      context: .
+      target: web
+      args:
+        NEXT_PUBLIC_BASE_DOMAIN: ${NEXT_PUBLIC_BASE_DOMAIN}
+    env_file:
+      - .env
+    environment:
+      - PORT=3000
+      - NEXT_PUBLIC_BASE_DOMAIN=${NEXT_PUBLIC_BASE_DOMAIN}
+    depends_on:
+      - control-plane
+    networks:
+      - default
+
+  caddy:
+    image: caddy:latest
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      - NEXT_PUBLIC_BASE_DOMAIN=${NEXT_PUBLIC_BASE_DOMAIN}
+      - EMAIL=${EMAIL}
+    networks:
+      - default
+
+networks:
+  default:
+    name: escapehatch_default
+
 volumes:
   pg_data:
+  synapse_data:
+  livekit_data:
+  caddy_data:
+  caddy_config:

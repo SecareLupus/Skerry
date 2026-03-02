@@ -12,16 +12,23 @@ export async function buildApp() {
   const app = Fastify({ logger: false });
   await app.register(cors, {
     origin: (origin, cb) => {
-      if (
-        !origin ||
-        origin.startsWith("http://localhost:3000") ||
-        origin.startsWith("http://127.0.0.1:3000") ||
-        (config.webBaseUrl && origin.startsWith(config.webBaseUrl))
-      ) {
+      const allowedOrigins = [
+        "http://localhost",
+        "http://localhost:3000",
+        "https://localhost",
+        "https://localhost:3000",
+        "http://127.0.0.1",
+        "http://127.0.0.1:3000",
+        "https://127.0.0.1",
+        "https://127.0.0.1:3000",
+        config.webBaseUrl
+      ].filter(Boolean);
+
+      if (!origin || allowedOrigins.some(ao => origin === ao || origin.startsWith(ao + "/"))) {
         cb(null, true);
         return;
       }
-      cb(new Error("Not allowed by CORS"), false);
+      cb(new Error(`Not allowed by CORS: ${origin}`), false);
     },
     credentials: true,
     methods: ["GET", "PUT", "POST", "PATCH", "DELETE", "OPTIONS"]

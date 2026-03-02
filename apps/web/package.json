@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "npx dotenv-cli -e ../../.env -- next dev",
-    "build": "npx dotenv-cli -e ../../.env -- next build",
+    "build": "next build",
     "start": "npx dotenv-cli -e ../../.env -- next start",
     "lint": "next lint",
     "typecheck": "tsc --project tsconfig.json --noEmit",

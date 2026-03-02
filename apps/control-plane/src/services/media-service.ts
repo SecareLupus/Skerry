@@ -93,7 +93,7 @@ export async function uploadMedia(input: {
       if (mxcUri.startsWith("mxc://")) {
         const parts = mxcUri.slice("mxc://".length).split("/");
         if (parts.length === 2) {
-          return { url: `${config.synapse.baseUrl}/_matrix/media/v3/download/${parts[0]}/${parts[1]}` };
+          return { url: `${config.synapse.publicBaseUrl}/_matrix/media/v3/download/${parts[0]}/${parts[1]}` };
         }
       }
 
