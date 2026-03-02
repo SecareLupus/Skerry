@@ -1,9 +1,9 @@
-const baseDomain = process.env.BASE_DOMAIN;
+const baseDomain = process.env.NEXT_PUBLIC_BASE_DOMAIN;
 const isLocal = !baseDomain || baseDomain.includes("localhost") || baseDomain.includes("127.0.0.1");
 const protocol = (baseDomain && baseDomain !== "localhost" && baseDomain !== "127.0.0.1") ? "https" : "http";
 
 const webBaseUrl = (process.env.WEB_BASE_URL || (baseDomain ? `${protocol}://${baseDomain}` : "http://localhost:3000")).replace(/\/+$/, "");
-const appBaseUrl = (process.env.APP_BASE_URL || (baseDomain ? `${protocol}://api.${baseDomain}` : "http://localhost:4000")).replace(/\/+$/, "");
+const appBaseUrl = (process.env.APP_BASE_URL || (baseDomain === "localhost" ? webBaseUrl : (baseDomain ? `${protocol}://api.${baseDomain}` : "http://localhost:4000"))).replace(/\/+$/, "");
 
 export const config = {
   port: Number(process.env.PORT ?? "4000"),
