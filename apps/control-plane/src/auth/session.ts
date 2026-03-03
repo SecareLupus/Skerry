@@ -47,8 +47,8 @@ export function setSessionCookie(reply: FastifyReply, payload: Omit<SessionPaylo
   const token = createSessionToken({ ...payload, expiresAt });
   let cookie = `escapehatch_session=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${ttlSeconds}`;
   
-  // Only use Domain if it's a real-ish domain, not localhost or bypass
-  if (config.baseDomain && config.baseDomain !== "localhost" && config.baseDomain !== "127.0.0.1") {
+  // Use Domain if it's a real-ish domain or localhost (to share across subdomains)
+  if (config.baseDomain && config.baseDomain !== "127.0.0.1") {
     cookie += `; Domain=${config.baseDomain}`;
   }
   
@@ -58,7 +58,7 @@ export function setSessionCookie(reply: FastifyReply, payload: Omit<SessionPaylo
 
 export function clearSessionCookie(reply: FastifyReply): void {
   let cookie = "escapehatch_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0";
-  if (config.baseDomain && config.baseDomain !== "localhost" && config.baseDomain !== "127.0.0.1") {
+  if (config.baseDomain && config.baseDomain !== "127.0.0.1") {
     cookie += `; Domain=${config.baseDomain}`;
   }
   reply.header("Set-Cookie", cookie);

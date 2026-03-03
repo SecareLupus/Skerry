@@ -49,13 +49,13 @@ services:
       context: .
       target: control-plane
       args:
-        NEXT_PUBLIC_BASE_DOMAIN: ${NEXT_PUBLIC_BASE_DOMAIN}
+        NEXT_PUBLIC_BASE_DOMAIN: ${BASE_DOMAIN}
     env_file:
       - .env
     environment:
       - PORT=4000
       - DATABASE_URL=postgres://postgres:${POSTGRES_PASSWORD}@postgres:5432/escapehatch
-      - NEXT_PUBLIC_BASE_DOMAIN=${NEXT_PUBLIC_BASE_DOMAIN}
+      - NEXT_PUBLIC_BASE_DOMAIN=${BASE_DOMAIN}
       - SESSION_SECRET=${SESSION_SECRET}
       - OIDC_DISCORD_CLIENT_ID=${OIDC_DISCORD_CLIENT_ID}
       - OIDC_DISCORD_CLIENT_SECRET=${OIDC_DISCORD_CLIENT_SECRET}
@@ -78,12 +78,12 @@ services:
       context: .
       target: web
       args:
-        NEXT_PUBLIC_BASE_DOMAIN: ${NEXT_PUBLIC_BASE_DOMAIN}
+        NEXT_PUBLIC_BASE_DOMAIN: ${BASE_DOMAIN}
     env_file:
       - .env
     environment:
       - PORT=3000
-      - NEXT_PUBLIC_BASE_DOMAIN=${NEXT_PUBLIC_BASE_DOMAIN}
+      - NEXT_PUBLIC_BASE_DOMAIN=${BASE_DOMAIN}
     depends_on:
       - control-plane
     networks:
@@ -100,7 +100,7 @@ services:
       - caddy_data:/data
       - caddy_config:/config
     environment:
-      - NEXT_PUBLIC_BASE_DOMAIN=${NEXT_PUBLIC_BASE_DOMAIN}
+      - NEXT_PUBLIC_BASE_DOMAIN=${BASE_DOMAIN}
       - EMAIL=${EMAIL}
     networks:
       - default
