@@ -165,6 +165,7 @@ export async function createChannelWorkflow(input: {
       voice_max_participants: number | null;
       video_enabled: boolean;
       video_max_participants: number | null;
+      topic: string | null;
       created_at: string;
     }>(
       `insert into channels
@@ -216,6 +217,7 @@ export async function createChannelWorkflow(input: {
             maxVideoParticipants: value.video_max_participants
           }
           : null,
+      topic: value.topic,
       createdAt: value.created_at
     };
   });

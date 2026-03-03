@@ -447,6 +447,23 @@ export async function deleteServer(serverId: string): Promise<void> {
   });
 }
 
+export async function renameChannel(input: {
+  serverId: string;
+  channelId: string;
+  name?: string;
+  type?: ChannelType;
+  categoryId?: string | null;
+  position?: number;
+}): Promise<Channel> {
+  return updateChannel(input.channelId, {
+    serverId: input.serverId,
+    name: input.name,
+    type: input.type,
+    categoryId: input.categoryId,
+    position: input.position
+  });
+}
+
 export async function updateChannel(
   channelId: string,
   payload: {
