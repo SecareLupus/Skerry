@@ -2,12 +2,11 @@
     email {$EMAIL}
 }
 
-# Snippet for shared proxy logic
 (common_handlers) {
-    handle /auth/* {
+    handle /v1/* {
         reverse_proxy control-plane:4000
     }
-    handle /v1/* {
+    handle /auth/* {
         reverse_proxy control-plane:4000
     }
     handle /health {
@@ -16,28 +15,26 @@
     handle /bootstrap/* {
         reverse_proxy control-plane:4000
     }
-    # Matrix paths
     handle /_matrix/* {
         reverse_proxy synapse:8008
     }
     handle /_synapse/* {
         reverse_proxy synapse:8008
     }
-    # LiveKit signaling paths
     handle /twirp/* {
         reverse_proxy livekit:7880
     }
     handle /rtc {
         reverse_proxy livekit:7880
     }
-    # Catch-all for web app
     handle {
+        # The web container MUST listen on 0.0.0.0:3000 (next start -H 0.0.0.0)
         reverse_proxy web:3000
     }
 }
 
-# Public domain block (Caddy will handle HTTPS automatically)
-http://{$NEXT_PUBLIC_BASE_DOMAIN}, https://{$NEXT_PUBLIC_BASE_DOMAIN} {
+# Automatic HTTPS for the public domain
+{$NEXT_PUBLIC_BASE_DOMAIN} {
     import common_handlers
 }
 
