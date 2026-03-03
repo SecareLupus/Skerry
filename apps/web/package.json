@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "npx dotenv-cli -e ../../.env -- next dev",
     "build": "next build",
-    "start": "npx dotenv-cli -e ../../.env -- next start",
+    "start": "npx dotenv-cli -e ../../.env -- next start -H 0.0.0.0",
     "lint": "next lint",
     "typecheck": "tsc --project tsconfig.json --noEmit",
     "test": "npx dotenv-cli -e ../../.env -- tsx --test test/*.test.ts",

@@ -1,14 +1,9 @@
 {
     email {$EMAIL}
-    auto_https disable_redirects
 }
 
-# If BASE_DOMAIN is localhost, we shouldn't attempt to get real SSL certs.
-# Caddy handles "localhost" automatically, but for subdomains like api.localhost,
-# it's often easier to just use plain HTTP or trust Caddy's local CA.
-# We'll use the provided domain directly; Caddy will use HTTP for localhost/127.0.0.1 automatically.
-
-{$NEXT_PUBLIC_BASE_DOMAIN}, http://localhost, http://127.0.0.1 {
+# Snippet for shared proxy logic
+(common_handlers) {
     handle /auth/* {
         reverse_proxy control-plane:4000
     }
@@ -35,7 +30,18 @@
     handle /rtc {
         reverse_proxy livekit:7880
     }
+    # Catch-all for web app
     handle {
         reverse_proxy web:3000
     }
+}
+
+# Public domain block (Caddy will handle HTTPS automatically)
+http://{$NEXT_PUBLIC_BASE_DOMAIN}, https://{$NEXT_PUBLIC_BASE_DOMAIN} {
+    import common_handlers
+}
+
+# Local development blocks
+http://localhost, http://127.0.0.1 {
+    import common_handlers
 }
