@@ -33,8 +33,10 @@
     }
 }
 
-# Automatic HTTPS for the public domain
-{$NEXT_PUBLIC_BASE_DOMAIN} {
+# Explicitly use http:// here because an upstream reverse proxy
+# is handling SSL termination. This disables Caddy's Auto-HTTPS
+# and stops the "Too Many Redirects" loop.
+http://{$NEXT_PUBLIC_BASE_DOMAIN} {
     import common_handlers
 }
 
