@@ -74,14 +74,14 @@ export function getSession(request: FastifyRequest): SessionPayload | null {
   const raw = cookieHeader
     .split(";")
     .map((part) => part.trim())
-    .find((part) => part.startsWith("skerry_session="));
+    .find((part) => part.startsWith("skerry_session=") || part.startsWith("escapehatch_session="));
 
   if (!raw) {
-    console.log(`[AUTH DEBUG] skerry_session missing in header for ${request.method} ${request.url} id=${request.id}. Cookie header: ${cookieHeader}`);
+    console.log(`[AUTH DEBUG] session missing in header for ${request.method} ${request.url} id=${request.id}. Cookie header: ${cookieHeader}`);
     return null;
   }
 
-  const token = raw.replace("skerry_session=", "");
+  const token = raw.replace("skerry_session=", "").replace("escapehatch_session=", "");
   const payload = verify(token);
   if (!payload) {
     console.log(`[AUTH DEBUG] Session token verification failed for ${request.method} ${request.url} id=${request.id}`);

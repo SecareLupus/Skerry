@@ -35,7 +35,7 @@ function createAuthCookie(productUserId: string): string {
     oidcSubject: `sub_${productUserId.replaceAll("-", "")}`,
     expiresAt: Date.now() + 60 * 60 * 1000
   });
-  return `escapehatch_session=${token}`;
+  return `skerry_session=${token}`;
 }
 
 test("notifications summary returns unread counts and mentions", async (t) => {

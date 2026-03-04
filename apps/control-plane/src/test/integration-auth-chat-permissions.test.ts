@@ -55,7 +55,7 @@ function createAuthCookie(input: {
     oidcSubject: input.oidcSubject ?? `sub_${input.productUserId}`,
     expiresAt: Date.now() + 60 * 60 * 1000
   });
-  return `escapehatch_session=${token}`;
+  return `skerry_session=${token}`;
 }
 
 test("auth/session returns structured unauthorized error with correlation id", async () => {
@@ -244,7 +244,7 @@ test("dev login establishes session when bypass is enabled", async (t) => {
     });
     assert.equal(loginResponse.statusCode, 302);
     const setCookie = loginResponse.headers["set-cookie"];
-    assert.ok(typeof setCookie === "string" && setCookie.includes("escapehatch_session="));
+    assert.ok(typeof setCookie === "string" && setCookie.includes("skerry_session="));
 
     const sessionResponse = await app.inject({
       method: "GET",
