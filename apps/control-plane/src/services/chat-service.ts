@@ -916,27 +916,14 @@ export async function listChannelMembers(channelId: string): Promise<{
       avatar_url: string | null;
       last_seen_at: string | null;
     }>(
-      `select im.product_user_id, im.preferred_username, im.email, im.avatar_url, up.last_seen_at
-       from (select distinct product_user_id from identity_mappings where product_user_id = any($1)) ids
-       join identity_mappings im on im.product_user_id = ids.product_user_id
+      `select distinct on (im.product_user_id) 
+         im.product_user_id, im.preferred_username, im.email, im.avatar_url, up.last_seen_at
+       from identity_mappings im
        left join user_presence up on up.product_user_id = im.product_user_id
-       where im.id = (
-         select id from identity_mappings 
-         where product_user_id = im.product_user_id 
-         order by (preferred_username is not null) desc, updated_at desc, created_at asc 
-         limit 1
-       )`,
+       where im.product_user_id = any($1)
+       order by im.product_user_id, (preferred_username is not null) desc, im.updated_at desc, im.created_at asc`,
       [localProductUserIds]
     );
-
-    const localMembers = localUserRows.rows.map(r => ({
-      productUserId: r.product_user_id,
-      displayName: r.preferred_username ?? r.email?.split('@')[0] ?? `user-${r.product_user_id.slice(0, 8)}`,
-      avatarUrl: r.avatar_url ?? undefined,
-      isOnline: r.last_seen_at ? (now - new Date(r.last_seen_at).getTime() < ONLINE_THRESHOLD_MS) : false,
-      lastSeenAt: r.last_seen_at ?? undefined,
-      isBridged: false
-    }));
 
     // --- GROUP 2 & 4: Bridged / External Users ---
     const { listDiscordChannelMappings } = await import("./discord-bridge-service.js");
@@ -954,6 +941,15 @@ export async function listChannelMembers(channelId: string): Promise<{
       isBridged?: boolean;
       bridgedUserStatus?: string;
     };
+
+    const localMembers: Member[] = localUserRows.rows.map(r => ({
+      productUserId: r.product_user_id,
+      displayName: r.preferred_username ?? r.email?.split('@')[0] ?? `user-${r.product_user_id.slice(0, 8)}`,
+      avatarUrl: r.avatar_url ?? undefined,
+      isOnline: r.last_seen_at ? (now - new Date(r.last_seen_at).getTime() < ONLINE_THRESHOLD_MS) : false,
+      lastSeenAt: r.last_seen_at ?? undefined,
+      isBridged: false
+    }));
 
     let bridgedMembers: Member[] = [];
     let externalOfflineMembers: Member[] = [];
@@ -988,28 +984,35 @@ export async function listChannelMembers(channelId: string): Promise<{
 
       // Group 4: External users who posted before but are offline now
       const pastParticipants = await db.query<{ 
-        external_author_id: string; 
-        external_author_name: string; 
-        external_author_avatar_url: string; 
+        external_author_id: string | null; 
+        author_user_id: string;
+        author_display_name: string; 
+        external_author_name: string | null;
+        external_author_avatar_url: string | null;
       }>(
-        `select distinct on (external_author_id) 
-           external_author_id, external_author_name, external_author_avatar_url
+        `select distinct on (coalesce(external_author_id, author_user_id)) 
+           external_author_id, author_user_id, author_display_name, external_author_name, external_author_avatar_url
          from chat_messages
-         where channel_id = $1 and external_provider = 'discord' and external_author_id is not null
-         order by external_author_id, created_at desc`,
+         where channel_id = $1 
+           and (external_provider = 'discord' or (author_user_id like 'discord_%' and is_relay = true))
+         order by coalesce(external_author_id, author_user_id), created_at desc`,
         [channelId]
       );
 
       for (const row of pastParticipants.rows) {
+        const discordId = row.external_author_id ?? row.author_user_id.replace('discord_', '');
+        const localId = discordToLocal.get(discordId);
+
         // Skip if already in Group 1 or 2
-        const localId = discordToLocal.get(row.external_author_id);
-        if (localId && localMembers.find(m => m.productUserId === localId)) continue;
-        if (bridgedMembers.find(m => m.productUserId === (localId ?? `discord_${row.external_author_id}`))) continue;
-        if (discordPresences[row.external_author_id]?.status !== 'offline') continue;
+        if (localId && localMembers.find(m => m.productUserId === localId && m.isOnline)) continue;
+        if (bridgedMembers.find(m => m.productUserId === (localId ?? `discord_${discordId}`))) continue;
+        
+        // Only show if truly offline (not in discordPresences)
+        if (discordPresences[discordId] && discordPresences[discordId].status !== 'offline') continue;
 
         externalOfflineMembers.push({
-          productUserId: `discord_${row.external_author_id}`,
-          displayName: row.external_author_name,
+          productUserId: localId ?? `discord_${discordId}`,
+          displayName: row.external_author_name ?? row.author_display_name,
           avatarUrl: row.external_author_avatar_url ?? undefined,
           isOnline: false,
           isBridged: true,
@@ -1020,8 +1023,8 @@ export async function listChannelMembers(channelId: string): Promise<{
 
     // Final Assembly with 4-tier Ordering
     const group1 = localMembers.filter(m => m.isOnline);
-    const group2 = bridgedMembers; // already filtered for online
-    const group3 = localMembers.filter(m => !m.isOnline);
+    const group2 = bridgedMembers; 
+    const group3 = localMembers.filter(m => !m.isOnline && !bridgedMembers.find(bm => bm.productUserId === m.productUserId));
     const group4 = externalOfflineMembers;
 
     return [...group1, ...group2, ...group3, ...group4];
