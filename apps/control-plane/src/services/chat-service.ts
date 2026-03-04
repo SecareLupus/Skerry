@@ -847,34 +847,101 @@ export async function updateChannelVideoControls(input: {
   });
 }
 
-export async function listChannelMembers(channelId: string): Promise<{ channelId: string; productUserId: string; createdAt: string; displayName: string }[]> {
+export async function listChannelMembers(channelId: string): Promise<{ 
+  productUserId: string; 
+  displayName: string; 
+  avatarUrl?: string;
+  isOnline: boolean; 
+  lastSeenAt?: string;
+  isBridged?: boolean;
+  bridgedUserStatus?: string;
+}[]> {
   return withDb(async (db) => {
-    const rows = await db.query<{
-      channel_id: string;
-      product_user_id: string;
-      created_at: string;
-      display_name: string;
-    }>(
-      `select cm.channel_id, cm.product_user_id, cm.joined_at as created_at,
-         coalesce(
-           (select preferred_username 
-            from identity_mappings 
-            where product_user_id = cm.product_user_id 
-            order by (preferred_username is not null) desc, updated_at desc, created_at asc 
-            limit 1),
-           'user-' || substr(cm.product_user_id, 1, 8)
-         ) as display_name
-       from channel_members cm
-       where cm.channel_id = $1`,
+    // 1. Get channel info and server type
+    const chRow = await db.query<{ server_id: string, type: string }>(
+      "select server_id, type from channels where id = $1",
       [channelId]
     );
+    const channel = chRow.rows[0];
+    if (!channel) return [];
 
-    return rows.rows.map(r => ({
-      channelId: r.channel_id,
+    const serverRow = await db.query<{ type: string, owner_user_id: string }>(
+      "select type, owner_user_id from servers where id = $1",
+      [channel.server_id]
+    );
+    const server = serverRow.rows[0];
+    if (!server) return [];
+
+    let productUserIds: string[] = [];
+
+    if (server.type === 'dm' || channel.type === 'dm') {
+      const members = await db.query<{ product_user_id: string }>(
+        "select product_user_id from channel_members where channel_id = $1",
+        [channelId]
+      );
+      productUserIds = members.rows.map(m => m.product_user_id);
+    } else {
+      // Server channel: everyone with a role binding or the owner
+      const members = await db.query<{ product_user_id: string }>(
+        `select distinct product_user_id from role_bindings where server_id = $1 or channel_id = $2
+         union
+         select owner_user_id from servers where id = $3`,
+        [channel.server_id, channelId, channel.server_id]
+      );
+      productUserIds = members.rows.map(m => m.product_user_id);
+    }
+
+    if (productUserIds.length === 0) return [];
+
+    // 2. Fetch identities and presence
+    const userRows = await db.query<{ 
+      product_user_id: string; 
+      preferred_username: string | null; 
+      email: string | null;
+      avatar_url: string | null;
+      last_seen_at: string | null;
+    }>(
+      `select im.product_user_id, im.preferred_username, im.email, im.avatar_url, up.last_seen_at
+       from identity_mappings im
+       left join user_presence up on up.product_user_id = im.product_user_id
+       where im.product_user_id = any($1)`,
+      [productUserIds]
+    );
+
+    const now = Date.now();
+    const ONLINE_THRESHOLD_MS = 2 * 60 * 1000;
+
+    const matrixMembers = userRows.rows.map(r => ({
       productUserId: r.product_user_id,
-      createdAt: r.created_at,
-      displayName: r.display_name
+      displayName: r.preferred_username ?? r.email?.split('@')[0] ?? `user-${r.product_user_id.slice(0, 8)}`,
+      avatarUrl: r.avatar_url ?? undefined,
+      isOnline: r.last_seen_at ? (now - new Date(r.last_seen_at).getTime() < ONLINE_THRESHOLD_MS) : false,
+      lastSeenAt: r.last_seen_at ?? undefined,
+      isBridged: false
     }));
+
+    // 3. Discord Bridged Users (Bonus)
+    const { listDiscordChannelMappings } = await import("./discord-bridge-service.js");
+    const { getDiscordGuildPresence } = await import("./discord-bot-client.js");
+
+    const mappings = await listDiscordChannelMappings(channel.server_id);
+    const mapping = mappings.find(m => m.matrixChannelId === channelId && m.enabled);
+
+    if (mapping) {
+      const discordPresences = await getDiscordGuildPresence(mapping.guildId);
+      const discordMembers = Object.entries(discordPresences).map(([id, p]) => ({
+        productUserId: `discord_${id}`,
+        displayName: p.username,
+        avatarUrl: p.avatarUrl ?? undefined,
+        isOnline: p.status !== 'offline',
+        bridgedUserStatus: p.status,
+        isBridged: true
+      }));
+
+      return [...matrixMembers, ...discordMembers];
+    }
+
+    return matrixMembers;
   });
 }
 

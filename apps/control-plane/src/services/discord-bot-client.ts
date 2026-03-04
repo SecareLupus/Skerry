@@ -25,7 +25,9 @@ export async function startDiscordBot() {
             intents: [
                 GatewayIntentBits.Guilds,
                 GatewayIntentBits.GuildMessages,
-                GatewayIntentBits.MessageContent
+                GatewayIntentBits.MessageContent,
+                GatewayIntentBits.GuildPresences,
+                GatewayIntentBits.GuildMembers
             ]
         });
 
@@ -169,5 +171,31 @@ export async function relayMatrixMessageToDiscord(input: {
         } catch (fallbackError) {
              console.error("Discord fallback relay failed:", fallbackError);
         }
+    }
+}
+
+export async function getDiscordGuildPresence(guildId: string): Promise<Record<string, { username: string, status: string, avatarUrl: string | null }>> {
+    if (!client || !client.isReady()) return {};
+
+    try {
+        const guild = await client.guilds.fetch(guildId);
+        if (!guild) return {};
+
+        // Fetch all members to ensure presence data is available
+        const members = await guild.members.fetch({ withPresences: true });
+        const presenceMap: Record<string, { username: string, status: string, avatarUrl: string | null }> = {};
+
+        for (const [id, member] of members) {
+            presenceMap[id] = {
+                username: member.user.username,
+                status: member.presence?.status ?? "offline",
+                avatarUrl: member.user.displayAvatarURL()
+            };
+        }
+
+        return presenceMap;
+    } catch (error) {
+        logEvent("error", "discord_presence_fetch_failed", { guildId, error: String(error) });
+        return {};
     }
 }

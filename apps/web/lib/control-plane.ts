@@ -1045,3 +1045,9 @@ export async function listBlocks(): Promise<string[]> {
   const json = await apiFetch<{ items: string[] }>("/auth/blocks");
   return json.items;
 }
+
+export async function updatePresence(): Promise<void> {
+  await apiFetch("/v1/me/presence", {
+    method: "POST"
+  });
+}

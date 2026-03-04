@@ -63,6 +63,8 @@ import {
   listBlocks,
   listDiscordBridgeMappings,
   fetchDiscordBridgeHealth,
+  updatePresence,
+  listChannelMembers,
   type AuthProvidersResponse,
   type BootstrapStatus,
   type ViewerRoleBinding,
@@ -149,7 +151,8 @@ export function ChatClient() {
     updatingControls,
     channelScrollPositions,
     draftMessagesByChannel,
-    profileUserId
+    profileUserId,
+    members
   } = state;
 
   const [mentions, setMentions] = useState<MentionMarker[]>([]);
@@ -258,14 +261,6 @@ export function ChatClient() {
       ),
     [viewerRoles, selectedServerId]
   );
-
-  const memberRoster = useMemo(() => {
-    const members = new Map<string, string>();
-    for (const message of messages) {
-      members.set(message.authorUserId, message.authorDisplayName);
-    }
-    return [...members.entries()].map(([id, displayName]) => ({ id, displayName }));
-  }, [messages]);
 
   const renderedMessages = useMemo(() => {
     const grouped: Array<{
@@ -573,6 +568,14 @@ export function ChatClient() {
         }
       }, 0);
     }
+
+    if (nextChannelId) {
+      void listChannelMembers(nextChannelId)
+        .then((items) => dispatch({ type: "SET_MEMBERS", payload: items }))
+        .catch((e) => console.error("Failed to fetch members:", e));
+    } else {
+      dispatch({ type: "SET_MEMBERS", payload: [] });
+    }
   }, [selectedServerId, selectedChannelId, setUrlSelection, urlChannelId, urlServerId, dispatch, draftMessagesByChannel, channelScrollPositions]);
 
   const initialize = useCallback(async (): Promise<void> => {
@@ -592,6 +595,32 @@ export function ChatClient() {
   useEffect(() => {
     void initialize();
   }, [initialize]);
+
+  // Presence Heartbeat
+  useEffect(() => {
+    if (!viewer) return;
+    
+    const sendHeartbeat = () => {
+      updatePresence().catch(() => {});
+    };
+
+    sendHeartbeat();
+    const interval = setInterval(sendHeartbeat, 60000); // Every minute
+    return () => clearInterval(interval);
+  }, [viewer]);
+
+  // Periodic member list refresh for presence updates
+  useEffect(() => {
+    if (!selectedChannelId) return;
+
+    const interval = setInterval(() => {
+      listChannelMembers(selectedChannelId)
+        .then((items) => dispatch({ type: "SET_MEMBERS", payload: items }))
+        .catch(() => {});
+    }, 30000); // Every 30 seconds
+
+    return () => clearInterval(interval);
+  }, [selectedChannelId, dispatch]);
 
   // Potential bug trigger: This effect initializes the chat state (server/channel) based on 
   // bootstrap defaults. If bootstrapStatus or its properties update unexpectedly, this 
@@ -1752,16 +1781,26 @@ export function ChatClient() {
                     <hr />
                     <h3>Channel Members</h3>
                     <ul className="member-list">
-                      {memberRoster.map((member) => (
+                      {members.map((member) => (
                         <li
-                          key={member.id}
+                          key={member.productUserId}
                           className="member-item"
-                          onContextMenu={(e) => handleUserContextMenu(e, member)}
+                          onContextMenu={(e) => handleUserContextMenu(e, { id: member.productUserId, displayName: member.displayName })}
+                          title={member.isOnline ? "Online" : "Offline"}
                         >
-                          <span className="member-dot" /> {member.displayName}
+                          <span 
+                            className="member-dot" 
+                            data-online={member.isOnline} 
+                          /> 
+                          {member.displayName}
+                          {member.isBridged && (
+                            <span className="bridged-badge" title={member.bridgedUserStatus || 'Bridged from Discord'}>
+                              Bridged
+                            </span>
+                          )}
                         </li>
                       ))}
-                      {memberRoster.length === 0 && <p className="muted">No recent activity</p>}
+                      {members.length === 0 && <p className="muted">No members found</p>}
                     </ul>
 
                     {canManageChannel && (

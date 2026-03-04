@@ -27,6 +27,16 @@ export interface MessageItem extends ChatMessage {
     clientState?: "sending" | "failed";
 }
 
+export interface ChatMember {
+    productUserId: string;
+    displayName: string;
+    avatarUrl?: string;
+    isOnline: boolean;
+    lastSeenAt?: string;
+    isBridged?: boolean;
+    bridgedUserStatus?: string;
+}
+
 export type ModalType =
     | "create-space"
     | "create-category"
@@ -105,6 +115,7 @@ export interface ChatState {
     draftMessagesByChannel: Record<string, string>;
     profileUserId: string | null;
     blockedUserIds: string[];
+    members: ChatMember[];
 }
 
 type ChatAction =
@@ -169,7 +180,8 @@ type ChatAction =
     | { type: "SET_PROFILE_USER_ID"; payload: string | null }
     | { type: "SET_BLOCKED_USER_IDS"; payload: string[] }
     | { type: "BLOCK_USER"; payload: string }
-    | { type: "UNBLOCK_USER"; payload: string };
+    | { type: "UNBLOCK_USER"; payload: string }
+    | { type: "SET_MEMBERS"; payload: ChatMember[] };
 
 const initialState: ChatState = {
     viewer: null,
@@ -233,7 +245,8 @@ const initialState: ChatState = {
     channelScrollPositions: {},
     draftMessagesByChannel: {},
     profileUserId: null,
-    blockedUserIds: []
+    blockedUserIds: [],
+    members: []
 };
 
 function chatReducer(state: ChatState, action: ChatAction): ChatState {
@@ -415,6 +428,8 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
             return { ...state, blockedUserIds: [...new Set([...state.blockedUserIds, action.payload])] };
         case "UNBLOCK_USER":
             return { ...state, blockedUserIds: state.blockedUserIds.filter(id => id !== action.payload) };
+        case "SET_MEMBERS":
+            return { ...state, members: action.payload };
         default:
             return state;
     }

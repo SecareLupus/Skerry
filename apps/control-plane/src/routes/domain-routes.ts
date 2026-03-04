@@ -111,6 +111,7 @@ import {
   updateUserSettings
 } from "../services/settings-service.js";
 import { uploadMedia } from "../services/media-service.js";
+import { updateUserPresence } from "../services/presence-service.js";
 
 export async function registerDomainRoutes(app: FastifyInstance): Promise<void> {
   const initializedAuthHandlers = { preHandler: [requireAuth, requireInitialized] };
@@ -220,6 +221,11 @@ export async function registerDomainRoutes(app: FastifyInstance): Promise<void> 
   app.get("/v1/me/notifications", initializedAuthHandlers, async (request) => {
     const summary = await getUnreadSummary(request.auth!.productUserId);
     return { summary };
+  });
+
+  app.post("/v1/me/presence", initializedAuthHandlers, async (request, reply) => {
+    await updateUserPresence(request.auth!.productUserId);
+    reply.code(204).send();
   });
 
   app.get("/v1/hubs/:hubId/federation-policy", initializedAuthHandlers, async (request, reply) => {
