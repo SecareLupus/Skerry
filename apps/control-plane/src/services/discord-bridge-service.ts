@@ -4,7 +4,7 @@ import type { DiscordBridgeChannelMapping, DiscordBridgeConnection } from "@esca
 import { config } from "../config.js";
 import { withDb } from "../db/client.js";
 import { createMessage } from "./chat-service.js";
-import { getDiscordBotClient } from "./discord-bot-client.js";
+import { getDiscordBotClient, startDiscordBot, provisionProjectEmoji } from "./discord-bot-client.js";
 import { isTokenExpired } from "../auth/oidc.js";
 
 function randomId(prefix: string): string {
@@ -443,6 +443,14 @@ export async function selectDiscordGuild(input: {
     if (!saved) {
       throw new Error("Discord bridge connection save failed.");
     }
+
+    // Launch the bot immediately now that a connection is established
+    startDiscordBot().catch(err => console.error("Failed to start Discord bot after guild selection:", err));
+
+    if (saved.guild_id) {
+      provisionProjectEmoji(saved.guild_id).catch(err => console.error("Failed to provision project emoji:", err));
+    }
+
     return mapConnection(saved);
   });
 }
@@ -623,9 +631,11 @@ export async function relayDiscordMessageToMappedChannel(input: {
     return { relayed: false, limitation: "Mapped Matrix channel no longer exists." };
   }
 
-  const body = [`[Discord] ${input.authorName}: ${input.content.trim()}`];
+  // Use a Discord logo icon (Markdown) for better visual indicator in Matrix
+  const discordLogo = "![Discord](https://raw.githubusercontent.com/adapter-hub/adapter-hub/master/static/discord.png)";
+  const body = [`**${discordLogo} ${input.authorName}**: ${input.content.trim()}`];
   if (input.mediaUrls?.length) {
-    body.push(`Media relay is URL-only in MVP: ${input.mediaUrls.join(", ")}`);
+    body.push(`\n_Media relay is URL-only:_ ${input.mediaUrls.join(", ")}`);
   }
   await createMessage({
     channelId: mapping.matrixChannelId,

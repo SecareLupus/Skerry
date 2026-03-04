@@ -57,6 +57,8 @@ export const config = {
     userGuildsUrl:
       process.env.DISCORD_BRIDGE_USER_GUILDS_URL ??
       "https://discord.com/api/users/@me/guilds",
+    projectLogoPath: process.env.PROJECT_LOGO_PATH ?? "SkerryLogo.png",
+    icon: process.env.DISCORD_BRIDGE_ICON ?? "💠", // Default to Unicode if emoji not yet provisioned
   },
   discordBotToken: (process.env.DISCORD_BRIDGE_BOT_TOKEN || process.env.DISCORD_BOT_TOKEN)?.trim(),
   voice: {

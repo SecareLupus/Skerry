@@ -280,8 +280,8 @@ export async function createMessage(input: {
 }): Promise<ChatMessage> {
   return withDb(async (db) => {
     try {
-      const identity = await db.query<{ preferred_username: string | null; email: string | null }>(
-        `select preferred_username, email
+      const identity = await db.query<{ preferred_username: string | null; email: string | null; avatar_url: string | null }>(
+        `select preferred_username, email, avatar_url
        from identity_mappings
        where product_user_id = $1
        order by (preferred_username is not null) desc, updated_at desc, created_at asc
@@ -292,6 +292,7 @@ export async function createMessage(input: {
       const profile = identity.rows[0];
       const fallbackName = profile?.email?.split("@")[0] ?? `user-${input.actorUserId.slice(0, 8)}`;
       const authorDisplayName = profile?.preferred_username ?? fallbackName;
+      const avatarUrl = profile?.avatar_url ?? undefined;
 
       // Outbound Discord Relay Logic
       if (!input.isRelay) {
@@ -314,7 +315,8 @@ export async function createMessage(input: {
                 serverId,
                 discordChannelId: m.discordChannelId,
                 authorName: authorDisplayName,
-                content: input.content
+                content: input.content,
+                avatarUrl
               });
             }
           }
