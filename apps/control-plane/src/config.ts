@@ -44,7 +44,7 @@ export const config = {
     clientSecret: process.env.DISCORD_BRIDGE_CLIENT_SECRET,
     callbackUrl:
       process.env.DISCORD_BRIDGE_CALLBACK_URL ??
-      `${appBaseUrl}/v1/discord/oauth/callback`,
+      `${appBaseUrl}/auth/callback/discord`,
     authorizeUrl:
       process.env.DISCORD_BRIDGE_AUTHORIZE_URL ??
       "https://discord.com/api/oauth2/authorize",
