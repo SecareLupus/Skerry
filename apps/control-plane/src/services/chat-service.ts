@@ -279,6 +279,10 @@ export async function createMessage(input: {
   content: string;
   attachments?: ChatMessage["attachments"];
   isRelay?: boolean;
+  externalAuthorId?: string;
+  externalProvider?: string;
+  externalAuthorName?: string;
+  externalAuthorAvatarUrl?: string;
 }): Promise<ChatMessage> {
   return withDb(async (db) => {
     try {
@@ -336,11 +340,18 @@ export async function createMessage(input: {
         content: string;
         attachments: any;
         is_relay: boolean;
+        external_author_id: string | null;
+        external_provider: string | null;
+        external_author_name: string | null;
+        external_author_avatar_url: string | null;
         created_at: string;
       }>(
-        `insert into chat_messages (id, channel_id, author_user_id, author_display_name, content, attachments, is_relay)
-       values ($1, $2, $3, $4, $5, $6, $7)
-       returning *`,
+        `insert into chat_messages (
+          id, channel_id, author_user_id, author_display_name, content, attachments, is_relay,
+          external_author_id, external_provider, external_author_name, external_author_avatar_url
+        )
+        values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        returning *`,
         [
           `msg_${crypto.randomUUID().replaceAll("-", "")}`,
           input.channelId,
@@ -348,7 +359,11 @@ export async function createMessage(input: {
           authorDisplayName,
           input.content,
           JSON.stringify(input.attachments ?? []),
-          Boolean(input.isRelay)
+          Boolean(input.isRelay),
+          input.externalAuthorId ?? null,
+          input.externalProvider ?? null,
+          input.externalAuthorName ?? null,
+          input.externalAuthorAvatarUrl ?? null
         ]
       );
 
@@ -872,29 +887,29 @@ export async function listChannelMembers(channelId: string): Promise<{
     const server = serverRow.rows[0];
     if (!server) return [];
 
-    let productUserIds: string[] = [];
+    const now = Date.now();
+    const ONLINE_THRESHOLD_MS = 2 * 60 * 1000;
 
+    // --- GROUP 1 & 3: Local Users ---
+    let localProductUserIds: string[] = [];
     if (server.type === 'dm' || channel.type === 'dm') {
       const members = await db.query<{ product_user_id: string }>(
         "select product_user_id from channel_members where channel_id = $1",
         [channelId]
       );
-      productUserIds = members.rows.map(m => m.product_user_id);
+      localProductUserIds = members.rows.map(m => m.product_user_id);
     } else {
-      // Server channel: everyone with a role binding or the owner
       const members = await db.query<{ product_user_id: string }>(
         `select distinct product_user_id from role_bindings where server_id = $1 or channel_id = $2
          union
          select owner_user_id from servers where id = $3`,
         [channel.server_id, channelId, channel.server_id]
       );
-      productUserIds = members.rows.map(m => m.product_user_id);
+      localProductUserIds = members.rows.map(m => m.product_user_id);
     }
 
-    if (productUserIds.length === 0) return [];
-
-    // 2. Fetch identities and presence
-    const userRows = await db.query<{ 
+    // Fetch local user details and presence
+    const localUserRows = await db.query<{ 
       product_user_id: string; 
       preferred_username: string | null; 
       email: string | null;
@@ -902,16 +917,19 @@ export async function listChannelMembers(channelId: string): Promise<{
       last_seen_at: string | null;
     }>(
       `select im.product_user_id, im.preferred_username, im.email, im.avatar_url, up.last_seen_at
-       from identity_mappings im
+       from (select distinct product_user_id from identity_mappings where product_user_id = any($1)) ids
+       join identity_mappings im on im.product_user_id = ids.product_user_id
        left join user_presence up on up.product_user_id = im.product_user_id
-       where im.product_user_id = any($1)`,
-      [productUserIds]
+       where im.id = (
+         select id from identity_mappings 
+         where product_user_id = im.product_user_id 
+         order by (preferred_username is not null) desc, updated_at desc, created_at asc 
+         limit 1
+       )`,
+      [localProductUserIds]
     );
 
-    const now = Date.now();
-    const ONLINE_THRESHOLD_MS = 2 * 60 * 1000;
-
-    const matrixMembers = userRows.rows.map(r => ({
+    const localMembers = localUserRows.rows.map(r => ({
       productUserId: r.product_user_id,
       displayName: r.preferred_username ?? r.email?.split('@')[0] ?? `user-${r.product_user_id.slice(0, 8)}`,
       avatarUrl: r.avatar_url ?? undefined,
@@ -920,28 +938,83 @@ export async function listChannelMembers(channelId: string): Promise<{
       isBridged: false
     }));
 
-    // 3. Discord Bridged Users (Bonus)
+    // --- GROUP 2 & 4: Bridged / External Users ---
     const { listDiscordChannelMappings } = await import("./discord-bridge-service.js");
     const { getDiscordGuildPresence } = await import("./discord-bot-client.js");
 
     const mappings = await listDiscordChannelMappings(channel.server_id);
     const mapping = mappings.find(m => m.matrixChannelId === channelId && m.enabled);
 
+    let bridgedMembers: typeof localMembers = [];
+    let externalOfflineMembers: typeof localMembers = [];
+
     if (mapping) {
       const discordPresences = await getDiscordGuildPresence(mapping.guildId);
-      const discordMembers = Object.entries(discordPresences).map(([id, p]) => ({
-        productUserId: `discord_${id}`,
-        displayName: p.username,
-        avatarUrl: p.avatarUrl ?? undefined,
-        isOnline: p.status !== 'offline',
-        bridgedUserStatus: p.status,
-        isBridged: true
-      }));
+      
+      // Map Discord IDs to local product user IDs
+      const discordAuthMappings = await db.query<{ product_user_id: string, oidc_subject: string }>(
+        "select product_user_id, oidc_subject from identity_mappings where provider = 'discord' and oidc_subject = any($1)",
+        [Object.keys(discordPresences)]
+      );
+      const discordToLocal = new Map(discordAuthMappings.rows.map(r => [r.oidc_subject, r.product_user_id]));
 
-      return [...matrixMembers, ...discordMembers];
+      // Group 2: Logged into Discord (present via bridge) and NOT in Group 1
+      for (const [discordId, p] of Object.entries(discordPresences)) {
+        if (p.status === 'offline') continue;
+
+        const localId = discordToLocal.get(discordId);
+        // If they are online locally, Group 1 takes precedence
+        if (localId && localMembers.find(m => m.productUserId === localId && m.isOnline)) continue;
+
+        bridgedMembers.push({
+          productUserId: localId ?? `discord_${discordId}`,
+          displayName: p.username,
+          avatarUrl: p.avatarUrl ?? undefined,
+          isOnline: true,
+          bridgedUserStatus: p.status,
+          isBridged: true
+        });
+      }
+
+      // Group 4: External users who posted before but are offline now
+      const pastParticipants = await db.query<{ 
+        external_author_id: string; 
+        external_author_name: string; 
+        external_author_avatar_url: string; 
+      }>(
+        `select distinct on (external_author_id) 
+           external_author_id, external_author_name, external_author_avatar_url
+         from chat_messages
+         where channel_id = $1 and external_provider = 'discord' and external_author_id is not null
+         order by external_author_id, created_at desc`,
+        [channelId]
+      );
+
+      for (const row of pastParticipants.rows) {
+        // Skip if already in Group 1 or 2
+        const localId = discordToLocal.get(row.external_author_id);
+        if (localId && localMembers.find(m => m.productUserId === localId)) continue;
+        if (bridgedMembers.find(m => m.productUserId === (localId ?? `discord_${row.external_author_id}`))) continue;
+        if (discordPresences[row.external_author_id]?.status !== 'offline') continue;
+
+        externalOfflineMembers.push({
+          productUserId: `discord_${row.external_author_id}`,
+          displayName: row.external_author_name,
+          avatarUrl: row.external_author_avatar_url ?? undefined,
+          isOnline: false,
+          isBridged: true,
+          bridgedUserStatus: 'offline'
+        });
+      }
     }
 
-    return matrixMembers;
+    // Final Assembly with 4-tier Ordering
+    const group1 = localMembers.filter(m => m.isOnline);
+    const group2 = bridgedMembers; // already filtered for online
+    const group3 = localMembers.filter(m => !m.isOnline);
+    const group4 = externalOfflineMembers;
+
+    return [...group1, ...group2, ...group3, ...group4];
   });
 }
 

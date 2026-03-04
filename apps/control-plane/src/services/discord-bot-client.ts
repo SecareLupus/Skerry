@@ -54,7 +54,9 @@ export async function startDiscordBot() {
                     await relayDiscordMessageToMappedChannel({
                         serverId,
                         discordChannelId: message.channelId,
+                        authorId: message.author.id,
                         authorName: message.author.username,
+                        authorAvatarUrl: message.author.displayAvatarURL() ?? undefined,
                         content: message.content,
                         mediaUrls: message.attachments.map((a: { url: string }) => a.url)
                     });

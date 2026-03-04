@@ -602,7 +602,9 @@ export async function retryDiscordBridgeSync(serverId: string): Promise<DiscordB
 export async function relayDiscordMessageToMappedChannel(input: {
   serverId: string;
   discordChannelId: string;
+  authorId: string;
   authorName: string;
+  authorAvatarUrl?: string;
   content: string;
   mediaUrls?: string[];
 }): Promise<{ relayed: boolean; matrixChannelId?: string; limitation?: string }> {
@@ -641,7 +643,11 @@ export async function relayDiscordMessageToMappedChannel(input: {
     channelId: mapping.matrixChannelId,
     actorUserId: connection.connectedByUserId,
     content: body.join("\n"),
-    isRelay: true
+    isRelay: true,
+    externalAuthorId: input.authorId,
+    externalProvider: "discord",
+    externalAuthorName: input.authorName,
+    externalAuthorAvatarUrl: input.authorAvatarUrl
   });
 
   publishChannelMessage(message);
