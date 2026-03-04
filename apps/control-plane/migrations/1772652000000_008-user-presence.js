@@ -1,13 +1,7 @@
 export const up = (pgm) => {
-  // 0. Ensure identity_mappings(product_user_id) is unique so it can be referenced
-  pgm.addConstraint('identity_mappings', 'identity_mappings_product_user_id_unique', {
-    unique: ['product_user_id'],
-    ifNotExists: true
-  });
-
   // 1. user_presence table
   pgm.createTable('user_presence', {
-    product_user_id: { type: 'text', primaryKey: true, references: 'identity_mappings(product_user_id)', onDelete: 'CASCADE' },
+    product_user_id: { type: 'text', primaryKey: true },
     last_seen_at: { type: 'timestamptz', notNull: true, default: pgm.func('now()') },
   }, { ifNotExists: true });
 
