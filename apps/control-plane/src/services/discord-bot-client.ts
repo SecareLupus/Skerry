@@ -151,7 +151,7 @@ export async function relayMatrixMessageToDiscord(input: {
         }
 
         await webhook.send({
-            username: `${input.authorName} ${config.discordBridge.icon}`,
+            username: skerryEmoji ? input.authorName : `${input.authorName} ${config.discordBridge.icon}`,
             content: content,
             avatarURL: input.avatarUrl
         });

@@ -4,6 +4,8 @@ import type { DiscordBridgeChannelMapping, DiscordBridgeConnection } from "@esca
 import { config } from "../config.js";
 import { withDb } from "../db/client.js";
 import { createMessage } from "./chat-service.js";
+import { publishChannelMessage } from "./chat-realtime.js";
+
 import { getDiscordBotClient, startDiscordBot, provisionProjectEmoji } from "./discord-bot-client.js";
 import { isTokenExpired } from "../auth/oidc.js";
 
@@ -637,12 +639,14 @@ export async function relayDiscordMessageToMappedChannel(input: {
   if (input.mediaUrls?.length) {
     body.push(`\n_Media relay is URL-only:_ ${input.mediaUrls.join(", ")}`);
   }
-  await createMessage({
+  const message = await createMessage({
     channelId: mapping.matrixChannelId,
     actorUserId: connection.connectedByUserId,
     content: body.join("\n"),
     isRelay: true
   });
+
+  publishChannelMessage(message);
 
   return {
     relayed: true,
