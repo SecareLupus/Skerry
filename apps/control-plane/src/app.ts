@@ -9,7 +9,7 @@ import { config } from "./config.js";
 import { logEvent } from "./services/observability-service.js";
 
 export async function buildApp() {
-  const app = Fastify({ logger: false });
+  const app = Fastify({ logger: false, bodyLimit: config.bodyLimit });
   await app.register(cors, {
     origin: (origin, cb) => {
       const allowedOrigins = [

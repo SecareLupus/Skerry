@@ -82,6 +82,7 @@ export const config = {
     secretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
     publicUrlPrefix: process.env.S3_PUBLIC_URL_PREFIX,
   },
+  bodyLimit: Number(process.env.BODY_LIMIT ?? "15728640"), // 15MB
 };
 
 // Config verification logging
