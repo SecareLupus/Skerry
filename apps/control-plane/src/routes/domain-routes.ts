@@ -765,7 +765,7 @@ export async function registerDomainRoutes(app: FastifyInstance): Promise<void> 
 
   app.get("/v1/channels/:channelId/members", initializedAuthHandlers, async (request) => {
     const params = z.object({ channelId: z.string().min(1) }).parse(request.params);
-    return { items: await listChannelMembers(params.channelId) };
+    return { items: await listChannelMembers(params.channelId, request.auth!.productUserId) };
   });
 
   app.post("/v1/channels/:channelId/members", initializedAuthHandlers, async (request, reply) => {

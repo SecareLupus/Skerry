@@ -862,7 +862,7 @@ export async function updateChannelVideoControls(input: {
   });
 }
 
-export async function listChannelMembers(channelId: string): Promise<{ 
+export async function listChannelMembers(channelId: string, viewerUserId?: string): Promise<{ 
   productUserId: string; 
   displayName: string; 
   avatarUrl?: string;
@@ -880,8 +880,8 @@ export async function listChannelMembers(channelId: string): Promise<{
     const channel = chRow.rows[0];
     if (!channel) return [];
 
-    const serverRow = await db.query<{ type: string, owner_user_id: string }>(
-      "select type, owner_user_id from servers where id = $1",
+    const serverRow = await db.query<{ type: string, owner_user_id: string, hub_id: string }>(
+      "select type, owner_user_id, hub_id from servers where id = $1",
       [channel.server_id]
     );
     const server = serverRow.rows[0];
@@ -893,14 +893,20 @@ export async function listChannelMembers(channelId: string): Promise<{
     // --- GROUP 1 & 3: Local Users ---
     let localProductUserIds: string[] = [];
     const members = await db.query<{ product_user_id: string }>(
-      `select distinct product_user_id from role_bindings where server_id = $1 or channel_id = $2
+      `select distinct product_user_id from role_bindings where server_id = $1 or channel_id = $2 or hub_id = $3
        union
-       select owner_user_id from servers where id = $3
+       select owner_user_id from servers where id = $1
        union
-       select product_user_id from channel_members where channel_id = $2`,
-      [channel.server_id, channelId, channel.server_id]
+       select product_user_id from channel_members where channel_id = $2
+       union
+       select author_user_id from chat_messages where channel_id = $2 and is_relay = false and external_provider is null`,
+      [channel.server_id, channelId, server.hub_id]
     );
-    localProductUserIds = members.rows.map(m => m.product_user_id);
+    localProductUserIds = members.rows.map(m => m.product_user_id).filter(Boolean);
+    // Always include the viewing user (they may have no roles/messages yet)
+    if (viewerUserId && !localProductUserIds.includes(viewerUserId)) {
+      localProductUserIds.push(viewerUserId);
+    }
     console.log(`[Presence Debug] Channel ${channelId}: found ${localProductUserIds.length} local product user IDs`);
 
     // Fetch local user details and presence
