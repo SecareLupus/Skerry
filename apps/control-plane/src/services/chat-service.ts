@@ -891,19 +891,21 @@ export async function listChannelMembers(channelId: string, viewerUserId?: strin
     const ONLINE_THRESHOLD_MS = 2 * 60 * 1000;
 
     // --- GROUP 1 & 3: Local Users ---
+    // A user is "allowed" if they have any role in the hub/server/channel,
+    // are the hub or server owner, or are an explicit channel member (DMs).
     let localProductUserIds: string[] = [];
     const members = await db.query<{ product_user_id: string }>(
       `select distinct product_user_id from role_bindings where server_id = $1 or channel_id = $2 or hub_id = $3
        union
        select owner_user_id from servers where id = $1
        union
-       select product_user_id from channel_members where channel_id = $2
+       select owner_user_id from hubs where id = $3
        union
-       select author_user_id from chat_messages where channel_id = $2 and is_relay = false and external_provider is null`,
+       select product_user_id from channel_members where channel_id = $2`,
       [channel.server_id, channelId, server.hub_id]
     );
     localProductUserIds = members.rows.map(m => m.product_user_id).filter(Boolean);
-    // Always include the viewing user (they may have no roles/messages yet)
+    // Always include the viewing user (they may have no roles yet)
     if (viewerUserId && !localProductUserIds.includes(viewerUserId)) {
       localProductUserIds.push(viewerUserId);
     }
@@ -961,23 +963,23 @@ export async function listChannelMembers(channelId: string, viewerUserId?: strin
       const discordPresences = await getDiscordGuildPresence(mapping.guildId);
       console.log(`[Presence Debug] Discord reported ${Object.keys(discordPresences).length} presences for guild`);
       
-      // Map Discord IDs to local product user IDs
+      // Map ALL Discord IDs (across the whole hub) to local product user IDs so we
+      // can exclude bridged Discord users who have a matching local account.
       const discordAuthMappings = await db.query<{ product_user_id: string, oidc_subject: string }>(
-        "select product_user_id, oidc_subject from identity_mappings where provider = 'discord' and oidc_subject = any($1)",
-        [Object.keys(discordPresences)]
+        "select product_user_id, oidc_subject from identity_mappings where provider = 'discord'",
+        []
       );
       const discordToLocal = new Map(discordAuthMappings.rows.map(r => [r.oidc_subject, r.product_user_id]));
 
-      // Group 2: Logged into Discord (present via bridge) and NOT in Group 1
+      // Group 2: Online on Discord AND not mapped to any local account
       for (const [discordId, p] of Object.entries(discordPresences)) {
         if (p.status === 'offline') continue;
-
-        const localId = discordToLocal.get(discordId);
-        // If they are online locally, Group 1 takes precedence
-        if (localId && localMembers.find(m => m.productUserId === localId && m.isOnline)) continue;
+        // If this Discord user has a local product account, skip them — they
+        // will already appear (or not) in the local groups.
+        if (discordToLocal.has(discordId)) continue;
 
         bridgedMembers.push({
-          productUserId: localId ?? `discord_${discordId}`,
+          productUserId: `discord_${discordId}`,
           displayName: p.username,
           avatarUrl: p.avatarUrl ?? undefined,
           isOnline: true,
@@ -985,10 +987,10 @@ export async function listChannelMembers(channelId: string, viewerUserId?: strin
           isBridged: true
         });
       }
-      console.log(`[Presence Debug] Found ${bridgedMembers.length} bridged (online) members`);
+      console.log(`[Presence Debug] Found ${bridgedMembers.length} bridged (online, unmapped) members`);
 
-      // Group 4: External users who posted before but are offline now
-      // Support both new structured metadata and legacy discord_ prefix
+      // Group 4: Offline Discord-only participants who have spoken in this channel
+      // (no local account mapping; those with a local account appear in the local groups)
       const pastParticipants = await db.query<{ 
         external_author_id: string | null; 
         author_user_id: string;
@@ -1004,21 +1006,16 @@ export async function listChannelMembers(channelId: string, viewerUserId?: strin
          order by coalesce(external_author_id, author_user_id), created_at desc`,
         [channelId]
       );
-      console.log(`[Presence Debug] Found ${pastParticipants.rows.length} past external participants (relayed)`);
 
       for (const row of pastParticipants.rows) {
         const discordId = row.external_author_id ?? row.author_user_id.replace('discord_', '');
-        const localId = discordToLocal.get(discordId);
-
-        // Skip if already in Group 1 or 2
-        if (localId && localMembers.find(m => m.productUserId === localId && m.isOnline)) continue;
-        if (bridgedMembers.find(m => m.productUserId === (localId ?? `discord_${discordId}`))) continue;
-        
-        // Only show if truly offline (not in discordPresences)
-        if (discordPresences[discordId] && discordPresences[discordId].status !== 'offline') continue;
+        // Skip if this Discord user has a local account (already in local groups)
+        if (discordToLocal.has(discordId)) continue;
+        // Skip if already in Group 2 (online bridged)
+        if (bridgedMembers.find(m => m.productUserId === `discord_${discordId}`)) continue;
 
         externalOfflineMembers.push({
-          productUserId: localId ?? `discord_${discordId}`,
+          productUserId: `discord_${discordId}`,
           displayName: row.external_author_name ?? row.author_display_name,
           avatarUrl: row.external_author_avatar_url ?? undefined,
           isOnline: false,
@@ -1026,7 +1023,7 @@ export async function listChannelMembers(channelId: string, viewerUserId?: strin
           bridgedUserStatus: 'offline'
         });
       }
-      console.log(`[Presence Debug] Found ${externalOfflineMembers.length} offline external participants`);
+      console.log(`[Presence Debug] Found ${externalOfflineMembers.length} offline Discord-only participants`);
     } else {
       console.log(`[Presence Debug] Channel ${channelId} has no enabled Discord mapping`);
     }
