@@ -74,6 +74,7 @@ export const config = {
     asToken: process.env.SYNAPSE_AS_TOKEN?.trim(),
     hsToken: process.env.SYNAPSE_HS_TOKEN?.trim(),
     serverName: (process.env.SYNAPSE_SERVER_NAME ?? "hub-localhost").trim(),
+    asRegistrationPath: process.env.SYNAPSE_AS_REGISTRATION_PATH || undefined,
     strictProvisioning: process.env.SYNAPSE_STRICT_PROVISIONING === "true",
   },
   s3: {

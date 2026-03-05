@@ -12,7 +12,12 @@ export async function ensureAppserviceRegistration() {
     return;
   }
 
-  const registrationPath = path.resolve(process.cwd(), "../../docker/synapse/skerry-appservice.yaml");
+  const registrationPath = config.synapse.asRegistrationPath 
+    ? path.resolve(config.synapse.asRegistrationPath)
+    : path.resolve(process.cwd(), "../../docker/synapse/skerry-appservice.yaml");
+  
+  console.log(`Ensuring Appservice registration at: ${registrationPath}`);
+  console.log(`Current working directory: ${process.cwd()}`);
   
   const registrationYaml = `id: Skerry
 url: http://control-plane:4000

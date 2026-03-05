@@ -66,6 +66,7 @@ services:
       - DISCORD_BRIDGE_CLIENT_ID=${DISCORD_BRIDGE_CLIENT_ID}
       - DISCORD_BRIDGE_CLIENT_SECRET=${DISCORD_BRIDGE_CLIENT_SECRET}
       - DISCORD_BRIDGE_BOT_TOKEN=${DISCORD_BRIDGE_BOT_TOKEN}
+      - SYNAPSE_AS_REGISTRATION_PATH=/app/docker/synapse/skerry-appservice.yaml
     depends_on:
       - postgres
       - synapse
@@ -73,7 +74,7 @@ services:
     networks:
       - default
     volumes:
-      - ./docker/synapse:/docker/synapse
+      - ./docker/synapse:/app/docker/synapse
 
   web:
     build:
