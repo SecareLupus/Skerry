@@ -54,7 +54,7 @@ export async function startDiscordBot() {
                     const media = [
                         ...message.attachments.map(a => ({ url: a.url, sourceUrl: a.url })),
                         ...message.embeds.map(e => {
-                            let url = e.image?.url || e.thumbnail?.url || e.video?.url;
+                            let url = e.video?.url || e.image?.url || e.thumbnail?.url;
                             
                             // If it's a Giphy gifv, try to ensure we have the .gif version if possible
                             if (e.data.type === 'gifv' && url && url.includes('giphy.com') && url.endsWith('.mp4')) {
