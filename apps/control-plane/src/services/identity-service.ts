@@ -342,3 +342,16 @@ export async function isBlocked(blockerUserId: string, blockedUserId: string): P
     return Boolean(row.rows[0]?.exists);
   });
 }
+export async function listHubMembers(hubId: string): Promise<IdentityMapping[]> {
+  return withDb(async (db) => {
+    const rows = await db.query<IdentityRow>(
+      `select distinct on (im.product_user_id) im.*
+       from identity_mappings im
+       join role_bindings rb on rb.product_user_id = im.product_user_id
+       where rb.hub_id = $1
+       order by im.product_user_id, im.preferred_username is not null desc, im.updated_at desc`,
+      [hubId]
+    );
+    return rows.rows.map(mapRow);
+  });
+}

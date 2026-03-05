@@ -98,8 +98,15 @@ export async function performModerationAction(
     metadata: input.timeoutSeconds ? { timeoutSeconds: input.timeoutSeconds } : undefined,
     run: async () => {
       const { kickUser, banUser, unbanUser, redactEvent } = await import("../matrix/synapse-adapter.js");
+      const { getDiscordBridgeConnection } = await import("./discord-bridge-service.js");
+      const { 
+        kickDiscordMember, 
+        banDiscordMember, 
+        unbanDiscordMember, 
+        timeoutDiscordMember 
+      } = await import("./discord-bot-client.js");
 
-      const matrixIds = await withDb(async (db) => {
+      const dbData = await withDb(async (db) => {
         let channelMatrixId: string | null = null;
         if (input.channelId) {
           const chRow = await db.query<{ matrix_room_id: string }>(
@@ -115,59 +122,107 @@ export async function performModerationAction(
         );
         const serverMatrixId = srvRow.rows[0]?.matrix_space_id ?? null;
 
-        return { channelMatrixId, serverMatrixId };
+        // Check if there's a Discord ID associated or if targetUserId IS a discord ID
+        let discordId: string | null = null;
+        if (input.targetUserId?.startsWith("discord_")) {
+          discordId = input.targetUserId.replace("discord_", "");
+        } else if (input.targetUserId) {
+          const idRow = await db.query<{ oidc_subject: string }>(
+            "select oidc_subject from identity_mappings where product_user_id = $1 and provider = 'discord' limit 1",
+            [input.targetUserId]
+          );
+          discordId = idRow.rows[0]?.oidc_subject ?? null;
+        }
+
+        return { channelMatrixId, serverMatrixId, discordId };
       });
 
-      if (!matrixIds.serverMatrixId) {
+      if (!dbData.serverMatrixId) {
         throw new Error("Target server has no associated Matrix Space ID.");
       }
 
-      // For kick/ban, we usually act on the Server (Space)
-      // For message redaction, we act on the Channel (Room)
+      const connection = await getDiscordBridgeConnection(input.serverId);
 
-      switch (input.action) {
-        case "kick":
-          if (!input.targetUserId) throw new Error("targetUserId is required for kick");
-          await kickUser({
-            roomId: matrixIds.serverMatrixId,
-            userId: input.targetUserId,
-            reason: input.reason
-          });
-          break;
-        case "ban":
-          if (!input.targetUserId) throw new Error("targetUserId is required for ban");
-          await banUser({
-            roomId: matrixIds.serverMatrixId,
-            userId: input.targetUserId,
-            reason: input.reason
-          });
-          break;
-        case "unban":
-          if (!input.targetUserId) throw new Error("targetUserId is required for unban");
-          await unbanUser({
-            roomId: matrixIds.serverMatrixId,
-            userId: input.targetUserId,
-            reason: input.reason
-          });
-          break;
-        case "redact_message":
-          if (!input.targetMessageId) throw new Error("targetMessageId is required for redact");
-          if (!matrixIds.channelMatrixId) throw new Error("Channel has no associated Matrix Room ID.");
-          await redactEvent({
-            roomId: matrixIds.channelMatrixId,
-            eventId: input.targetMessageId,
-            reason: input.reason
-          });
-          break;
-        case "timeout":
-          // Timeout implementation: kick from server with reason
-          if (!input.targetUserId) throw new Error("targetUserId is required for timeout");
-          await kickUser({
-            roomId: matrixIds.serverMatrixId,
-            userId: input.targetUserId,
-            reason: `Timeout (${input.timeoutSeconds ?? 0}s): ${input.reason}`
-          });
-          break;
+      // 1. Handle Discord-side moderation if applicable
+      if (dbData.discordId && connection && connection.guildId && connection.status === "connected") {
+        try {
+          switch (input.action) {
+            case "kick":
+              await kickDiscordMember(connection.guildId, dbData.discordId, input.reason);
+              break;
+            case "ban":
+              await banDiscordMember(connection.guildId, dbData.discordId, input.reason);
+              break;
+            case "unban":
+              await unbanDiscordMember(connection.guildId, dbData.discordId, input.reason);
+              break;
+            case "timeout":
+              await timeoutDiscordMember(connection.guildId, dbData.discordId, input.timeoutSeconds ?? 3600, input.reason);
+              break;
+          }
+        } catch (error) {
+          console.error("Failed to perform Discord moderation:", error);
+          // Continue with Matrix moderation even if Discord fails
+        }
+      }
+
+      // 2. Handle Matrix-side moderation
+      // If targetUserId is just a virtual discord user and they aren't in Matrix yet, 
+      // some calls might fail. We wrap them or check existence.
+      const isVirtualDiscordUser = input.targetUserId?.startsWith("discord_");
+      
+      try {
+        switch (input.action) {
+          case "kick":
+            if (!input.targetUserId) throw new Error("targetUserId is required for kick");
+            await kickUser({
+              roomId: dbData.serverMatrixId,
+              userId: input.targetUserId,
+              reason: input.reason
+            });
+            break;
+          case "ban":
+            if (!input.targetUserId) throw new Error("targetUserId is required for ban");
+            await banUser({
+              roomId: dbData.serverMatrixId,
+              userId: input.targetUserId,
+              reason: input.reason
+            });
+            break;
+          case "unban":
+            if (!input.targetUserId) throw new Error("targetUserId is required for unban");
+            await unbanUser({
+              roomId: dbData.serverMatrixId,
+              userId: input.targetUserId,
+              reason: input.reason
+            });
+            break;
+          case "redact_message":
+            if (!input.targetMessageId) throw new Error("targetMessageId is required for redact");
+            if (!dbData.channelMatrixId) throw new Error("Channel has no associated Matrix Room ID.");
+            await redactEvent({
+              roomId: dbData.channelMatrixId,
+              eventId: input.targetMessageId,
+              reason: input.reason
+            });
+            break;
+          case "timeout":
+            if (!input.targetUserId) throw new Error("targetUserId is required for timeout");
+            await kickUser({
+              roomId: dbData.serverMatrixId,
+              userId: input.targetUserId,
+              reason: `Timeout (${input.timeoutSeconds ?? 0}s): ${input.reason}`
+            });
+            break;
+        }
+      } catch (error) {
+        if (isVirtualDiscordUser) {
+           // It's expected that virtual users might not be in Matrix yet.
+           // We've already handled Discord native moderation if possible.
+           console.log(`Skipping Matrix moderation for virtual Discord user ${input.targetUserId} as they likely aren't in Matrix.`);
+        } else {
+          throw error;
+        }
       }
     }
   });
@@ -352,4 +407,38 @@ export async function listAuditLogs(serverId: string): Promise<ModerationAction[
       createdAt: row.created_at
     }));
   });
+}
+export async function performBulkModerationAction(input: {
+  actorUserId: string;
+  serverId: string;
+  targetUserIds: string[];
+  action: "kick" | "ban" | "unban" | "timeout";
+  reason: string;
+  timeoutSeconds?: number;
+}): Promise<{ successes: string[]; failures: Array<{ userId: string; error: string }> }> {
+  const results = {
+    successes: [] as string[],
+    failures: [] as Array<{ userId: string; error: string }>
+  };
+
+  for (const userId of input.targetUserIds) {
+    try {
+      await performModerationAction({
+        actorUserId: input.actorUserId,
+        serverId: input.serverId,
+        targetUserId: userId,
+        action: input.action,
+        reason: input.reason,
+        timeoutSeconds: input.timeoutSeconds
+      });
+      results.successes.push(userId);
+    } catch (error) {
+      results.failures.push({
+        userId,
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  }
+
+  return results;
 }

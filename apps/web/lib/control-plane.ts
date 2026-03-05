@@ -1067,3 +1067,42 @@ export async function updatePresence(): Promise<void> {
     method: "POST"
   });
 }
+export async function listHubMembers(hubId: string): Promise<IdentityMapping[]> {
+  const json = await apiFetch<{ items: IdentityMapping[] }>(`/v1/hubs/${encodeURIComponent(hubId)}/members`);
+  return json.items;
+}
+
+export async function listServerMembers(serverId: string): Promise<{
+  productUserId: string;
+  displayName: string;
+  avatarUrl?: string;
+  isOnline: boolean;
+  isBridged?: boolean;
+  bridgedUserStatus?: string;
+}[]> {
+  const json = await apiFetch<{
+    items: {
+      productUserId: string;
+      displayName: string;
+      avatarUrl?: string;
+      isOnline: boolean;
+      isBridged?: boolean;
+      bridgedUserStatus?: string;
+    }[];
+  }>(`/v1/servers/${encodeURIComponent(serverId)}/members`);
+  return json.items;
+}
+
+export async function performBulkModerationAction(input: {
+  serverId: string;
+  targetUserIds: string[];
+  action: "kick" | "ban" | "unban" | "timeout";
+  reason: string;
+  timeoutSeconds?: number;
+}): Promise<{ successes: string[]; failures: Array<{ userId: string; error: string }> }> {
+  return apiFetch(`/v1/servers/${encodeURIComponent(input.serverId)}/members/bulk-moderate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input)
+  });
+}

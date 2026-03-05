@@ -1254,3 +1254,100 @@ export async function removeReaction(input: {
     );
   });
 }
+export async function listServerMembers(serverId: string): Promise<{
+  productUserId: string;
+  displayName: string;
+  avatarUrl?: string;
+  isOnline: boolean;
+  isBridged?: boolean;
+  bridgedUserStatus?: string;
+}[]> {
+  return withDb(async (db) => {
+    const serverRow = await db.query<{ hub_id: string }>(
+      "select hub_id from servers where id = $1",
+      [serverId]
+    );
+    const server = serverRow.rows[0];
+    if (!server) return [];
+
+    const now = Date.now();
+    const ONLINE_THRESHOLD_MS = 2 * 60 * 1000;
+
+    // 1. Local Members
+    const members = await db.query<{ product_user_id: string }>(
+      `select distinct product_user_id from role_bindings where server_id = $1 or hub_id = $2
+       union
+       select owner_user_id from servers where id = $1
+       union
+       select distinct product_user_id from identity_mappings where product_user_id is not null`,
+      [serverId, server.hub_id]
+    );
+    const localProductUserIds = members.rows.map(m => m.product_user_id).filter(Boolean);
+
+    const localUserRows = await db.query<{
+      product_user_id: string;
+      preferred_username: string | null;
+      email: string | null;
+      avatar_url: string | null;
+      last_seen_at: string | null;
+    }>(
+      `select distinct on (im.product_user_id)
+         im.product_user_id, im.preferred_username, im.email, im.avatar_url, up.last_seen_at
+       from identity_mappings im
+       left join user_presence up on up.product_user_id = im.product_user_id
+       where im.product_user_id = any($1)
+       order by im.product_user_id, (preferred_username is not null) desc, im.updated_at desc`,
+      [localProductUserIds]
+    );
+
+    const localMembers = localUserRows.rows.map(r => ({
+      productUserId: r.product_user_id,
+      displayName: r.preferred_username ?? r.email?.split('@')[0] ?? `user-${r.product_user_id.slice(0, 8)}`,
+      avatarUrl: r.avatar_url ?? undefined,
+      isOnline: r.last_seen_at ? (now - new Date(r.last_seen_at).getTime() < ONLINE_THRESHOLD_MS) : false,
+      isBridged: false
+    }));
+
+    // 2. Bridged Members
+    const { getDiscordBridgeConnection } = await import("./discord-bridge-service.js");
+    const { getDiscordBotClient } = await import("./discord-bot-client.js");
+
+    const connection = await getDiscordBridgeConnection(serverId);
+    let bridgedMembers: any[] = [];
+
+    if (connection && connection.guildId && connection.status === "connected") {
+      const client = getDiscordBotClient();
+      if (client && client.isReady()) {
+        try {
+          const guild = await client.guilds.fetch(connection.guildId);
+          // Fetch ALL members
+          const members = await guild.members.fetch({ withPresences: true });
+          
+          const discordAuthMappings = await db.query<{ product_user_id: string, oidc_subject: string }>(
+            "select product_user_id, oidc_subject from identity_mappings where provider = 'discord'",
+            []
+          );
+          const discordToLocal = new Map(discordAuthMappings.rows.map(r => [r.oidc_subject, r.product_user_id]));
+
+          for (const [id, member] of members) {
+            // Skip if already mapped to local account
+            if (discordToLocal.has(id)) continue;
+
+            bridgedMembers.push({
+              productUserId: `discord_${id}`,
+              displayName: member.user.username,
+              avatarUrl: member.user.displayAvatarURL() ?? undefined,
+              isOnline: member.presence?.status ? member.presence.status !== "offline" : false,
+              isBridged: true,
+              bridgedUserStatus: member.presence?.status ?? "offline"
+            });
+          }
+        } catch (error) {
+          console.error("Failed to fetch Discord members for Space list:", error);
+        }
+      }
+    }
+
+    return [...localMembers, ...bridgedMembers];
+  });
+}

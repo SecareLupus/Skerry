@@ -319,7 +319,7 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
     reply.redirect(destination, 302);
   });
 
-  app.get("/auth/session/me", { preHandler: requireAuth }, async (request) => {
+  app.get("/auth/session/me", { preHandler: requireAuth }, async (request, reply) => {
     const auth = request.auth;
     if (!auth) {
       throw new Error("Auth context missing");
@@ -327,7 +327,7 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
 
     const [activeIdentity, identities, onboardingComplete] = await Promise.all([
       getIdentityByProviderSubject({
-        provider: auth.provider as IdentityProvider,
+        provider: auth.provider as any,
         oidcSubject: auth.oidcSubject
       }),
       listIdentitiesByProductUserId(auth.productUserId),
@@ -336,22 +336,33 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
 
     const fallbackIdentity = await getIdentityByProductUserId(auth.productUserId);
     const resolvedIdentity = activeIdentity ?? fallbackIdentity;
+
+    if (!resolvedIdentity) {
+      // If we have a session but NO identity exists in the DB, the DB was likely reset.
+      // We should clear the session and return 401 to force the user to re-login.
+      clearSessionCookie(reply);
+      reply.code(401).send({
+        statusCode: 401,
+        message: "Identity not found. Re-authorization required.",
+        code: "identity_not_found"
+      });
+      return;
+    }
+
     return {
       productUserId: auth.productUserId,
-      identity: resolvedIdentity
-        ? {
-          provider: resolvedIdentity.provider,
-          oidcSubject: resolvedIdentity.oidcSubject,
-          email: resolvedIdentity.email,
-          preferredUsername: resolvedIdentity.preferredUsername,
-          avatarUrl: resolvedIdentity.avatarUrl,
-          displayName: resolvedIdentity.displayName,
-          bio: resolvedIdentity.bio,
-          customStatus: resolvedIdentity.customStatus,
-          matrixUserId: resolvedIdentity.matrixUserId,
-          theme: resolvedIdentity.theme
-        }
-        : null,
+      identity: {
+        provider: resolvedIdentity.provider,
+        oidcSubject: resolvedIdentity.oidcSubject,
+        email: resolvedIdentity.email,
+        preferredUsername: resolvedIdentity.preferredUsername,
+        avatarUrl: resolvedIdentity.avatarUrl,
+        displayName: resolvedIdentity.displayName,
+        bio: resolvedIdentity.bio,
+        customStatus: resolvedIdentity.customStatus,
+        matrixUserId: resolvedIdentity.matrixUserId,
+        theme: resolvedIdentity.theme
+      },
       linkedIdentities: identities.map((identity) => ({
         provider: identity.provider,
         oidcSubject: identity.oidcSubject,
@@ -433,9 +444,17 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
     reply.code(204).send();
   });
 
-  app.post("/auth/logout", async (_, reply) => {
-    clearSessionCookie(reply);
-    reply.code(204).send();
+  app.route({
+    method: ["GET", "POST"],
+    url: "/auth/logout",
+    handler: async (request, reply) => {
+      clearSessionCookie(reply);
+      if (request.method === "GET") {
+        reply.redirect(config.webBaseUrl, 302);
+      } else {
+        reply.code(204).send();
+      }
+    }
   });
 
   app.post("/auth/bootstrap-admin", { preHandler: requireAuth }, async (request, reply) => {

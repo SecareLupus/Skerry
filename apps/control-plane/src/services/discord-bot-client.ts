@@ -201,3 +201,40 @@ export async function getDiscordGuildPresence(guildId: string): Promise<Record<s
         return {};
     }
 }
+
+export async function kickDiscordMember(guildId: string, discordUserId: string, reason: string) {
+    if (!client || !client.isReady()) return;
+    const guild = await client.guilds.fetch(guildId);
+    if (!guild) return;
+    const member = await guild.members.fetch(discordUserId);
+    if (member) {
+        await member.kick(reason);
+        logEvent("info", "discord_member_kicked", { guildId, discordUserId, reason });
+    }
+}
+
+export async function banDiscordMember(guildId: string, discordUserId: string, reason: string) {
+    if (!client || !client.isReady()) return;
+    const guild = await client.guilds.fetch(guildId);
+    if (!guild) return;
+    await guild.members.ban(discordUserId, { reason });
+    logEvent("info", "discord_member_banned", { guildId, discordUserId, reason });
+}
+
+export async function unbanDiscordMember(guildId: string, discordUserId: string, reason: string) {
+    if (!client || !client.isReady()) return;
+    const guild = await client.guilds.fetch(guildId);
+    if (!guild) return;
+    await guild.members.unban(discordUserId, reason);
+    logEvent("info", "discord_member_unbanned", { guildId, discordUserId, reason });
+}
+export async function timeoutDiscordMember(guildId: string, discordUserId: string, durationSeconds: number, reason: string) {
+    if (!client || !client.isReady()) return;
+    const guild = await client.guilds.fetch(guildId);
+    if (!guild) return;
+    const member = await guild.members.fetch(discordUserId);
+    if (member) {
+        await member.timeout(durationSeconds * 1000, reason);
+        logEvent("info", "discord_member_timed_out", { guildId, discordUserId, durationSeconds, reason });
+    }
+}

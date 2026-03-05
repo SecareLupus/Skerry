@@ -1570,4 +1570,63 @@ export async function registerDomainRoutes(app: FastifyInstance): Promise<void> 
     reply.code(201);
     return result;
   });
+
+  app.get("/v1/hubs/:hubId/members", initializedAuthHandlers, async (request, reply) => {
+    const params = z.object({ hubId: z.string().min(1) }).parse(request.params);
+    const allowed = await canManageHub({
+      productUserId: request.auth!.productUserId,
+      hubId: params.hubId
+    });
+    if (!allowed) {
+      reply.code(403).send({ message: "Forbidden: insufficient hub management scope." });
+      return;
+    }
+    const { listHubMembers } = await import("../services/identity-service.js");
+    return { items: await listHubMembers(params.hubId) };
+  });
+
+  app.get("/v1/servers/:serverId/members", initializedAuthHandlers, async (request, reply) => {
+    const params = z.object({ serverId: z.string().min(1) }).parse(request.params);
+    const allowed = await canManageServer({
+      productUserId: request.auth!.productUserId,
+      serverId: params.serverId
+    });
+    if (!allowed) {
+      reply.code(403).send({ message: "Forbidden: insufficient server management scope." });
+      return;
+    }
+    const { listServerMembers } = await import("../services/chat-service.js");
+    return { items: await listServerMembers(params.serverId) };
+  });
+
+  app.post("/v1/servers/:serverId/members/bulk-moderate", initializedAuthHandlers, async (request, reply) => {
+    const params = z.object({ serverId: z.string().min(1) }).parse(request.params);
+    const payload = z.object({
+      targetUserIds: z.array(z.string().min(1)).min(1).max(100),
+      action: z.enum(["kick", "ban", "unban", "timeout"]),
+      reason: z.string().min(1).max(500),
+      timeoutSeconds: z.number().int().min(1).optional()
+    }).parse(request.body);
+
+    const allowed = await canManageServer({
+      productUserId: request.auth!.productUserId,
+      serverId: params.serverId
+    });
+    if (!allowed) {
+      reply.code(403).send({ message: "Forbidden: insufficient server management scope." });
+      return;
+    }
+
+    const { performBulkModerationAction } = await import("../services/moderation-service.js");
+    const results = await performBulkModerationAction({
+      actorUserId: request.auth!.productUserId,
+      serverId: params.serverId,
+      targetUserIds: payload.targetUserIds,
+      action: payload.action,
+      reason: payload.reason,
+      timeoutSeconds: payload.timeoutSeconds
+    });
+
+    return results;
+  });
 }

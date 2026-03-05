@@ -28,11 +28,18 @@ export default function SettingsLayout({
 
   const navItems = [
     { label: "User Settings", href: "/settings", icon: "👤" },
-    { label: "Hub Settings", href: "/settings/hub", icon: "🌐", hidden: !canManageHub },
+    { label: "Hub Settings", href: "/settings/hub", icon: "⚙️", hidden: !canManageHub },
+    { label: "Hub Members", href: "/settings/hub/members", icon: "👥", hidden: !canManageHub },
     { 
       label: "Space Settings", 
       href: `/settings/spaces/${selectedServerId}`, 
       icon: "🏠", 
+      hidden: !canManageCurrentSpace || !selectedServerId 
+    },
+    { 
+      label: "Space Members", 
+      href: `/settings/spaces/${selectedServerId}/members`, 
+      icon: "🛡️", 
       hidden: !canManageCurrentSpace || !selectedServerId 
     },
     { 

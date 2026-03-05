@@ -45,23 +45,31 @@ export function setSessionCookie(reply: FastifyReply, payload: Omit<SessionPaylo
   const ttlSeconds = Math.max(60, config.sessionTtlSeconds);
   const expiresAt = Date.now() + ttlSeconds * 1000;
   const token = createSessionToken({ ...payload, expiresAt });
-  let cookie = `skerry_session=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${ttlSeconds}`;
+  const cookieOptions = `; Path=/; HttpOnly; SameSite=Lax; Max-Age=${ttlSeconds}${
+    config.baseDomain && config.baseDomain !== "127.0.0.1" ? `; Domain=${config.baseDomain}` : ""
+  }`;
+
+  console.log(`[AUTH DEBUG] setSessionCookie: id=${reply.request.id} for ${payload.oidcSubject}`);
   
-  // Use Domain if it's a real-ish domain or localhost (to share across subdomains)
-  if (config.baseDomain && config.baseDomain !== "127.0.0.1") {
-    cookie += `; Domain=${config.baseDomain}`;
-  }
-  
-  console.log(`[AUTH DEBUG] setSessionCookie: id=${reply.request.id} for ${payload.oidcSubject}. Cookie starts with: ${cookie.substring(0, 40)}...`);
-  reply.header("Set-Cookie", cookie);
+  // Set the current session cookie and clear the legacy one
+  reply.header("Set-Cookie", [
+    `skerry_session=${token}${cookieOptions}`,
+    `escapehatch_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${
+      config.baseDomain && config.baseDomain !== "127.0.0.1" ? `; Domain=${config.baseDomain}` : ""
+    }`
+  ]);
 }
 
 export function clearSessionCookie(reply: FastifyReply): void {
-  let cookie = "skerry_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0";
-  if (config.baseDomain && config.baseDomain !== "127.0.0.1") {
-    cookie += `; Domain=${config.baseDomain}`;
-  }
-  reply.header("Set-Cookie", cookie);
+  const cookieOptions = `; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${
+    config.baseDomain && config.baseDomain !== "127.0.0.1" ? `; Domain=${config.baseDomain}` : ""
+  }`;
+  
+  // Clear both current and legacy cookies
+  reply.header("Set-Cookie", [
+    `skerry_session=${cookieOptions}`,
+    `escapehatch_session=${cookieOptions}`
+  ]);
 }
 
 export function getSession(request: FastifyRequest): SessionPayload | null {
@@ -71,13 +79,13 @@ export function getSession(request: FastifyRequest): SessionPayload | null {
     return null;
   }
 
-  const raw = cookieHeader
-    .split(";")
-    .map((part) => part.trim())
-    .find((part) => part.startsWith("skerry_session=") || part.startsWith("escapehatch_session="));
+  const parts = cookieHeader.split(";").map((p) => p.trim());
+  const skerryRaw = parts.find((p) => p.startsWith("skerry_session="));
+  const legacyRaw = parts.find((p) => p.startsWith("escapehatch_session="));
 
+  const raw = skerryRaw || legacyRaw;
   if (!raw) {
-    console.log(`[AUTH DEBUG] session missing in header for ${request.method} ${request.url} id=${request.id}. Cookie header: ${cookieHeader}`);
+    console.log(`[AUTH DEBUG] session missing in header for ${request.method} ${request.url} id=${request.id}`);
     return null;
   }
 
