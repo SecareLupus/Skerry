@@ -671,6 +671,8 @@ export function ChatWindow({
                                                     <a href={att.sourceUrl || att.url} target="_blank" rel="noopener noreferrer" style={{ display: "block", textDecoration: "none" }}>
                                                         {att.contentType.startsWith("image/") ? (
                                                             <img src={att.url} alt={att.filename} loading="lazy" style={{ maxWidth: "100%", borderRadius: "4px", display: "block", cursor: "pointer" }} />
+                                                        ) : att.contentType.startsWith("video/") ? (
+                                                            <video src={att.url} autoPlay loop muted playsInline style={{ maxWidth: "100%", borderRadius: "4px", display: "block", cursor: "pointer" }} />
                                                         ) : (
                                                             <div className="attachment-link" style={{ background: "var(--bg-accent)", padding: "0.5rem", borderRadius: "4px", display: "flex", alignItems: "center", gap: "0.5rem" }}>
                                                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>

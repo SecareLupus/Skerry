@@ -640,6 +640,8 @@ export async function relayDiscordMessageToMappedChannel(input: {
     const url = item.url;
     const filename = url.split("/").pop()?.split("?")[0] || "image.png";
     const isGif = url.toLowerCase().includes(".gif");
+    const isMp4 = url.toLowerCase().includes(".mp4");
+    const isWebm = url.toLowerCase().includes(".webm");
     
     // Clean up content: if the message content contains the media or source URL, strip it
     if (item.sourceUrl && finalContent.includes(item.sourceUrl)) {
@@ -653,7 +655,7 @@ export async function relayDiscordMessageToMappedChannel(input: {
       id: `att_${crypto.randomUUID().replaceAll("-", "")}`,
       url,
       sourceUrl: item.sourceUrl,
-      contentType: isGif ? "image/gif" : "image/any",
+      contentType: isGif ? "image/gif" : isMp4 ? "video/mp4" : isWebm ? "video/webm" : "image/any",
       filename
     };
   });
