@@ -907,7 +907,9 @@ export async function listChannelMembers(channelId: string, viewerUserId?: strin
          where channel_id = $2
            and is_relay = false
            and (external_provider is null or external_provider = '')
-           and author_user_id not like 'discord_%'`,
+           and author_user_id not like 'discord_%'
+       union
+       select distinct product_user_id from identity_mappings where product_user_id is not null`,
       [channel.server_id, channelId, server.hub_id]
     );
     localProductUserIds = members.rows.map(m => m.product_user_id).filter(Boolean);
@@ -964,18 +966,17 @@ export async function listChannelMembers(channelId: string, viewerUserId?: strin
     let bridgedMembers: Member[] = [];
     let externalOfflineMembers: Member[] = [];
 
+    // Always build the Discord→local account map so G4 works even without an active bridge
+    const discordAuthMappings = await db.query<{ product_user_id: string, oidc_subject: string }>(
+      "select product_user_id, oidc_subject from identity_mappings where provider = 'discord'",
+      []
+    );
+    const discordToLocal = new Map(discordAuthMappings.rows.map(r => [r.oidc_subject, r.product_user_id]));
+
     if (mapping) {
       console.log(`[Presence Debug] Channel ${channelId} is bridged to Discord guild ${mapping.guildId}`);
       const discordPresences = await getDiscordGuildPresence(mapping.guildId);
       console.log(`[Presence Debug] Discord reported ${Object.keys(discordPresences).length} presences for guild`);
-      
-      // Map ALL Discord IDs (across the whole hub) to local product user IDs so we
-      // can exclude bridged Discord users who have a matching local account.
-      const discordAuthMappings = await db.query<{ product_user_id: string, oidc_subject: string }>(
-        "select product_user_id, oidc_subject from identity_mappings where provider = 'discord'",
-        []
-      );
-      const discordToLocal = new Map(discordAuthMappings.rows.map(r => [r.oidc_subject, r.product_user_id]));
 
       // Group 2: Online on Discord AND not mapped to any local account
       for (const [discordId, p] of Object.entries(discordPresences)) {
@@ -994,45 +995,45 @@ export async function listChannelMembers(channelId: string, viewerUserId?: strin
         });
       }
       console.log(`[Presence Debug] Found ${bridgedMembers.length} bridged (online, unmapped) members`);
-
-      // Group 4: Offline Discord-only participants who have spoken in this channel
-      // (no local account mapping; those with a local account appear in the local groups)
-      const pastParticipants = await db.query<{ 
-        external_author_id: string | null; 
-        author_user_id: string;
-        author_display_name: string; 
-        external_author_name: string | null;
-        external_author_avatar_url: string | null;
-      }>(
-        `select distinct on (coalesce(external_author_id, author_user_id)) 
-           external_author_id, author_user_id, author_display_name, external_author_name, external_author_avatar_url
-         from chat_messages
-         where channel_id = $1 
-           and (external_provider = 'discord' or (author_user_id like 'discord_%' and is_relay = true))
-         order by coalesce(external_author_id, author_user_id), created_at desc`,
-        [channelId]
-      );
-
-      for (const row of pastParticipants.rows) {
-        const discordId = row.external_author_id ?? row.author_user_id.replace('discord_', '');
-        // Skip if this Discord user has a local account (already in local groups)
-        if (discordToLocal.has(discordId)) continue;
-        // Skip if already in Group 2 (online bridged)
-        if (bridgedMembers.find(m => m.productUserId === `discord_${discordId}`)) continue;
-
-        externalOfflineMembers.push({
-          productUserId: `discord_${discordId}`,
-          displayName: row.external_author_name ?? row.author_display_name,
-          avatarUrl: row.external_author_avatar_url ?? undefined,
-          isOnline: false,
-          isBridged: true,
-          bridgedUserStatus: 'offline'
-        });
-      }
-      console.log(`[Presence Debug] Found ${externalOfflineMembers.length} offline Discord-only participants`);
     } else {
-      console.log(`[Presence Debug] Channel ${channelId} has no enabled Discord mapping`);
+      console.log(`[Presence Debug] Channel ${channelId} has no enabled Discord mapping — skipping online presence`);
     }
+
+    // Group 4: Offline Discord-only participants who have spoken in this channel.
+    // Runs regardless of whether the bridge is currently active.
+    const pastParticipants = await db.query<{ 
+      external_author_id: string | null; 
+      author_user_id: string;
+      author_display_name: string; 
+      external_author_name: string | null;
+      external_author_avatar_url: string | null;
+    }>(
+      `select distinct on (coalesce(external_author_id, author_user_id)) 
+         external_author_id, author_user_id, author_display_name, external_author_name, external_author_avatar_url
+       from chat_messages
+       where channel_id = $1 
+         and (external_provider = 'discord' or (author_user_id like 'discord_%' and is_relay = true))
+       order by coalesce(external_author_id, author_user_id), created_at desc`,
+      [channelId]
+    );
+
+    for (const row of pastParticipants.rows) {
+      const discordId = row.external_author_id ?? row.author_user_id.replace('discord_', '');
+      // Skip if this Discord user has a local product account (they're in G1/G3)
+      if (discordToLocal.has(discordId)) continue;
+      // Skip if already in Group 2 (online bridged)
+      if (bridgedMembers.find(m => m.productUserId === `discord_${discordId}`)) continue;
+
+      externalOfflineMembers.push({
+        productUserId: `discord_${discordId}`,
+        displayName: row.external_author_name ?? row.author_display_name,
+        avatarUrl: row.external_author_avatar_url ?? undefined,
+        isOnline: false,
+        isBridged: true,
+        bridgedUserStatus: 'offline'
+      });
+    }
+    console.log(`[Presence Debug] Found ${externalOfflineMembers.length} offline Discord-only participants`);
 
     // Final Assembly with 4-tier Ordering
     const group1 = localMembers.filter(m => m.isOnline);
