@@ -9,8 +9,13 @@ import path from "node:path";
 let client: Client | null = null;
 let isStarting = false;
 const webhookCache = new Map<string, WebhookClient>();
-const presenceCache = new Map<string, { data: Record<string, { username: string, status: string, avatarUrl: string | null }>, expiresAt: number }>();
-const PRESENCE_CACHE_TTL_MS = 10 * 1000;
+const presenceCache = new Map<string, {
+    data: Record<string, { username: string, status: string, avatarUrl: string | null }>,
+    isSeeded: boolean,
+    lastFullSyncAt: number
+}>();
+const PRESENCE_CACHE_TTL_MS = 60 * 1000; // Increased to 1 min for gateway-backed cache
+const ANTI_ENTROPY_INTERVAL_MS = 10 * 60 * 1000; // Check stalest guild every 10 mins
 
 export async function startDiscordBot() {
     if (isStarting) return;
@@ -31,10 +36,6 @@ export async function startDiscordBot() {
                 GatewayIntentBits.GuildPresences,
                 GatewayIntentBits.GuildMembers
             ]
-        });
-
-        client.once(Events.ClientReady, (readyClient: Client<true>) => {
-            logEvent("info", "discord_bot_ready", { tag: readyClient.user.tag });
         });
 
         client.on(Events.MessageCreate, async (message: Message) => {
@@ -82,7 +83,52 @@ export async function startDiscordBot() {
             }
         });
 
+        // Presence gateway listeners
+        client.on(Events.PresenceUpdate, (oldPresence, newPresence) => {
+            if (!newPresence.guild || !newPresence.member) return;
+            const guildId = newPresence.guild.id;
+            const cache = presenceCache.get(guildId);
+            if (!cache) return;
+
+            cache.data[newPresence.member.id] = {
+                username: newPresence.member.user.username,
+                status: newPresence.status ?? "offline",
+                avatarUrl: newPresence.member.user.displayAvatarURL()
+            };
+        });
+
+        client.on(Events.GuildMemberAdd, (member) => {
+            const cache = presenceCache.get(member.guild.id);
+            if (!cache) return;
+            cache.data[member.id] = {
+                username: member.user.username,
+                status: member.presence?.status ?? "offline",
+                avatarUrl: member.user.displayAvatarURL()
+            };
+        });
+
+        client.on(Events.GuildMemberRemove, (member) => {
+            const cache = presenceCache.get(member.guild.id);
+            if (!cache) return;
+            delete cache.data[member.id];
+        });
+
+        client.on(Events.GuildMemberUpdate, (oldMember, newMember) => {
+            const cache = presenceCache.get(newMember.guild.id);
+            if (!cache) return;
+            cache.data[newMember.id] = {
+                username: newMember.user.username,
+                status: newMember.presence?.status ?? "offline",
+                avatarUrl: newMember.user.displayAvatarURL()
+            };
+        });
+
         await client.login(config.discordBotToken);
+
+        // Start background tasks after login
+        seedPresenceCache().catch(err => console.error("Failed initial presence seeding:", err));
+        startAntiEntropyLoop();
+
     } catch (error) {
         logEvent("error", "discord_bot_login_failed", { error: String(error) });
         client = null;
@@ -202,17 +248,25 @@ export async function relayMatrixMessageToDiscord(input: {
 export async function getDiscordGuildPresence(guildId: string): Promise<Record<string, { username: string, status: string, avatarUrl: string | null }>> {
     if (!client || !client.isReady()) return {};
 
-    const now = Date.now();
     const cached = presenceCache.get(guildId);
-    if (cached && cached.expiresAt > now) {
+    if (cached && cached.isSeeded) {
         return cached.data;
     }
 
+    // Fallback: trigger a seed if not already done, but return empty for now to avoid blocking
+    // In a real scenario, we might want to wait for the first seed if it's the first ever request.
+    seedGuildPresence(guildId).catch(err => console.error(`Lazy seeding failed for guild ${guildId}:`, err));
+    return cached?.data ?? {};
+}
+
+async function seedGuildPresence(guildId: string) {
+    if (!client || !client.isReady()) return;
+
     try {
         const guild = await client.guilds.fetch(guildId);
-        if (!guild) return {};
+        if (!guild) return;
 
-        // Fetch all members to ensure presence data is available
+        logEvent("info", "discord_presence_seeding_start", { guildId });
         const members = await guild.members.fetch({ withPresences: true });
         const presenceMap: Record<string, { username: string, status: string, avatarUrl: string | null }> = {};
 
@@ -226,14 +280,55 @@ export async function getDiscordGuildPresence(guildId: string): Promise<Record<s
 
         presenceCache.set(guildId, {
             data: presenceMap,
-            expiresAt: now + PRESENCE_CACHE_TTL_MS
+            isSeeded: true,
+            lastFullSyncAt: Date.now()
         });
-
-        return presenceMap;
+        logEvent("info", "discord_presence_seeding_complete", { guildId, memberCount: members.size });
     } catch (error) {
-        logEvent("error", "discord_presence_fetch_failed", { guildId, error: String(error) });
-        return {};
+        logEvent("error", "discord_presence_seeding_failed", { guildId, error: String(error) });
     }
+}
+
+async function seedPresenceCache() {
+    if (!client || !client.isReady()) return;
+
+    // Identify all guilds that have active bridge mappings
+    const guildIds = await withDb(async (db) => {
+        const rows = await db.query<{ guild_id: string }>(
+            "select distinct guild_id from discord_bridge_channel_mappings where enabled = true"
+        );
+        return rows.rows.map(r => r.guild_id);
+    });
+
+    for (const guildId of guildIds) {
+        await seedGuildPresence(guildId);
+        // Rate limit mitigation for initial burst. 
+        // Discord allows 120 gateway events per 60 seconds. 
+        // Large guilds may require multiple chunk requests per fetch.
+        await new Promise(resolve => setTimeout(resolve, 10000));
+    }
+}
+
+function startAntiEntropyLoop() {
+    setInterval(async () => {
+        if (!client || !client.isReady()) return;
+
+        // Find the guild with the oldest lastFullSyncAt
+        let stalestGuildId: string | null = null;
+        let oldestSync = Date.now();
+
+        for (const [guildId, cache] of presenceCache.entries()) {
+            if (cache.lastFullSyncAt < oldestSync) {
+                oldestSync = cache.lastFullSyncAt;
+                stalestGuildId = guildId;
+            }
+        }
+
+        if (stalestGuildId) {
+            logEvent("info", "discord_presence_anti_entropy_start", { guildId: stalestGuildId });
+            await seedGuildPresence(stalestGuildId);
+        }
+    }, ANTI_ENTROPY_INTERVAL_MS);
 }
 
 export async function kickDiscordMember(guildId: string, discordUserId: string, reason: string) {
