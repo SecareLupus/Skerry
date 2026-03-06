@@ -46,6 +46,7 @@ export interface ViewerSession {
     bio?: string | null;
     customStatus?: string | null;
     matrixUserId?: string | null;
+    isBridged?: boolean;
     theme?: "light" | "dark" | null;
   } | null;
   linkedIdentities: Array<{
@@ -484,21 +485,21 @@ export async function updateChannel(
 
 export async function listChannelMembers(
   channelId: string
-): Promise<{ 
-  productUserId: string; 
-  displayName: string; 
+): Promise<{
+  productUserId: string;
+  displayName: string;
   avatarUrl?: string;
-  isOnline: boolean; 
+  isOnline: boolean;
   lastSeenAt?: string;
   isBridged?: boolean;
   bridgedUserStatus?: string;
 }[]> {
   const json = await apiFetch<{
-    items: { 
-      productUserId: string; 
-      displayName: string; 
+    items: {
+      productUserId: string;
+      displayName: string;
       avatarUrl?: string;
-      isOnline: boolean; 
+      isOnline: boolean;
       lastSeenAt?: string;
       isBridged?: boolean;
       bridgedUserStatus?: string;
