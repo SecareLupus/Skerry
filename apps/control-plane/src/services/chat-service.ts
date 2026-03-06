@@ -904,24 +904,33 @@ export async function listChannelMembers(channelId: string, viewerUserId?: strin
     // A user is "allowed" if they have any role in the hub/server/channel,
     // are the hub or server owner, or are an explicit channel member (DMs).
     let localProductUserIds: string[] = [];
-    const members = await db.query<{ product_user_id: string }>(
-      `select distinct product_user_id from role_bindings where server_id = $1 or channel_id = $2 or hub_id = $3
-       union
-       select owner_user_id from servers where id = $1
-       union
-       select owner_user_id from hubs where id = $3
-       union
-       select product_user_id from channel_members where channel_id = $2
-       union
-       select author_user_id from chat_messages
-         where channel_id = $2
-           and is_relay = false
-           and (external_provider is null or external_provider = '')
-           and author_user_id not like 'discord_%'
-       union
-       select distinct product_user_id from identity_mappings where product_user_id is not null`,
-      [channel.server_id, channelId, server.hub_id]
-    );
+    let membersRow;
+    if (channel.type === "dm") {
+      membersRow = await db.query<{ product_user_id: string }>(
+        `select product_user_id from channel_members where channel_id = $1`,
+        [channelId]
+      );
+    } else {
+      membersRow = await db.query<{ product_user_id: string }>(
+        `select distinct product_user_id from role_bindings where server_id = $1 or channel_id = $2 or hub_id = $3
+         union
+         select owner_user_id from servers where id = $1
+         union
+         select owner_user_id from hubs where id = $3
+         union
+         select product_user_id from channel_members where channel_id = $2
+         union
+         select author_user_id from chat_messages
+           where channel_id = $2
+             and is_relay = false
+             and (external_provider is null or external_provider = '')
+             and author_user_id not like 'discord_%'
+         union
+         select distinct product_user_id from identity_mappings where product_user_id is not null`,
+        [channel.server_id, channelId, server.hub_id]
+      );
+    }
+    const members = membersRow;
     localProductUserIds = members.rows.map(m => m.product_user_id).filter(Boolean);
     // Always include the viewing user (they may have no roles yet)
     if (viewerUserId && !localProductUserIds.includes(viewerUserId)) {

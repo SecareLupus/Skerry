@@ -702,6 +702,22 @@ export function ChatClient() {
   }, [canAccessWorkspace, dispatch]);
 
   useEffect(() => {
+    if (!canAccessWorkspace) return;
+    const dmServer = servers.find((s) => s.type === "dm");
+    if (!dmServer) return;
+
+    const refreshDmChannels = () => {
+      listChannels(dmServer.id)
+        .then((channels) => dispatch({ type: "SET_ALL_DM_CHANNELS", payload: channels }))
+        .catch(console.error);
+    };
+
+    refreshDmChannels();
+    const timer = setInterval(refreshDmChannels, 60000); // refresh every minute just in case
+    return () => clearInterval(timer);
+  }, [canAccessWorkspace, servers, dispatch]);
+
+  useEffect(() => {
     dispatch({ type: "SET_PENDING_NEW_MESSAGE_COUNT", payload: 0 });
     dispatch({ type: "SET_LAST_SEEN_MESSAGE_ID", payload: null });
     dispatch({ type: "SET_NEAR_BOTTOM", payload: true });
@@ -1000,14 +1016,17 @@ export function ChatClient() {
     }
   }
 
-  async function handleServerChange(serverId: string): Promise<void> {
+  async function handleServerChange(serverId: string, channelId?: string): Promise<void> {
     dispatch({ type: "SET_SELECTED_SERVER_ID", payload: serverId });
     localStorage.setItem("lastServerId", serverId);
+    if (channelId) {
+      localStorage.setItem("lastChannelId", channelId);
+    }
     dispatch({ type: "SET_CHANNELS", payload: [] });
     dispatch({ type: "SET_CATEGORIES", payload: [] });
     dispatch({ type: "SET_ERROR", payload: null });
     try {
-      await refreshChatState(serverId);
+      await refreshChatState(serverId, channelId);
     } catch (cause) {
       dispatch({ type: "SET_ERROR", payload: cause instanceof Error ? cause.message : "Failed to load channels." });
     }

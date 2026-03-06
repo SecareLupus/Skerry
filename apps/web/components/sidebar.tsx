@@ -8,7 +8,7 @@ import { Channel } from "@skerry/shared";
 const cn = (...classes: (string | boolean | undefined)[]) => classes.filter(Boolean).join(" ");
 
 interface SidebarProps {
-    handleServerChange: (serverId: string) => Promise<void>;
+    handleServerChange: (serverId: string, channelId?: string) => Promise<void>;
     handleChannelChange: (channelId: string) => Promise<void>;
     handleServerKeyboardNavigation: (event: React.KeyboardEvent, serverId: string) => void;
     handleChannelKeyboardNavigation: (event: React.KeyboardEvent, channelId: string) => void;
@@ -203,6 +203,39 @@ export function Sidebar({
                                         )}
                                     </button>
                                 </div>
+                                {server.type === 'dm' && state.allDmChannels
+                                    ?.filter(c => c.serverId === server.id && (unreadCountByChannel[c.id] ?? 0) > 0)
+                                    .map(dm => (
+                                        <div key={dm.id} className="list-item-container" style={{ paddingLeft: '1rem', marginTop: '4px' }}>
+                                            <button
+                                                type="button"
+                                                className={cn(
+                                                    "list-item server-entry",
+                                                    selectedChannelId === dm.id && selectedServerId === server.id && "active",
+                                                    "unread"
+                                                )}
+                                                onClick={() => {
+                                                    void handleServerChange(server.id, dm.id);
+                                                    setView("channels");
+                                                }}
+                                            >
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, fontSize: '0.9em', overflow: 'hidden' }}>
+                                                    <span className="server-icon-placeholder" style={{ width: '24px', height: '24px', fontSize: '12px', minWidth: '24px' }}>
+                                                        💬
+                                                    </span>
+                                                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                        {getChannelName(dm)}
+                                                    </span>
+                                                </div>
+                                                {(() => {
+                                                    const dmntionCount = mentionCountByChannel[dm.id] ?? 0;
+                                                    return dmntionCount > 0 && !state.muteStatusByChannel[dm.id] ? (
+                                                        <span className="mention-pill">@{dmntionCount}</span>
+                                                    ) : <span className="unread-pill"></span>;
+                                                })()}
+                                            </button>
+                                        </div>
+                                    ))}
                             </li>
                         ))}
                     </ul>

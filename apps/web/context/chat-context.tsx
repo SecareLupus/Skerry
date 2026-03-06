@@ -116,6 +116,7 @@ export interface ChatState {
     profileUserId: string | null;
     blockedUserIds: string[];
     members: ChatMember[];
+    allDmChannels: Channel[];
 }
 
 type ChatAction =
@@ -181,7 +182,8 @@ type ChatAction =
     | { type: "SET_BLOCKED_USER_IDS"; payload: string[] }
     | { type: "BLOCK_USER"; payload: string }
     | { type: "UNBLOCK_USER"; payload: string }
-    | { type: "SET_MEMBERS"; payload: ChatMember[] };
+    | { type: "SET_MEMBERS"; payload: ChatMember[] }
+    | { type: "SET_ALL_DM_CHANNELS"; payload: Channel[] };
 
 const initialState: ChatState = {
     viewer: null,
@@ -246,7 +248,8 @@ const initialState: ChatState = {
     draftMessagesByChannel: {},
     profileUserId: null,
     blockedUserIds: [],
-    members: []
+    members: [],
+    allDmChannels: []
 };
 
 function chatReducer(state: ChatState, action: ChatAction): ChatState {
@@ -430,6 +433,8 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
             return { ...state, blockedUserIds: state.blockedUserIds.filter(id => id !== action.payload) };
         case "SET_MEMBERS":
             return { ...state, members: action.payload };
+        case "SET_ALL_DM_CHANNELS":
+            return { ...state, allDmChannels: action.payload };
         default:
             return state;
     }
