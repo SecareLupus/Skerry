@@ -863,11 +863,11 @@ export async function updateChannelVideoControls(input: {
   });
 }
 
-export async function listChannelMembers(channelId: string, viewerUserId?: string): Promise<{ 
-  productUserId: string; 
-  displayName: string; 
+export async function listChannelMembers(channelId: string, viewerUserId?: string): Promise<{
+  productUserId: string;
+  displayName: string;
   avatarUrl?: string;
-  isOnline: boolean; 
+  isOnline: boolean;
   lastSeenAt?: string;
   isBridged?: boolean;
   bridgedUserStatus?: string;
@@ -921,9 +921,9 @@ export async function listChannelMembers(channelId: string, viewerUserId?: strin
     console.log(`[Presence Debug] Channel ${channelId}: found ${localProductUserIds.length} local product user IDs`);
 
     // Fetch local user details and presence
-    const localUserRows = await db.query<{ 
-      product_user_id: string; 
-      preferred_username: string | null; 
+    const localUserRows = await db.query<{
+      product_user_id: string;
+      preferred_username: string | null;
       email: string | null;
       avatar_url: string | null;
       last_seen_at: string | null;
@@ -937,11 +937,11 @@ export async function listChannelMembers(channelId: string, viewerUserId?: strin
       [localProductUserIds]
     );
 
-    type Member = { 
-      productUserId: string; 
-      displayName: string; 
+    type Member = {
+      productUserId: string;
+      displayName: string;
       avatarUrl?: string;
-      isOnline: boolean; 
+      isOnline: boolean;
       lastSeenAt?: string;
       isBridged?: boolean;
       bridgedUserStatus?: string;
@@ -975,37 +975,36 @@ export async function listChannelMembers(channelId: string, viewerUserId?: strin
     const discordToLocal = new Map(discordAuthMappings.rows.map(r => [r.oidc_subject, r.product_user_id]));
 
     if (mapping) {
-      console.log(`[Presence Debug] Channel ${channelId} is bridged to Discord guild ${mapping.guildId}`);
-      const discordPresences = await getDiscordGuildPresence(mapping.guildId);
-      console.log(`[Presence Debug] Discord reported ${Object.keys(discordPresences).length} presences for guild`);
+      try {
+        const discordPresences = await getDiscordGuildPresence(mapping.guildId);
 
-      // Group 2: Online on Discord AND not mapped to any local account
-      for (const [discordId, p] of Object.entries(discordPresences)) {
-        if (p.status === 'offline') continue;
-        // If this Discord user has a local product account, skip them — they
-        // will already appear (or not) in the local groups.
-        if (discordToLocal.has(discordId)) continue;
+        // Group 2: Online on Discord AND not mapped to any local account
+        for (const [discordId, p] of Object.entries(discordPresences)) {
+          if (p.status === 'offline') continue;
+          // If this Discord user has a local product account, skip them — they
+          // will already appear (or not) in the local groups.
+          if (discordToLocal.has(discordId)) continue;
 
-        bridgedMembers.push({
-          productUserId: `discord_${discordId}`,
-          displayName: p.username,
-          avatarUrl: p.avatarUrl ?? undefined,
-          isOnline: true,
-          bridgedUserStatus: p.status,
-          isBridged: true
-        });
+          bridgedMembers.push({
+            productUserId: `discord_${discordId}`,
+            displayName: p.username,
+            avatarUrl: p.avatarUrl ?? undefined,
+            isOnline: true,
+            bridgedUserStatus: p.status,
+            isBridged: true
+          });
+        }
+      } catch (err) {
+        console.error(`[Presence Debug] Failed to fetch Discord guild presence for ${mapping.guildId}:`, err);
       }
-      console.log(`[Presence Debug] Found ${bridgedMembers.length} bridged (online, unmapped) members`);
-    } else {
-      console.log(`[Presence Debug] Channel ${channelId} has no enabled Discord mapping — skipping online presence`);
     }
 
     // Group 4: Offline Discord-only participants who have spoken in this channel.
     // Runs regardless of whether the bridge is currently active.
-    const pastParticipants = await db.query<{ 
-      external_author_id: string | null; 
+    const pastParticipants = await db.query<{
+      external_author_id: string | null;
       author_user_id: string;
-      author_display_name: string; 
+      author_display_name: string;
       external_author_name: string | null;
       external_author_avatar_url: string | null;
     }>(
@@ -1038,7 +1037,7 @@ export async function listChannelMembers(channelId: string, viewerUserId?: strin
 
     // Final Assembly with 4-tier Ordering
     const group1 = localMembers.filter(m => m.isOnline);
-    const group2 = bridgedMembers; 
+    const group2 = bridgedMembers;
     const group3 = localMembers.filter(m => !m.isOnline && !bridgedMembers.find(bm => bm.productUserId === m.productUserId));
     const group4 = externalOfflineMembers;
 
@@ -1323,7 +1322,7 @@ export async function listServerMembers(serverId: string): Promise<{
           const guild = await client.guilds.fetch(connection.guildId);
           // Fetch ALL members
           const members = await guild.members.fetch({ withPresences: true });
-          
+
           const discordAuthMappings = await db.query<{ product_user_id: string, oidc_subject: string }>(
             "select product_user_id, oidc_subject from identity_mappings where provider = 'discord'",
             []

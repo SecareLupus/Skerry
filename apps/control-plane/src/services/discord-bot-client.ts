@@ -9,6 +9,8 @@ import path from "node:path";
 let client: Client | null = null;
 let isStarting = false;
 const webhookCache = new Map<string, WebhookClient>();
+const presenceCache = new Map<string, { data: Record<string, { username: string, status: string, avatarUrl: string | null }>, expiresAt: number }>();
+const PRESENCE_CACHE_TTL_MS = 10 * 1000;
 
 export async function startDiscordBot() {
     if (isStarting) return;
@@ -55,12 +57,12 @@ export async function startDiscordBot() {
                         ...message.attachments.map(a => ({ url: a.url, sourceUrl: a.url })),
                         ...message.embeds.map(e => {
                             let url = e.video?.url || e.image?.url || e.thumbnail?.url;
-                            
+
                             // If it's a Giphy gifv, try to ensure we have the .gif version if possible
                             if (e.data.type === 'gifv' && url && url.includes('giphy.com') && url.endsWith('.mp4')) {
                                 url = url.replace('.mp4', '.gif');
                             }
-                            
+
                             return url ? { url, sourceUrl: e.url || url } : null;
                         }).filter(Boolean) as Array<{ url: string; sourceUrl: string }>
                     ];
@@ -184,7 +186,7 @@ export async function relayMatrixMessageToDiscord(input: {
         logEvent("error", "discord_outbound_relay_failed", { error: String(error) });
         // If webhook fails (e.g. deleted), clear cache for retry next time
         webhookCache.delete(input.discordChannelId);
-        
+
         // Fallback to bot message if webhook fails
         try {
             const channel = await client.channels.fetch(input.discordChannelId);
@@ -192,13 +194,19 @@ export async function relayMatrixMessageToDiscord(input: {
                 await (channel as any).send(`**[Matrix] ${input.authorName}**: ${input.content}`);
             }
         } catch (fallbackError) {
-             console.error("Discord fallback relay failed:", fallbackError);
+            console.error("Discord fallback relay failed:", fallbackError);
         }
     }
 }
 
 export async function getDiscordGuildPresence(guildId: string): Promise<Record<string, { username: string, status: string, avatarUrl: string | null }>> {
     if (!client || !client.isReady()) return {};
+
+    const now = Date.now();
+    const cached = presenceCache.get(guildId);
+    if (cached && cached.expiresAt > now) {
+        return cached.data;
+    }
 
     try {
         const guild = await client.guilds.fetch(guildId);
@@ -215,6 +223,11 @@ export async function getDiscordGuildPresence(guildId: string): Promise<Record<s
                 avatarUrl: member.user.displayAvatarURL()
             };
         }
+
+        presenceCache.set(guildId, {
+            data: presenceMap,
+            expiresAt: now + PRESENCE_CACHE_TTL_MS
+        });
 
         return presenceMap;
     } catch (error) {
