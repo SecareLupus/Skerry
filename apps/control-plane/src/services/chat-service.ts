@@ -985,8 +985,15 @@ export async function listChannelMembers(channelId: string, viewerUserId?: strin
           if (discordId) {
             const dp = discordPresences[discordId];
             if (dp && dp.status !== 'offline') {
-              member.isOnline = true;
-              member.bridgedUserStatus = dp.status;
+              // If they were offline locally, they become "online" via the bridge
+              // and we show their specific Discord status and the "Bridged" badge.
+              if (!member.isOnline) {
+                member.isOnline = true;
+                member.isBridged = true;
+                member.bridgedUserStatus = dp.status;
+              }
+              // If they were ALREADY online locally, they stay "Online" (Green)
+              // and we do NOT show the badge or the Discord-specific status.
             }
           }
         }
