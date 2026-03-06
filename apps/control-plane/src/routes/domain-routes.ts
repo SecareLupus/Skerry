@@ -91,6 +91,8 @@ import {
   selectDiscordGuild,
   upsertDiscordChannelMapping
 } from "../services/discord-bridge-service.js";
+import { fetchDiscordUserProfile } from "../services/discord-bot-client.js";
+import { logEvent } from "../services/observability-service.js";
 import {
   assignSpaceOwner,
   expireSpaceOwnerAssignments,
@@ -202,6 +204,28 @@ export async function registerDomainRoutes(app: FastifyInstance): Promise<void> 
 
   app.get("/v1/users/:userId", initializedAuthHandlers, async (request, reply) => {
     const params = z.object({ userId: z.string().min(1) }).parse(request.params);
+
+    // Check if it's a bridged Discord user
+    if (params.userId.startsWith("discord_")) {
+      const discordUserId = params.userId.replace("discord_", "");
+      try {
+        const discordProfile = await fetchDiscordUserProfile(discordUserId);
+        if (discordProfile) {
+          return {
+            id: params.userId,
+            productUserId: params.userId,
+            provider: "discord",
+            displayName: discordProfile.displayName,
+            preferredUsername: discordProfile.username,
+            avatarUrl: discordProfile.avatarUrl,
+            isBridged: true
+          };
+        }
+      } catch (err) {
+        logEvent("error", "discord_bridge_user_fetch_failed", { discordUserId, error: String(err) });
+      }
+    }
+
     const user = await getIdentityByProductUserId(params.userId);
     if (!user) {
       reply.code(404).send({ message: "User not found." });

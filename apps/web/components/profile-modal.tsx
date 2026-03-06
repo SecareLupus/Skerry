@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect } from "react";
 import { useChat } from "../context/chat-context";
-import { updateUserProfile, fetchViewerSession, controlPlaneBaseUrl } from "../lib/control-plane";
+import { updateUserProfile, fetchViewerSession, controlPlaneBaseUrl, fetchUser } from "../lib/control-plane";
 import { useToast } from "./toast-provider";
+import type { IdentityMapping } from "@skerry/shared";
 
 export function ProfileModal() {
     const { state, dispatch } = useChat();
@@ -16,20 +17,44 @@ export function ProfileModal() {
     // In a full implementation, we might fetch another user's profile.
     // Given the current architecture, we'll focus on the viewer's profile for editing.
 
-    const [displayName, setDisplayName] = useState(viewer?.identity?.displayName || "");
-    const [bio, setBio] = useState(viewer?.identity?.bio || "");
-    const [customStatus, setCustomStatus] = useState(viewer?.identity?.customStatus || "");
-    const [avatarUrl, setAvatarUrl] = useState(viewer?.identity?.avatarUrl || "");
+    const [targetUser, setTargetUser] = useState<IdentityMapping | null>(null);
+    const [displayName, setDisplayName] = useState("");
+    const [bio, setBio] = useState("");
+    const [customStatus, setCustomStatus] = useState("");
+    const [avatarUrl, setAvatarUrl] = useState("");
     const [saving, setSaving] = useState(false);
+    const [loading, setLoading] = useState(false);
 
     useEffect(() => {
-        if (isOwnProfile && viewer?.identity) {
-            setDisplayName(viewer.identity.displayName || "");
-            setBio(viewer.identity.bio || "");
-            setCustomStatus(viewer.identity.customStatus || "");
-            setAvatarUrl(viewer.identity.avatarUrl || "");
+        if (!profileUserId) {
+            setTargetUser(null);
+            return;
         }
-    }, [viewer, isOwnProfile]);
+
+        if (isOwnProfile) {
+            if (viewer?.identity) {
+                setDisplayName(viewer.identity.displayName || "");
+                setBio(viewer.identity.bio || "");
+                setCustomStatus(viewer.identity.customStatus || "");
+                setAvatarUrl(viewer.identity.avatarUrl || "");
+            }
+        } else {
+            setLoading(true);
+            fetchUser(profileUserId)
+                .then(user => {
+                    setTargetUser(user);
+                    setDisplayName(user.displayName || "");
+                    setBio(user.bio || "");
+                    setCustomStatus(user.customStatus || "");
+                    setAvatarUrl(user.avatarUrl || "");
+                })
+                .catch(err => {
+                    showToast("Failed to fetch user profile", "error");
+                    console.error(err);
+                })
+                .finally(() => setLoading(false));
+        }
+    }, [profileUserId, isOwnProfile, viewer]);
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -58,7 +83,14 @@ export function ProfileModal() {
         <div className="modal-overlay" onClick={() => dispatch({ type: "SET_ACTIVE_MODAL", payload: null })}>
             <div className="modal-card" onClick={(e) => e.stopPropagation()}>
                 <div className="modal-header">
-                    <h2>{isOwnProfile ? "Edit Your Profile" : "User Profile"}</h2>
+                    <div className="stack">
+                        <h2>{isOwnProfile ? "Edit Your Profile" : (targetUser?.displayName || "User Profile")}</h2>
+                        {targetUser?.isBridged && (
+                            <span className="badge bridged">
+                                󰙯 Bridged from Discord
+                            </span>
+                        )}
+                    </div>
                     <button className="icon-button" onClick={() => dispatch({ type: "SET_ACTIVE_MODAL", payload: null })}>
                         ✕
                     </button>
@@ -100,11 +132,20 @@ export function ProfileModal() {
                         <input
                             value={customStatus}
                             onChange={(e) => setCustomStatus(e.target.value)}
-                            placeholder="What's happening?"
+                            placeholder={isOwnProfile ? "What's happening?" : ""}
                             disabled={!isOwnProfile || saving}
                             maxLength={128}
                         />
                     </div>
+
+                    {!isOwnProfile && !loading && (
+                        <div className="field">
+                            <label>Provider</label>
+                            <div className="provider-info">
+                                {targetUser?.provider === "discord" ? "Discord" : "Skerry"}
+                            </div>
+                        </div>
+                    )}
 
                     {isOwnProfile && (
                         <div className="modal-actions" style={{ marginTop: "1rem" }}>
@@ -166,6 +207,21 @@ export function ProfileModal() {
                     font-size: 0.875rem;
                     font-weight: 600;
                     color: var(--text-muted);
+                }
+                .badge {
+                    font-size: 0.75rem;
+                    padding: 0.25rem 0.5rem;
+                    border-radius: 4px;
+                    font-weight: 700;
+                    text-transform: uppercase;
+                }
+                .badge.bridged {
+                    background: #5865F2;
+                    color: white;
+                }
+                .provider-info {
+                    color: var(--text-muted);
+                    font-size: 0.875rem;
                 }
                 input, textarea {
                     padding: 0.75rem;

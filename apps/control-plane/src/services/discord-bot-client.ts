@@ -367,3 +367,21 @@ export async function timeoutDiscordMember(guildId: string, discordUserId: strin
         logEvent("info", "discord_member_timed_out", { guildId, discordUserId, durationSeconds, reason });
     }
 }
+export async function fetchDiscordUserProfile(discordUserId: string) {
+    if (!client || !client.isReady()) {
+        await startDiscordBot();
+        if (!client || !client.isReady()) return null;
+    }
+
+    try {
+        const user = await client.users.fetch(discordUserId);
+        return {
+            username: user.username,
+            displayName: user.globalName ?? user.username,
+            avatarUrl: user.displayAvatarURL()
+        };
+    } catch (error) {
+        logEvent("error", "discord_user_fetch_failed", { discordUserId, error: String(error) });
+        return null;
+    }
+}
