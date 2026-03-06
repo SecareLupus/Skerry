@@ -14,8 +14,6 @@ import { VoiceRoom } from "./voice-room";
 
 interface ChatWindowProps {
     handleSendMessage: (event: React.FormEvent) => Promise<void>;
-    handleUpdateSlowMode: (event: React.FormEvent) => Promise<void>;
-    handleSetLock: (locked: boolean) => Promise<void>;
     handleMessageListScroll: (event: React.UIEvent<HTMLOListElement>) => void;
     jumpToLatest: () => void;
     submitDraftMessage: (attachments?: any[]) => Promise<void>;
@@ -47,8 +45,6 @@ function formatMessageTime(value: string): string {
 
 export function ChatWindow({
     handleSendMessage,
-    handleUpdateSlowMode,
-    handleSetLock,
     handleMessageListScroll,
     jumpToLatest,
     submitDraftMessage,

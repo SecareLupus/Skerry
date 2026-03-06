@@ -203,8 +203,6 @@ export function ChatClient() {
 
   const [draftMessage, setDraftMessage] = useState("");
   const [controlsOpen, setControlsOpen] = useState(false);
-  const [controlsReason, setControlsReason] = useState("Channel policy update");
-  const [slowModeSeconds, setSlowModeSeconds] = useState("0");
 
   const [spaceName, setSpaceName] = useState("New Space");
   const [roomName, setRoomName] = useState("new-room");
@@ -599,9 +597,9 @@ export function ChatClient() {
   // Presence Heartbeat
   useEffect(() => {
     if (!viewer) return;
-    
+
     const sendHeartbeat = () => {
-      updatePresence().catch(() => {});
+      updatePresence().catch(() => { });
     };
 
     sendHeartbeat();
@@ -616,7 +614,7 @@ export function ChatClient() {
     const interval = setInterval(() => {
       listChannelMembers(selectedChannelId)
         .then((items) => dispatch({ type: "SET_MEMBERS", payload: items }))
-        .catch(() => {});
+        .catch(() => { });
     }, 30000); // Every 30 seconds
 
     return () => clearInterval(interval);
@@ -1103,27 +1101,6 @@ export function ChatClient() {
     dispatch({ type: "SET_PENDING_NEW_MESSAGE_COUNT", payload: 0 });
   }
 
-  async function handleSetLock(lock: boolean): Promise<void> {
-    if (!activeChannel || !selectedServerId) {
-      return;
-    }
-
-    dispatch({ type: "SET_UPDATING_CONTROLS", payload: true });
-    dispatch({ type: "SET_ERROR", payload: null });
-    try {
-      await updateChannelControls({
-        channelId: activeChannel.id,
-        serverId: selectedServerId,
-        lock,
-        reason: controlsReason
-      });
-      await refreshChatState(selectedServerId, activeChannel.id);
-    } catch (cause) {
-      dispatch({ type: "SET_ERROR", payload: cause instanceof Error ? cause.message : "Failed to update lock state." });
-    } finally {
-      dispatch({ type: "SET_UPDATING_CONTROLS", payload: false });
-    }
-  }
 
   async function handleCreateSpace(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
@@ -1412,34 +1389,6 @@ export function ChatClient() {
     }
   }
 
-  async function handleUpdateSlowMode(event: React.FormEvent): Promise<void> {
-    event.preventDefault();
-    if (!activeChannel || !selectedServerId) {
-      return;
-    }
-
-    const parsed = Number(slowModeSeconds);
-    if (!Number.isFinite(parsed) || parsed < 0 || parsed > 600) {
-      dispatch({ type: "SET_ERROR", payload: "Slow mode must be between 0 and 600 seconds." });
-      return;
-    }
-
-    dispatch({ type: "SET_UPDATING_CONTROLS", payload: true });
-    dispatch({ type: "SET_ERROR", payload: null });
-    try {
-      await updateChannelControls({
-        channelId: activeChannel.id,
-        serverId: selectedServerId,
-        slowModeSeconds: Math.floor(parsed),
-        reason: controlsReason
-      });
-      await refreshChatState(selectedServerId, activeChannel.id);
-    } catch (cause) {
-      dispatch({ type: "SET_ERROR", payload: cause instanceof Error ? cause.message : "Failed to update slow mode." });
-    } finally {
-      dispatch({ type: "SET_UPDATING_CONTROLS", payload: false });
-    }
-  }
 
 
   const handleJoinVoice = useCallback(async (): Promise<void> => {
@@ -1730,8 +1679,6 @@ export function ChatClient() {
           </div>
           <ChatWindow
             handleSendMessage={handleSendMessage}
-            handleUpdateSlowMode={handleUpdateSlowMode}
-            handleSetLock={handleSetLock}
             handleMessageListScroll={handleMessageListScroll}
             jumpToLatest={jumpToLatest}
             submitDraftMessage={submitDraftMessage}
@@ -1757,7 +1704,7 @@ export function ChatClient() {
 
           <div className="details-drawer-container">
             {isDetailsOpen && (
-              <aside className="context panel" aria-label="Channel context">
+              <aside className="context panel scrollable-pane" aria-label="Channel context">
                 <h2>Channel Details</h2>
                 {activeChannel ? (
                   <>
@@ -1789,11 +1736,11 @@ export function ChatClient() {
                           onContextMenu={(e) => handleUserContextMenu(e, { id: member.productUserId, displayName: member.displayName })}
                           title={member.isOnline ? "Online" : "Offline"}
                         >
-                          <span 
-                            className="member-dot" 
-                            data-online={member.isOnline} 
-                          /> 
-                          {member.displayName}
+                          <span
+                            className="member-dot"
+                            data-online={member.isOnline}
+                          />
+                          <span className="member-name">{member.displayName}</span>
                           {member.isBridged && (
                             <span className="bridged-badge" title={member.bridgedUserStatus || 'Bridged from Discord'}>
                               Bridged
@@ -1802,355 +1749,326 @@ export function ChatClient() {
                         </li>
                       ))}
                       {members.length === 0 && <p className="muted">No members found</p>}
-                    </ul>
+                    </ul >
 
                     {canManageChannel && (
-                      <>
-                        <hr />
-                        <h3>Channel Controls</h3>
-                        <div className="stack" style={{ gap: "1rem" }}>
-                          <div className="controls-row">
-                            <button
-                              type="button"
-                              className="ghost"
-                              disabled={updatingControls}
-                              onClick={() => {
-                                void handleSetLock(!activeChannel.isLocked);
-                              }}
-                            >
-                              {activeChannel.isLocked ? "Unlock Channel" : "Lock Channel"}
-                            </button>
-                            <span className="muted">{activeChannel.isLocked ? "Currently locked" : "Currently unlocked"}</span>
-                          </div>
-                          <form className="stack" style={{ gap: "0.5rem" }} onSubmit={handleUpdateSlowMode}>
-                            <div className="stack" style={{ gap: "0.25rem" }}>
-                              <label htmlFor="slow-mode-input" className="small-label">Slow mode (seconds)</label>
-                              <input
-                                id="slow-mode-input"
-                                type="number"
-                                min={0}
-                                max={600}
-                                value={slowModeSeconds}
-                                onChange={(event) => setSlowModeSeconds(event.target.value)}
-                              />
-                            </div>
-                            <div className="stack" style={{ gap: "0.25rem" }}>
-                              <label htmlFor="controls-reason" className="small-label">Reason</label>
-                              <input
-                                id="controls-reason"
-                                value={controlsReason}
-                                onChange={(event) => setControlsReason(event.target.value)}
-                                minLength={3}
-                                required
-                              />
-                            </div>
-                            <button type="submit" disabled={updatingControls}>
-                              {updatingControls ? "Saving..." : "Apply Slow Mode"}
-                            </button>
-                          </form>
-                        </div>
-                      </>
-                    )}
+                      <div style={{ marginTop: "1.5rem" }}>
+                        <Link
+                          href={`/settings/rooms/${activeChannel.id}`}
+                          className="button-link ghost"
+                          style={{ width: "100%" }}
+                        >
+                          Manage Channel Settings
+                        </Link>
+                      </div>
+                    )
+                    }
 
-                    {activeChannel.type === "voice" ? (
-                      <>
-                        <hr />
-                        <h3>Voice Controls</h3>
-                        <p className="context-line">
-                          <strong>Status:</strong> {voiceConnected ? "Connected" : "Disconnected"}
-                        </p>
-                        {voiceGrant ? (
+                    {
+                      activeChannel.type === "voice" ? (
+                        <>
+                          <hr />
+                          <h3>Voice Controls</h3>
                           <p className="context-line">
-                            <strong>Voice Room:</strong> {voiceGrant.sfuRoomId}
+                            <strong>Status:</strong> {voiceConnected ? "Connected" : "Disconnected"}
                           </p>
-                        ) : null}
-                        <div className="voice-actions">
-                          {!voiceConnected ? (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                void handleJoinVoice();
-                              }}
-                            >
-                              Join Voice
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              className="ghost"
-                              onClick={() => {
-                                void handleLeaveVoice();
-                              }}
-                            >
-                              Leave Voice
-                            </button>
-                          )}
-                        </div>
-                      </>
-                    ) : null}
+                          {voiceGrant ? (
+                            <p className="context-line">
+                              <strong>Voice Room:</strong> {voiceGrant.sfuRoomId}
+                            </p>
+                          ) : null}
+                          <div className="voice-actions">
+                            {!voiceConnected ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  void handleJoinVoice();
+                                }}
+                              >
+                                Join Voice
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                className="ghost"
+                                onClick={() => {
+                                  void handleLeaveVoice();
+                                }}
+                              >
+                                Leave Voice
+                              </button>
+                            )}
+                          </div>
+                        </>
+                      ) : null
+                    }
                   </>
                 ) : (
                   <p>Select a channel to see details</p>
                 )}
-              </aside>
+              </aside >
             )}
-          </div>
-        </section>
+          </div >
+        </section >
       )}
 
-      {activeModal && (
-        <div className="modal-backdrop" onClick={() => dispatch({ type: "SET_ACTIVE_MODAL", payload: null })}>
-          <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
-            <header className="modal-header">
-              <h2>
-                {activeModal === "create-space" && "Create New Space"}
-                {activeModal === "create-category" && "Create New Category"}
-                {activeModal === "create-room" && "Create New Room"}
-                {activeModal === "rename-space" && "Rename Space"}
-                {activeModal === "rename-category" && "Rename Category"}
-                {activeModal === "rename-room" && "Rename Room"}
-              </h2>
-              <button type="button" className="ghost" onClick={() => dispatch({ type: "SET_ACTIVE_MODAL", payload: null })}>×</button>
-            </header>
+      {
+        activeModal && (
+          <div className="modal-backdrop" onClick={() => dispatch({ type: "SET_ACTIVE_MODAL", payload: null })}>
+            <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
+              <header className="modal-header">
+                <h2>
+                  {activeModal === "create-space" && "Create New Space"}
+                  {activeModal === "create-category" && "Create New Category"}
+                  {activeModal === "create-room" && "Create New Room"}
+                  {activeModal === "rename-space" && "Rename Space"}
+                  {activeModal === "rename-category" && "Rename Category"}
+                  {activeModal === "rename-room" && "Rename Room"}
+                </h2>
+                <button type="button" className="ghost" onClick={() => dispatch({ type: "SET_ACTIVE_MODAL", payload: null })}>×</button>
+              </header>
 
-            {activeModal === "create-space" && (
-              <form className="stack" onSubmit={(event: React.FormEvent<HTMLFormElement>) => {
-                void handleCreateSpace(event);
-                dispatch({ type: "SET_ACTIVE_MODAL", payload: null });
-              }}>
-                <label htmlFor="space-name-modal">Space Name</label>
-                <input
-                  id="space-name-modal"
-                  autoFocus
-                  value={spaceName}
-                  onChange={(e) => setSpaceName(e.target.value)}
-                  minLength={2}
-                  maxLength={80}
-                  required
-                />
-                <button type="submit" disabled={creatingSpace}>Create Space</button>
-              </form>
-            )}
-
-            {activeModal === "rename-space" && (
-              <form className="stack" onSubmit={(event: React.FormEvent<HTMLFormElement>) => {
-                void handleRenameSpace(event);
-                dispatch({ type: "SET_ACTIVE_MODAL", payload: null });
-              }}>
-                <label htmlFor="rename-space-modal">New Space Name</label>
-                <input
-                  id="rename-space-modal"
-                  autoFocus
-                  value={renameSpaceName}
-                  onChange={(e) => dispatch({ type: "SET_RENAME_SPACE", payload: { id: renameSpaceId, name: e.target.value } })}
-                  minLength={2}
-                  maxLength={80}
-                  required
-                />
-                <button type="submit" disabled={mutatingStructure}>Save Changes</button>
-              </form>
-            )}
-
-            {activeModal === "create-category" && (
-              <form className="stack" onSubmit={(event: React.FormEvent<HTMLFormElement>) => {
-                void handleCreateCategory(event);
-                dispatch({ type: "SET_ACTIVE_MODAL", payload: null });
-              }}>
-                <label htmlFor="category-name-modal">Category Name</label>
-                <input
-                  id="category-name-modal"
-                  autoFocus
-                  value={categoryName}
-                  onChange={(e) => setCategoryName(e.target.value)}
-                  minLength={2}
-                  maxLength={80}
-                  required
-                />
-                <button type="submit" disabled={creatingCategory}>Create Category</button>
-              </form>
-            )}
-
-            {activeModal === "rename-category" && (
-              <div className="stack">
+              {activeModal === "create-space" && (
                 <form className="stack" onSubmit={(event: React.FormEvent<HTMLFormElement>) => {
-                  void handleRenameCategory(event);
+                  void handleCreateSpace(event);
                   dispatch({ type: "SET_ACTIVE_MODAL", payload: null });
                 }}>
-                  <p>Editing category: <strong>{categories.find(c => c.id === renameCategoryId)?.name}</strong></p>
-                  <label htmlFor="rename-category-modal">Category Name</label>
+                  <label htmlFor="space-name-modal">Space Name</label>
                   <input
-                    id="rename-category-modal"
+                    id="space-name-modal"
                     autoFocus
-                    value={renameCategoryName}
-                    onChange={(e) => dispatch({ type: "SET_RENAME_CATEGORY", payload: { id: renameCategoryId, name: e.target.value } })}
+                    value={spaceName}
+                    onChange={(e) => setSpaceName(e.target.value)}
                     minLength={2}
                     maxLength={80}
                     required
                   />
-                  <button type="submit" disabled={mutatingStructure}>Save Name</button>
+                  <button type="submit" disabled={creatingSpace}>Create Space</button>
                 </form>
+              )}
 
-                <div className="stack" style={{ borderTop: "1px solid var(--border)", paddingTop: "1rem" }}>
-                  <p>Reorder Category</p>
-                  <div style={{ display: "flex", gap: "0.5rem" }}>
+              {activeModal === "rename-space" && (
+                <form className="stack" onSubmit={(event: React.FormEvent<HTMLFormElement>) => {
+                  void handleRenameSpace(event);
+                  dispatch({ type: "SET_ACTIVE_MODAL", payload: null });
+                }}>
+                  <label htmlFor="rename-space-modal">New Space Name</label>
+                  <input
+                    id="rename-space-modal"
+                    autoFocus
+                    value={renameSpaceName}
+                    onChange={(e) => dispatch({ type: "SET_RENAME_SPACE", payload: { id: renameSpaceId, name: e.target.value } })}
+                    minLength={2}
+                    maxLength={80}
+                    required
+                  />
+                  <button type="submit" disabled={mutatingStructure}>Save Changes</button>
+                </form>
+              )}
+
+              {activeModal === "create-category" && (
+                <form className="stack" onSubmit={(event: React.FormEvent<HTMLFormElement>) => {
+                  void handleCreateCategory(event);
+                  dispatch({ type: "SET_ACTIVE_MODAL", payload: null });
+                }}>
+                  <label htmlFor="category-name-modal">Category Name</label>
+                  <input
+                    id="category-name-modal"
+                    autoFocus
+                    value={categoryName}
+                    onChange={(e) => setCategoryName(e.target.value)}
+                    minLength={2}
+                    maxLength={80}
+                    required
+                  />
+                  <button type="submit" disabled={creatingCategory}>Create Category</button>
+                </form>
+              )}
+
+              {activeModal === "rename-category" && (
+                <div className="stack">
+                  <form className="stack" onSubmit={(event: React.FormEvent<HTMLFormElement>) => {
+                    void handleRenameCategory(event);
+                    dispatch({ type: "SET_ACTIVE_MODAL", payload: null });
+                  }}>
+                    <p>Editing category: <strong>{categories.find(c => c.id === renameCategoryId)?.name}</strong></p>
+                    <label htmlFor="rename-category-modal">Category Name</label>
+                    <input
+                      id="rename-category-modal"
+                      autoFocus
+                      value={renameCategoryName}
+                      onChange={(e) => dispatch({ type: "SET_RENAME_CATEGORY", payload: { id: renameCategoryId, name: e.target.value } })}
+                      minLength={2}
+                      maxLength={80}
+                      required
+                    />
+                    <button type="submit" disabled={mutatingStructure}>Save Name</button>
+                  </form>
+
+                  <div className="stack" style={{ borderTop: "1px solid var(--border)", paddingTop: "1rem" }}>
+                    <p>Reorder Category</p>
+                    <div style={{ display: "flex", gap: "0.5rem" }}>
+                      <button
+                        type="button"
+                        disabled={mutatingStructure || categories.findIndex(c => c.id === renameCategoryId) === 0}
+                        onClick={() => moveCategoryPosition(renameCategoryId, "up")}
+                      >
+                        Move Up
+                      </button>
+                      <button
+                        type="button"
+                        disabled={mutatingStructure || categories.findIndex(c => c.id === renameCategoryId) === categories.length - 1}
+                        onClick={() => moveCategoryPosition(renameCategoryId, "down")}
+                      >
+                        Move Down
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="stack" style={{ borderTop: "1px solid var(--border)", paddingTop: "1rem" }}>
+                    <p>Danger Zone</p>
                     <button
                       type="button"
-                      disabled={mutatingStructure || categories.findIndex(c => c.id === renameCategoryId) === 0}
-                      onClick={() => moveCategoryPosition(renameCategoryId, "up")}
+                      className="danger"
+                      disabled={mutatingStructure}
+                      onClick={() => {
+                        const cat = categories.find(c => c.id === renameCategoryId);
+                        if (confirm(`Are you sure you want to delete the category "${cat?.name}"? Rooms inside will become uncategorized.`)) {
+                          void handleDeleteCategory(renameCategoryId);
+                          dispatch({ type: "SET_ACTIVE_MODAL", payload: null });
+                        }
+                      }}
                     >
-                      Move Up
-                    </button>
-                    <button
-                      type="button"
-                      disabled={mutatingStructure || categories.findIndex(c => c.id === renameCategoryId) === categories.length - 1}
-                      onClick={() => moveCategoryPosition(renameCategoryId, "down")}
-                    >
-                      Move Down
+                      Delete Category
                     </button>
                   </div>
                 </div>
+              )}
 
-                <div className="stack" style={{ borderTop: "1px solid var(--border)", paddingTop: "1rem" }}>
-                  <p>Danger Zone</p>
-                  <button
-                    type="button"
-                    className="danger"
-                    disabled={mutatingStructure}
-                    onClick={() => {
-                      const cat = categories.find(c => c.id === renameCategoryId);
-                      if (confirm(`Are you sure you want to delete the category "${cat?.name}"? Rooms inside will become uncategorized.`)) {
-                        void handleDeleteCategory(renameCategoryId);
-                        dispatch({ type: "SET_ACTIVE_MODAL", payload: null });
-                      }
-                    }}
-                  >
-                    Delete Category
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {activeModal === "create-room" && (
-              <form className="stack" onSubmit={(event: React.FormEvent<HTMLFormElement>) => {
-                void handleCreateRoom(event);
-                dispatch({ type: "SET_ACTIVE_MODAL", payload: null });
-              }}>
-                <p>
-                  Target Category: <strong>
-                    {selectedCategoryIdForCreate ? categories.find(c => c.id === selectedCategoryIdForCreate)?.name : "Uncategorized"}
-                  </strong>
-                </p>
-                <label htmlFor="room-name-modal">Room Name</label>
-                <input
-                  id="room-name-modal"
-                  autoFocus
-                  value={roomName}
-                  onChange={(e) => setRoomName(e.target.value)}
-                  minLength={2}
-                  maxLength={80}
-                  required
-                />
-                <label htmlFor="room-type-modal">Type</label>
-                <select id="room-type-modal" value={roomType} onChange={(e) => setRoomType(e.target.value as any)}>
-                  <option value="text">Text Room</option>
-                  <option value="announcement">Announcement Room</option>
-                  <option value="voice">Voice Room</option>
-                </select>
-                <button type="submit" disabled={creatingRoom}>Create Room</button>
-              </form>
-            )}
-
-            {activeModal === "rename-room" && (
-              <div className="stack">
+              {activeModal === "create-room" && (
                 <form className="stack" onSubmit={(event: React.FormEvent<HTMLFormElement>) => {
-                  void handleRenameRoom(event);
+                  void handleCreateRoom(event);
                   dispatch({ type: "SET_ACTIVE_MODAL", payload: null });
                 }}>
-                  <p>Editing room: <strong>{channels.find(c => c.id === renameRoomId)?.name}</strong></p>
-                  <label htmlFor="rename-room-modal">Room Name</label>
+                  <p>
+                    Target Category: <strong>
+                      {selectedCategoryIdForCreate ? categories.find(c => c.id === selectedCategoryIdForCreate)?.name : "Uncategorized"}
+                    </strong>
+                  </p>
+                  <label htmlFor="room-name-modal">Room Name</label>
                   <input
-                    id="rename-room-modal"
+                    id="room-name-modal"
                     autoFocus
-                    value={renameRoomName}
-                    onChange={(e) => dispatch({ type: "SET_RENAME_ROOM", payload: { id: renameRoomId, name: e.target.value, type: renameRoomType, categoryId: renameRoomCategoryId } })}
+                    value={roomName}
+                    onChange={(e) => setRoomName(e.target.value)}
                     minLength={2}
                     maxLength={80}
                     required
                   />
-
-                  <label htmlFor="rename-room-type">Type</label>
-                  <select
-                    id="rename-room-type"
-                    value={renameRoomType}
-                    onChange={(e) => dispatch({ type: "SET_RENAME_ROOM", payload: { id: renameRoomId, name: renameRoomName, type: e.target.value as any, categoryId: renameRoomCategoryId } })}
-                  >
+                  <label htmlFor="room-type-modal">Type</label>
+                  <select id="room-type-modal" value={roomType} onChange={(e) => setRoomType(e.target.value as any)}>
                     <option value="text">Text Room</option>
                     <option value="announcement">Announcement Room</option>
                     <option value="voice">Voice Room</option>
                   </select>
-
-                  <label htmlFor="rename-room-category">Category</label>
-                  <select
-                    id="rename-room-category"
-                    value={renameRoomCategoryId ?? ""}
-                    onChange={(e) => dispatch({ type: "SET_RENAME_ROOM", payload: { id: renameRoomId, name: renameRoomName, type: renameRoomType, categoryId: e.target.value || null } })}
-                  >
-                    <option value="">(None)</option>
-                    {categories.map(c => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
-
-                  <button type="submit" disabled={mutatingStructure}>Save Changes</button>
+                  <button type="submit" disabled={creatingRoom}>Create Room</button>
                 </form>
+              )}
 
-                <div className="stack" style={{ borderTop: "1px solid var(--border)", paddingTop: "1rem" }}>
-                  <p>Reorder Room</p>
-                  <div style={{ display: "flex", gap: "0.5rem" }}>
-                    <button
-                      type="button"
-                      disabled={mutatingStructure || (() => {
-                        const channel = channels.find(c => c.id === renameRoomId);
-                        if (!channel) return true;
-                        const peers = channels.filter(c => c.categoryId === channel.categoryId)
-                          .sort((a, b) => a.position - b.position || a.createdAt.localeCompare(b.createdAt));
-                        return peers.findIndex(c => c.id === renameRoomId) === 0;
-                      })()}
-                      onClick={() => moveChannelPosition(renameRoomId, "up")}
+              {activeModal === "rename-room" && (
+                <div className="stack">
+                  <form className="stack" onSubmit={(event: React.FormEvent<HTMLFormElement>) => {
+                    void handleRenameRoom(event);
+                    dispatch({ type: "SET_ACTIVE_MODAL", payload: null });
+                  }}>
+                    <p>Editing room: <strong>{channels.find(c => c.id === renameRoomId)?.name}</strong></p>
+                    <label htmlFor="rename-room-modal">Room Name</label>
+                    <input
+                      id="rename-room-modal"
+                      autoFocus
+                      value={renameRoomName}
+                      onChange={(e) => dispatch({ type: "SET_RENAME_ROOM", payload: { id: renameRoomId, name: e.target.value, type: renameRoomType, categoryId: renameRoomCategoryId } })}
+                      minLength={2}
+                      maxLength={80}
+                      required
+                    />
+
+                    <label htmlFor="rename-room-type">Type</label>
+                    <select
+                      id="rename-room-type"
+                      value={renameRoomType}
+                      onChange={(e) => dispatch({ type: "SET_RENAME_ROOM", payload: { id: renameRoomId, name: renameRoomName, type: e.target.value as any, categoryId: renameRoomCategoryId } })}
                     >
-                      Move Up
-                    </button>
-                    <button
-                      type="button"
-                      disabled={mutatingStructure || (() => {
-                        const channel = channels.find(c => c.id === renameRoomId);
-                        if (!channel) return true;
-                        const peers = channels.filter(c => c.categoryId === channel.categoryId)
-                          .sort((a, b) => a.position - b.position || a.createdAt.localeCompare(b.createdAt));
-                        return peers.findIndex(c => c.id === renameRoomId) === peers.length - 1;
-                      })()}
-                      onClick={() => moveChannelPosition(renameRoomId, "down")}
+                      <option value="text">Text Room</option>
+                      <option value="announcement">Announcement Room</option>
+                      <option value="voice">Voice Room</option>
+                    </select>
+
+                    <label htmlFor="rename-room-category">Category</label>
+                    <select
+                      id="rename-room-category"
+                      value={renameRoomCategoryId ?? ""}
+                      onChange={(e) => dispatch({ type: "SET_RENAME_ROOM", payload: { id: renameRoomId, name: renameRoomName, type: renameRoomType, categoryId: e.target.value || null } })}
                     >
-                      Move Down
-                    </button>
+                      <option value="">(None)</option>
+                      {categories.map(c => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+
+                    <button type="submit" disabled={mutatingStructure}>Save Changes</button>
+                  </form>
+
+                  <div className="stack" style={{ borderTop: "1px solid var(--border)", paddingTop: "1rem" }}>
+                    <p>Reorder Room</p>
+                    <div style={{ display: "flex", gap: "0.5rem" }}>
+                      <button
+                        type="button"
+                        disabled={mutatingStructure || (() => {
+                          const channel = channels.find(c => c.id === renameRoomId);
+                          if (!channel) return true;
+                          const peers = channels.filter(c => c.categoryId === channel.categoryId)
+                            .sort((a, b) => a.position - b.position || a.createdAt.localeCompare(b.createdAt));
+                          return peers.findIndex(c => c.id === renameRoomId) === 0;
+                        })()}
+                        onClick={() => moveChannelPosition(renameRoomId, "up")}
+                      >
+                        Move Up
+                      </button>
+                      <button
+                        type="button"
+                        disabled={mutatingStructure || (() => {
+                          const channel = channels.find(c => c.id === renameRoomId);
+                          if (!channel) return true;
+                          const peers = channels.filter(c => c.categoryId === channel.categoryId)
+                            .sort((a, b) => a.position - b.position || a.createdAt.localeCompare(b.createdAt));
+                          return peers.findIndex(c => c.id === renameRoomId) === peers.length - 1;
+                        })()}
+                        onClick={() => moveChannelPosition(renameRoomId, "down")}
+                      >
+                        Move Down
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
-      {userContextMenu && (
-        <ContextMenu
-          x={userContextMenu.x}
-          y={userContextMenu.y}
-          items={userContextMenuItems}
-          onClose={() => setUserContextMenu(null)}
-        />
-      )}
+      {
+        userContextMenu && (
+          <ContextMenu
+            x={userContextMenu.x}
+            y={userContextMenu.y}
+            items={userContextMenuItems}
+            onClose={() => setUserContextMenu(null)}
+          />
+        )
+      }
 
       {activeModal === "profile" && <ProfileModal />}
-    </main>
+    </main >
   );
 }

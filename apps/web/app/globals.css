@@ -727,49 +727,43 @@ textarea:focus-visible,
 }
 
 .discord-badge-container {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: help;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: help;
 }
 
 .discord-badge {
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    background: #5865F2;
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    transition: transform 0.2s ease, background 0.2s ease;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #5865F2;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease, background 0.2s ease;
 }
 
 .discord-badge:hover {
-    transform: scale(1.1);
-    background: #4752C4;
+  transform: scale(1.1);
+  background: #4752C4;
 }
 
-.channel-controls {
-  border: 1px solid var(--border);
-  border-radius: 0.65rem;
-  padding: 0.75rem;
-  background: #fff7ea;
-  display: grid;
-  gap: 0.6rem;
+.scrollable-pane {
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
 }
 
-.controls-row {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  flex-wrap: wrap;
+.scrollable-pane::-webkit-scrollbar {
+  width: 5px;
 }
 
-.controls-form label {
-  font-size: 0.82rem;
-  color: var(--text-muted);
+.scrollable-pane::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 10px;
 }
 
 .messages {
@@ -1024,18 +1018,28 @@ textarea:focus-visible,
 
 .member-dot[data-online="true"] {
   background: #2d9c73;
-  box-shadow: 0 0 4px rgba(45, 156, 115, 0.4);
+  box-shadow: 0 0 6px rgba(45, 156, 115, 0.4);
 }
 
 .bridged-badge {
-  font-size: 0.65rem;
   background: #5865F2;
   color: white;
-  padding: 1px 4px;
-  border-radius: 3px;
-  margin-left: 4px;
-  font-weight: 600;
+  font-size: 0.62rem;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  margin-left: auto;
+  flex-shrink: 0;
   vertical-align: middle;
+}
+
+.member-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.9rem;
 }
 
 .sr-only {
@@ -1756,7 +1760,7 @@ textarea:focus-visible,
   font-size: 0.9rem;
 }
 
-.data-table th, 
+.data-table th,
 .data-table td {
   padding: 1rem;
   border-bottom: 1px solid var(--border);
@@ -1833,8 +1837,15 @@ textarea:focus-visible,
 }
 
 @keyframes slide-up {
-  from { transform: translateY(20px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 .bulk-actions-group {

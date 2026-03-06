@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { fetchChannelSettings, updateChannelSettings } from "../../../../lib/control-plane";
+import { fetchChannelSettings, updateChannelSettings, updateChannelControls } from "../../../../lib/control-plane";
+
 import { useChat } from "../../../../context/chat-context";
 import { useToast } from "../../../../components/toast-provider";
 
@@ -38,12 +39,26 @@ export default function RoomSettingsPage() {
         if (!channelId || !channel?.serverId || !settings) return;
         setSaving(true);
         try {
+            // Update general settings
             await updateChannelSettings(channelId, {
-                ...settings,
+                restrictedVisibility: settings.restrictedVisibility,
+                allowedRoleIds: settings.allowedRoleIds,
                 serverId: channel.serverId
             });
+
+            // Update moderation-style controls if they changed
+            // We use a default reason since this is a settings update
+            await updateChannelControls({
+                channelId,
+                serverId: channel.serverId,
+                lock: settings.isLocked,
+                slowModeSeconds: Number(settings.slowModeSeconds),
+                reason: "Updated via Channel Settings"
+            });
+
             showToast("Room settings saved", "success");
         } catch (err) {
+            console.error(err);
             showToast("Failed to save room settings", "error");
         } finally {
             setSaving(false);
@@ -110,6 +125,32 @@ export default function RoomSettingsPage() {
                         <p className="settings-description">Enter role IDs separated by commas.</p>
                     </section>
                 )}
+
+                <section className="settings-row" style={{ marginTop: '1.5rem' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }}>
+                        <input
+                            type="checkbox"
+                            checked={settings?.isLocked || false}
+                            onChange={(e) => setSettings({ ...settings, isLocked: e.target.checked })}
+                            style={{ width: '1.2rem', height: '1.2rem' }}
+                        />
+                        <span>Locked Channel</span>
+                    </label>
+                    <p className="settings-description">When locked, users without appropriate permissions cannot send messages.</p>
+                </section>
+
+                <section className="settings-row" style={{ marginTop: '1.5rem' }}>
+                    <label>Slow Mode (seconds)</label>
+                    <input
+                        type="number"
+                        className="filter-input"
+                        min={0}
+                        max={600}
+                        value={settings?.slowModeSeconds ?? 0}
+                        onChange={(e) => setSettings({ ...settings, slowModeSeconds: parseInt(e.target.value) || 0 })}
+                    />
+                    <p className="settings-description">Restricts how often users can send messages (0-600 seconds).</p>
+                </section>
 
                 <button
                     onClick={handleSave}
