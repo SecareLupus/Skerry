@@ -973,10 +973,23 @@ export async function listChannelMembers(channelId: string, viewerUserId?: strin
       []
     );
     const discordToLocal = new Map(discordAuthMappings.rows.map(r => [r.oidc_subject, r.product_user_id]));
+    const localToDiscord = new Map(discordAuthMappings.rows.map(r => [r.product_user_id, r.oidc_subject]));
 
     if (mapping) {
       try {
         const discordPresences = await getDiscordGuildPresence(mapping.guildId);
+
+        // Merge Discord presence into local users who are linked
+        for (const member of localMembers) {
+          const discordId = localToDiscord.get(member.productUserId);
+          if (discordId) {
+            const dp = discordPresences[discordId];
+            if (dp && dp.status !== 'offline') {
+              member.isOnline = true;
+              member.bridgedUserStatus = dp.status;
+            }
+          }
+        }
 
         // Group 2: Online on Discord AND not mapped to any local account
         for (const [discordId, p] of Object.entries(discordPresences)) {

@@ -1744,6 +1744,7 @@ export function ChatClient() {
                           <span
                             className="member-dot"
                             data-online={member.isOnline}
+                            data-status={member.bridgedUserStatus}
                           />
                           <span className="member-name">{member.displayName}</span>
                           {member.isBridged && (

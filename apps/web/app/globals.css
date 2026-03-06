@@ -225,6 +225,16 @@ body {
   animation: status-pulse 2s infinite;
 }
 
+.status-dot[data-status="idle"] {
+  background: #f1c40f;
+  box-shadow: 0 0 8px rgba(241, 196, 15, 0.5);
+}
+
+.status-dot[data-status="dnd"] {
+  background: #e74c3c;
+  box-shadow: 0 0 8px rgba(231, 76, 60, 0.5);
+}
+
 .status-dot[data-state="polling"] {
   background: #f39c12;
 }
@@ -1019,6 +1029,16 @@ textarea:focus-visible,
 .member-dot[data-online="true"] {
   background: #2d9c73;
   box-shadow: 0 0 6px rgba(45, 156, 115, 0.4);
+}
+
+.member-dot[data-status="idle"] {
+  background: #f1c40f;
+  box-shadow: 0 0 6px rgba(241, 196, 15, 0.4);
+}
+
+.member-dot[data-status="dnd"] {
+  background: #e74c3c;
+  box-shadow: 0 0 6px rgba(231, 76, 60, 0.4);
 }
 
 .bridged-badge {

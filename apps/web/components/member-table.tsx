@@ -30,11 +30,11 @@ export default function MemberTable({ serverId, hubId, members, onRefresh }: Mem
 
   const filteredMembers = useMemo(() => {
     return members.filter(m => {
-      const matchesSearch = m.displayName.toLowerCase().includes(search.toLowerCase()) || 
-                           m.productUserId.toLowerCase().includes(search.toLowerCase());
-      const matchesFilter = filter === "all" || 
-                           (filter === "discord" && m.isBridged) || 
-                           (filter === "skerry" && !m.isBridged);
+      const matchesSearch = m.displayName.toLowerCase().includes(search.toLowerCase()) ||
+        m.productUserId.toLowerCase().includes(search.toLowerCase());
+      const matchesFilter = filter === "all" ||
+        (filter === "discord" && m.isBridged) ||
+        (filter === "skerry" && !m.isBridged);
       return matchesSearch && matchesFilter;
     });
   }, [members, search, filter]);
@@ -86,7 +86,7 @@ export default function MemberTable({ serverId, hubId, members, onRefresh }: Mem
 
   const handleIndividualAction = async (userId: string, action: "kick" | "ban" | "unban" | "timeout") => {
     if (!serverId) return;
-    
+
     const reason = window.prompt(`Reason for ${action}:`, `Moderation action by administrator`);
     if (reason === null) return;
 
@@ -110,16 +110,16 @@ export default function MemberTable({ serverId, hubId, members, onRefresh }: Mem
   return (
     <div className="settings-section">
       <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-        <input 
-          type="text" 
-          placeholder="Search members..." 
+        <input
+          type="text"
+          placeholder="Search members..."
           className="filter-input"
           style={{ flex: 1, marginBottom: 0 }}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-        <select 
-          className="filter-input" 
+        <select
+          className="filter-input"
           style={{ width: '160px', marginBottom: 0 }}
           value={filter}
           onChange={(e) => setFilter(e.target.value as any)}
@@ -135,8 +135,8 @@ export default function MemberTable({ serverId, hubId, members, onRefresh }: Mem
           <thead>
             <tr>
               <th style={{ width: '40px' }}>
-                <input 
-                  type="checkbox" 
+                <input
+                  type="checkbox"
                   checked={filteredMembers.length > 0 && selectedIds.size === filteredMembers.length}
                   onChange={toggleSelectAll}
                 />
@@ -151,17 +151,17 @@ export default function MemberTable({ serverId, hubId, members, onRefresh }: Mem
             {filteredMembers.map((member) => (
               <tr key={member.productUserId}>
                 <td>
-                  <input 
-                    type="checkbox" 
+                  <input
+                    type="checkbox"
                     checked={selectedIds.has(member.productUserId)}
                     onChange={() => toggleSelect(member.productUserId)}
                   />
                 </td>
                 <td>
                   <div className="member-cell">
-                    <img 
+                    <img
                       src={member.avatarUrl || `https://api.dicebear.com/7.x/identicon/svg?seed=${member.productUserId}`}
-                      className="member-avatar" 
+                      className="member-avatar"
                       alt=""
                     />
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -177,28 +177,33 @@ export default function MemberTable({ serverId, hubId, members, onRefresh }: Mem
                 </td>
                 <td>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <div 
-                      className="status-dot" 
+                    <div
+                      className="status-dot"
                       data-state={member.isOnline ? "live" : "disconnected"}
+                      data-status={member.bridgedUserStatus}
                     />
                     <span style={{ fontSize: '0.85rem' }}>
-                      {member.isOnline ? 'Online' : (member.bridgedUserStatus || 'Offline')}
+                      {member.isOnline
+                        ? (member.bridgedUserStatus
+                          ? (member.bridgedUserStatus === 'dnd' ? 'Do Not Disturb' : member.bridgedUserStatus.charAt(0).toUpperCase() + member.bridgedUserStatus.slice(1))
+                          : 'Online')
+                        : 'Offline'}
                     </span>
                   </div>
                 </td>
                 <td style={{ textAlign: 'right' }}>
                   {serverId && (
                     <div style={{ display: 'inline-flex', gap: '0.5rem' }}>
-                      <button 
-                        className="ghost" 
+                      <button
+                        className="ghost"
                         style={{ padding: '0.3rem 0.6rem', fontSize: '0.8rem' }}
                         onClick={() => handleIndividualAction(member.productUserId, "kick")}
                         disabled={modifying}
                       >
                         Kick
                       </button>
-                      <button 
-                        className="ghost" 
+                      <button
+                        className="ghost"
                         style={{ padding: '0.3rem 0.6rem', fontSize: '0.8rem', color: 'var(--danger)' }}
                         onClick={() => handleIndividualAction(member.productUserId, "ban")}
                         disabled={modifying}
@@ -227,14 +232,14 @@ export default function MemberTable({ serverId, hubId, members, onRefresh }: Mem
               <button className="ghost" onClick={() => setSelectedIds(new Set())}>Clear</button>
             </div>
             <div className="bulk-actions-group">
-              <button 
-                className="ghost" 
+              <button
+                className="ghost"
                 onClick={() => handleBulkAction("kick")}
                 disabled={modifying}
               >
                 Bulk Kick
               </button>
-              <button 
+              <button
                 style={{ background: 'var(--danger)' }}
                 onClick={() => handleBulkAction("ban")}
                 disabled={modifying}
