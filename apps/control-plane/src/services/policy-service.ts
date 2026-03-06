@@ -144,7 +144,7 @@ export function bindingMatchesScope(binding: RoleBinding, scope: Scope): boolean
 }
 
 export function bindingAllowsAction(binding: RoleBinding, action: PrivilegedAction): boolean {
-  return permissionMatrix[binding.role].includes(action);
+  return (permissionMatrix[binding.role] || []).includes(action);
 }
 
 export async function grantRole(input: {
@@ -416,7 +416,7 @@ export async function listAllowedActions(input: {
         continue;
       }
 
-      for (const action of permissionMatrix[binding.role]) {
+      for (const action of (permissionMatrix[binding.role] || [])) {
         actions.add(action);
       }
     }

@@ -301,6 +301,9 @@ export interface ChatMessage {
     attachments?: Attachment[];
     reactions?: Reaction[];
     isRelay?: boolean;
+    externalProvider?: string;
+    externalAuthorName?: string;
+    externalAuthorAvatarUrl?: string;
     createdAt: string;
     updatedAt?: string;
     deletedAt?: string;

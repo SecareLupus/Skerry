@@ -608,8 +608,8 @@ export function ChatWindow({
                                         <strong
                                             className="author-name"
                                             style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: "0.4rem" }}
-                                            onClick={(e) => handleUserContextMenu(e, message.authorUserId, message.authorDisplayName)}
-                                            onContextMenu={(e) => handleUserContextMenu(e, message.authorUserId, message.authorDisplayName)}
+                                            onClick={(e) => handleUserContextMenu(e, message.authorUserId, message.externalAuthorName || message.authorDisplayName)}
+                                            onContextMenu={(e) => handleUserContextMenu(e, message.authorUserId, message.externalAuthorName || message.authorDisplayName)}
                                         >
                                             {message.isRelay && (
                                                 <div className="discord-relay-badge" title="Relayed from Discord" style={{ color: "#5865F2", display: "flex", alignItems: "center" }}>
@@ -618,7 +618,7 @@ export function ChatWindow({
                                                     </svg>
                                                 </div>
                                             )}
-                                            {message.authorDisplayName}
+                                            {message.externalAuthorName || message.authorDisplayName}
                                         </strong>
                                         <time dateTime={message.createdAt}>{formatMessageTime(message.createdAt)}</time>
                                     </header>
@@ -671,7 +671,7 @@ export function ChatWindow({
                                                             <video src={att.url} autoPlay loop muted playsInline style={{ maxWidth: "100%", borderRadius: "4px", display: "block", cursor: "pointer" }} />
                                                         ) : (
                                                             <div className="attachment-link" style={{ background: "var(--bg-accent)", padding: "0.5rem", borderRadius: "4px", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" /></svg>
                                                                 <span style={{ fontSize: "0.9rem", color: "var(--text-primary)" }}>{att.filename}</span>
                                                             </div>
                                                         )}
@@ -792,8 +792,8 @@ export function ChatWindow({
                             {attachments.map((att) => (
                                 <div key={att.id} className="attachment-preview" style={{ position: "relative", width: "60px", height: "60px" }}>
                                     <img src={att.url} alt="Preview" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "4px" }} />
-                                    <button 
-                                        type="button" 
+                                    <button
+                                        type="button"
                                         onClick={() => setAttachments(prev => prev.filter(p => p.id !== att.id))}
                                         style={{ position: "absolute", top: "-5px", right: "-5px", background: "rgba(0,0,0,0.5)", color: "white", border: "none", borderRadius: "50%", width: "18px", height: "18px", cursor: "pointer", fontSize: "12px", display: "flex", alignItems: "center", justifyContent: "center" }}
                                     >

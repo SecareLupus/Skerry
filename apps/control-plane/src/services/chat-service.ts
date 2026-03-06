@@ -197,6 +197,9 @@ export async function listMessages(input: {
       content: string;
       attachments: any;
       is_relay: boolean;
+      external_provider: string | null;
+      external_author_name: string | null;
+      external_author_avatar_url: string | null;
       created_at: string;
       updated_at?: string;
       deleted_at?: string;
@@ -265,6 +268,9 @@ export async function listMessages(input: {
         attachments: row.attachments,
         reactions: Object.values(reactionsByEmoji),
         isRelay: row.is_relay,
+        externalProvider: row.external_provider ?? undefined,
+        externalAuthorName: row.external_author_name ?? undefined,
+        externalAuthorAvatarUrl: row.external_author_avatar_url ?? undefined,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
         deletedAt: row.deleted_at
@@ -382,6 +388,9 @@ export async function createMessage(input: {
         attachments: row.attachments,
         reactions: [],
         isRelay: row.is_relay,
+        externalProvider: row.external_provider ?? undefined,
+        externalAuthorName: row.external_author_name ?? undefined,
+        externalAuthorAvatarUrl: row.external_author_avatar_url ?? undefined,
         createdAt: row.created_at
       };
 
