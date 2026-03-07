@@ -307,7 +307,12 @@ export async function relayMatrixMessageToDiscord(input: {
             } as any);
 
             const newThreadId = (result as any).thread?.id || (result as any).channelId;
-            console.log(`[Discord Bridge] Webhook sent to forum. New Thread ID: ${newThreadId}`);
+            console.log(`[Discord Bridge] Webhook Result (Forum):`, JSON.stringify({
+                id: (result as any).id,
+                channelId: (result as any).channelId,
+                threadId: (result as any).thread?.id,
+                newThreadId
+            }));
 
             if (input.messageId && newThreadId) {
                 await withDb(async (db) => {
@@ -350,6 +355,12 @@ export async function relayMatrixMessageToDiscord(input: {
             threadId: finalThreadId,
             wait: true
         } as any);
+
+        console.log(`[Discord Bridge] Webhook Result (Regular/Reply):`, JSON.stringify({
+            id: (result as any).id,
+            channelId: (result as any).channelId,
+            finalThreadId
+        }));
 
         if (input.messageId && result) {
             await withDb(async (db) => {

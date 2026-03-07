@@ -340,17 +340,21 @@ export async function createMessage(input: {
 
       // Automatically resolve parentId from externalThreadId if not provided
       if (!input.parentId && input.externalThreadId) {
+        console.log(`[Bridge] Attempting to resolve parent for external ID ${input.externalThreadId} in channel ${input.channelId}`);
         // Find a candidate parent (either the root starter or a reply in the same thread)
+        // We lift the channel_id constraint because external IDs are unique per provider, 
+        // and sometimes the internal channel mapping might be slightly off for threads.
         const parentCandidate = await db.query<{ id: string, parent_id: string | null }>(
           `select id, parent_id from chat_messages 
-           where channel_id = $1 
-           and (external_thread_id = $2 or external_message_id = $2) 
+           where (external_thread_id = $1 or external_message_id = $1) 
+           and external_provider = $2
            order by created_at asc limit 1`,
-          [input.channelId, input.externalThreadId]
+          [input.externalThreadId, input.externalProvider || 'discord']
         );
 
         const firstMatch = parentCandidate.rows[0];
         if (firstMatch) {
+          console.log(`[Bridge] Found candidate match ${firstMatch.id} for external ID ${input.externalThreadId}`);
           let root: { id: string; parent_id: string | null } = { id: firstMatch.id, parent_id: firstMatch.parent_id };
           // If we found a message but it has a parent, traverse up to the absolute root of this Skerry thread
           // This ensures a flat thread structure in Skerry even for nested Discord replies.
@@ -369,6 +373,9 @@ export async function createMessage(input: {
             }
           }
           input.parentId = root.id;
+          console.log(`[Bridge] Resolved root parent ${input.parentId} (depth ${depth})`);
+        } else {
+          console.warn(`[Bridge] Failed to find parent matching external ID ${input.externalThreadId}`);
         }
       }
 
