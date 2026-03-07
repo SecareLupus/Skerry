@@ -41,7 +41,7 @@ export default function BridgeManager({ serverId, hubId, returnTo }: BridgeManag
     const [discordChannelName, setDiscordChannelName] = useState("");
     const [matrixChannelId, setMatrixChannelId] = useState("");
     const [hubDisabled, setHubDisabled] = useState(false);
-    const [availableDiscordChannels, setAvailableDiscordChannels] = useState<Array<{ id: string; name: string }>>([]);
+    const [availableDiscordChannels, setAvailableDiscordChannels] = useState<Array<{ id: string; name: string; type: number }>>([]);
 
     useEffect(() => {
         const urlParams = new URLSearchParams(window.location.search);
@@ -294,11 +294,21 @@ export default function BridgeManager({ serverId, hubId, returnTo }: BridgeManag
                                 className="filter-input"
                             >
                                 <option value="">Select a room...</option>
-                                {channels.map((channel) => (
-                                    <option key={channel.id} value={channel.id}>
-                                        {channel.name}
-                                    </option>
-                                ))}
+                                {channels
+                                    .filter(channel => {
+                                        const discordChan = availableDiscordChannels.find(c => c.id === discordChannelId);
+                                        // If Discord Forum is selected, filter Skerry rooms to forum type
+                                        if (discordChan?.type === 15) { // 15 = GuildForum in discord.js
+                                            return (channel.type as string) === "forum";
+                                        }
+                                        // Otherwise, hide Forum rooms from normal mapping to keep things clean
+                                        return (channel.type as string) !== "forum" && channel.type !== "voice";
+                                    })
+                                    .map((channel) => (
+                                        <option key={channel.id} value={channel.id}>
+                                            {channel.name}
+                                        </option>
+                                    ))}
                             </select>
                         </div>
                         <button type="submit" disabled={busy} className="secondary" style={{ marginTop: '1rem', alignSelf: 'start' }}>

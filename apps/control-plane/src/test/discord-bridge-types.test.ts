@@ -2,7 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { buildApp } from "../app.js";
 
+import { config } from "../config.js";
+
 test("list channels includes forums and threads in mock mode", async () => {
+    config.discordBridge.mockMode = true;
     const app = await buildApp();
     // We need a server with a connection. In mock mode, many things are bypassed or return defaults.
     // The endpoint is GET /discord-bridge/:serverId/channels

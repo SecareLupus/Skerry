@@ -5,7 +5,7 @@ import { useChat, MessageItem } from "../context/chat-context";
 import type { ChatMessage, ModerationActionType } from "@skerry/shared";
 import { getChannelName } from "../lib/channel-utils";
 import { ContextMenu, ContextMenuItem } from "./context-menu";
-import { performModerationAction, createReport, uploadMedia, updateMessage, addReaction, removeReaction, deleteMessage, listChannelMembers, inviteToChannel, updateChannel, searchUsers } from "../lib/control-plane";
+import { performModerationAction, createReport, uploadMedia, updateMessage, addReaction, removeReaction, deleteMessage, listChannelMembers, inviteToChannel, updateChannel, searchUsers, formatMessageTime } from "../lib/control-plane";
 import dynamic from "next/dynamic";
 
 // @ts-ignore - emoji-picker-react types mismatch with Next.js dynamic
@@ -39,10 +39,6 @@ interface ChatWindowProps {
     refreshChatState: (serverId?: string, channelId?: string) => Promise<void>;
 }
 
-function formatMessageTime(value: string): string {
-    const date = new Date(value);
-    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-}
 
 export function ChatWindow({
     handleSendMessage,
@@ -98,6 +94,13 @@ export function ChatWindow({
     const [attachments, setAttachments] = useState<any[]>([]);
     const [newTopic, setNewTopic] = useState("");
     const [isInviting, setIsInviting] = useState(false);
+
+    const handleQuoteReply = useCallback((message: MessageItem) => {
+        const author = message.externalAuthorName || message.authorDisplayName;
+        const quote = `> @${author}: ${message.content}\n`;
+        setDraftMessage(prev => quote + prev);
+        messageInputRef.current?.focus();
+    }, [setDraftMessage, messageInputRef]);
     const [userSearchQuery, setUserSearchQuery] = useState("");
     const [userSearchResults, setUserSearchResults] = useState<any[]>([]);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -740,7 +743,13 @@ export function ChatWindow({
                                         <button
                                             type="button"
                                             className="thread-reply-btn"
-                                            onClick={() => dispatch({ type: "SET_THREAD_PARENT_ID", payload: message.id })}
+                                            onClick={() => {
+                                                if ((activeChannelData?.type as string) === "forum") {
+                                                    dispatch({ type: "SET_THREAD_PARENT_ID", payload: message.id });
+                                                } else {
+                                                    handleQuoteReply(message);
+                                                }
+                                            }}
                                             style={{ marginTop: "0.25rem", fontSize: "0.85rem", opacity: 0, transition: "opacity 0.2s", color: "var(--text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
                                         >
                                             Reply

@@ -1,6 +1,6 @@
 export type Role = "hub_admin" | "space_owner" | "space_moderator" | "user";
 
-export type ChannelType = "text" | "voice" | "announcement" | "dm";
+export type ChannelType = "text" | "voice" | "announcement" | "dm" | "forum";
 
 export type ModerationActionType =
     | "kick"

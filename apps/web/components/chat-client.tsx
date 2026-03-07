@@ -840,7 +840,7 @@ export function ChatClient() {
 
       dispatch({ type: "SET_REALTIME_STATE", payload: "polling" });
       pollInterval = setInterval(() => {
-        void listMessages(selectedChannelId)
+        void listMessages(selectedChannelId, null)
           .then((next: MessageItem[]) => {
             dispatch({
               type: "UPDATE_MESSAGES",
@@ -900,11 +900,21 @@ export function ChatClient() {
             if (current.some((item: MessageItem) => item.id === message.id)) {
               return current;
             }
+            if (message.parentId) {
+              // It's a reply. Find the parent and update its reply count.
+              return current.map(item => {
+                if (item.id === message.parentId) {
+                  return { ...item, repliesCount: (item.repliesCount || 0) + 1 };
+                }
+                return item;
+              });
+            }
+            // Root message: add it to the list
             return [...current, message];
           }
         });
         // If we are already at the bottom of the channel where message was received
-        if (state.selectedChannelId === message.channelId && state.isNearBottom) {
+        if (state.selectedChannelId === message.channelId && state.isNearBottom && !message.parentId) {
           void markChannelAsRead(message.channelId);
         }
       },
@@ -1839,46 +1849,44 @@ export function ChatClient() {
                           Manage Channel Settings
                         </Link>
                       </div>
-                    )
-                    }
+                    )}
 
-                    {
-                      activeChannel.type === "voice" ? (
-                        <>
-                          <hr />
-                          <h3>Voice Controls</h3>
+                    {activeChannel.type === "voice" ? (
+                      <>
+                        <hr />
+                        <h3>Voice Controls</h3>
+                        <p className="context-line">
+                          <strong>Status:</strong> {voiceConnected ? "Connected" : "Disconnected"}
+                        </p>
+                        {voiceGrant ? (
                           <p className="context-line">
-                            <strong>Status:</strong> {voiceConnected ? "Connected" : "Disconnected"}
+                            <strong>Voice Room:</strong> {voiceGrant.sfuRoomId}
                           </p>
-                          {voiceGrant ? (
-                            <p className="context-line">
-                              <strong>Voice Room:</strong> {voiceGrant.sfuRoomId}
-                            </p>
-                          ) : null}
-                          <div className="voice-actions">
-                            {!voiceConnected ? (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  void handleJoinVoice();
-                                }}
-                              >
-                                Join Voice
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                className="ghost"
-                                onClick={() => {
-                                  void handleLeaveVoice();
-                                }}
-                              >
-                                Leave Voice
-                              </button>
-                            )}
-                          </div>
-                        </>
-                      ) : null
+                        ) : null}
+                        <div className="voice-actions">
+                          {!voiceConnected ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                void handleJoinVoice();
+                              }}
+                            >
+                              Join Voice
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              className="ghost"
+                              onClick={() => {
+                                void handleLeaveVoice();
+                              }}
+                            >
+                              Leave Voice
+                            </button>
+                          )}
+                        </div>
+                      </>
+                    ) : null
                     }
                   </>
                 ) : (
@@ -2094,6 +2102,7 @@ export function ChatClient() {
                   <select id="room-type-modal" value={roomType} onChange={(e) => setRoomType(e.target.value as any)}>
                     <option value="text">Text Room</option>
                     <option value="announcement">Announcement Room</option>
+                    <option value="forum">Forum Room</option>
                     <option value="voice">Voice Room</option>
                   </select>
                   <button type="submit" disabled={creatingRoom}>Create Room</button>
@@ -2126,6 +2135,7 @@ export function ChatClient() {
                     >
                       <option value="text">Text Room</option>
                       <option value="announcement">Announcement Room</option>
+                      <option value="forum">Forum Room</option>
                       <option value="voice">Voice Room</option>
                     </select>
 

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useRef, useMemo } from "react";
 import { useChat, MessageItem } from "../context/chat-context";
-import { listMessages, sendMessage, uploadMedia, formatMessageTime } from "../lib/control-plane";
+import { listMessages, sendMessage, uploadMedia, formatMessageTime, connectMessageStream } from "../lib/control-plane";
 import { useToast } from "./toast-provider";
 
 export function ThreadPanel() {
@@ -40,6 +40,31 @@ export function ThreadPanel() {
             })
             .finally(() => setLoading(false));
     }, [threadParentId, selectedChannelId, state.messages]);
+
+    useEffect(() => {
+        if (!threadParentId || !selectedChannelId) return;
+
+        const disconnect = connectMessageStream(selectedChannelId, {
+            onMessageCreated: (message) => {
+                if (message.parentId === threadParentId) {
+                    setReplies(prev => {
+                        if (prev.some(r => r.id === message.id)) return prev;
+                        return [...prev, message];
+                    });
+                }
+            },
+            onMessageUpdated: (message) => {
+                if (message.parentId === threadParentId) {
+                    setReplies(prev => prev.map(r => r.id === message.id ? message : r));
+                }
+            },
+            onMessageDeleted: (messageId) => {
+                setReplies(prev => prev.filter(r => r.id !== messageId));
+            }
+        });
+
+        return () => disconnect();
+    }, [threadParentId, selectedChannelId]);
 
     useEffect(() => {
         if (scrollRef.current) {

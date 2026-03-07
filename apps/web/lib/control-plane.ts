@@ -832,8 +832,8 @@ export async function fetchDiscordBridgeHealth(serverId: string): Promise<{
   return apiFetch(`/v1/discord/bridge/${encodeURIComponent(serverId)}/health`);
 }
 
-export async function listDiscordBridgeGuildChannels(serverId: string): Promise<Array<{ id: string; name: string }>> {
-  const res = await apiFetch<{ items: Array<{ id: string; name: string }> }>(
+export async function listDiscordBridgeGuildChannels(serverId: string): Promise<Array<{ id: string; name: string; type: number }>> {
+  const res = await apiFetch<{ items: Array<{ id: string; name: string; type: number }> }>(
     `/v1/discord/bridge/${encodeURIComponent(serverId)}/guild-channels`
   );
   return res.items;

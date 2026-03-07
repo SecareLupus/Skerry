@@ -685,13 +685,13 @@ export async function relayDiscordMessageToMappedChannel(input: {
   };
 }
 
-export async function listDiscordGuildChannels(guildId: string): Promise<Array<{ id: string; name: string }>> {
+export async function listDiscordGuildChannels(guildId: string): Promise<Array<{ id: string; name: string; type: number }>> {
   if (config.discordBridge.mockMode) {
     return [
-      { id: "mock_chan_1", name: "general" },
-      { id: "mock_chan_2", name: "announcements" },
-      { id: "mock_forum_1", name: "community-forum" },
-      { id: "mock_thread_1", name: "awesome-thread" }
+      { id: "mock_chan_1", name: "general", type: ChannelType.GuildText },
+      { id: "mock_chan_2", name: "announcements", type: ChannelType.GuildAnnouncement },
+      { id: "mock_forum_1", name: "[Forum] community-forum", type: ChannelType.GuildForum },
+      { id: "mock_thread_1", name: "[Thread] awesome-thread", type: ChannelType.PublicThread }
     ];
   }
 
@@ -721,7 +721,7 @@ export async function listDiscordGuildChannels(guildId: string): Promise<Array<{
         let prefix = "";
         if (c.type === ChannelType.GuildForum) prefix = "[Forum] ";
         if (c.type === ChannelType.PublicThread || c.type === ChannelType.PrivateThread) prefix = "[Thread] ";
-        return { id: c.id, name: `${prefix}${c.name}` };
+        return { id: c.id, name: `${prefix}${c.name}`, type: c.type };
       });
   } catch (error) {
     throw new Error(`Failed to fetch Discord channels: ${error instanceof Error ? error.message : String(error)}`);
