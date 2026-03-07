@@ -320,6 +320,7 @@ export async function createMessage(input: {
   externalAuthorAvatarUrl?: string;
   parentId?: string;
   externalThreadId?: string;
+  externalMessageId?: string;
 }): Promise<ChatMessage> {
   return withDb(async (db) => {
     try {
@@ -340,7 +341,10 @@ export async function createMessage(input: {
       // Automatically resolve parentId from externalThreadId if not provided
       if (!input.parentId && input.externalThreadId) {
         const rootMessage = await db.query<{ id: string }>(
-          "select id from chat_messages where channel_id = $1 and external_thread_id = $2 order by created_at asc limit 1",
+          `select id from chat_messages 
+           where channel_id = $1 
+           and (external_thread_id = $2 or external_message_id = $2) 
+           order by created_at asc limit 1`,
           [input.channelId, input.externalThreadId]
         );
         if (rootMessage.rows[0]) {
@@ -368,9 +372,9 @@ export async function createMessage(input: {
         `insert into chat_messages (
           id, channel_id, author_user_id, author_display_name, content, attachments, is_relay,
           external_author_id, external_provider, external_author_name, external_author_avatar_url,
-          parent_id, external_thread_id
+          parent_id, external_thread_id, external_message_id
         )
-        values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
         returning *`,
         [
           `msg_${crypto.randomUUID().replaceAll("-", "")}`,
@@ -385,7 +389,8 @@ export async function createMessage(input: {
           input.externalAuthorName ?? null,
           input.externalAuthorAvatarUrl ?? null,
           input.parentId ?? null,
-          input.externalThreadId ?? null
+          input.externalThreadId ?? null,
+          input.externalMessageId ?? null
         ]
       );
 

@@ -76,6 +76,7 @@ export async function startDiscordBot() {
                         authorName: message.member?.displayName ?? message.author.displayName ?? message.author.username,
                         authorAvatarUrl: message.author.displayAvatarURL() ?? undefined,
                         content: message.content,
+                        messageId: message.id, // Passing message.id here
                         media,
                         externalThreadId: message.channel.isThread() ? message.channelId : undefined
                     });
@@ -230,29 +231,7 @@ export async function relayMatrixMessageToDiscord(input: {
             return;
         }
 
-        const isThread = [ChannelType.PublicThread, ChannelType.PrivateThread, ChannelType.AnnouncementThread].includes(targetChannel.type);
-        const parentChannel = (isThread && (targetChannel as any).parent) ? (targetChannel as any).parent : targetChannel;
-
-        let webhook = webhookCache.get(parentChannel.id);
-        if (!webhook) {
-            console.log(`[Discord Bridge] Fetching webhooks for channel ${parentChannel.id}`);
-            const webhooks = await (parentChannel as any).fetchWebhooks();
-            const existing = webhooks.find((wh: any) => wh.name === "EscapeHatch Bridge");
-
-            if (existing) {
-                webhook = new WebhookClient({ id: existing.id, token: existing.token! });
-            } else {
-                console.log(`[Discord Bridge] Creating new webhook for channel ${parentChannel.id}`);
-                const created = await (parentChannel as any).createWebhook({
-                    name: "EscapeHatch Bridge",
-                    reason: "Automated bridge for EscapeHatch community"
-                });
-                webhook = new WebhookClient({ id: created.id, token: created.token! });
-            }
-            webhookCache.set(parentChannel.id, webhook);
-        }
-
-        const guild = parentChannel.guild;
+        const guild = (targetChannel as any).guild;
         const emojis = await (guild as any).emojis.fetch();
         const skerryEmoji = emojis.find((e: any) => e.name === "skerry");
 
@@ -268,11 +247,18 @@ export async function relayMatrixMessageToDiscord(input: {
 
         const username = skerryEmoji ? input.authorName : `${input.authorName} ${config.discordBridge.icon}`;
 
+        // IMPORTANT: Resolve Webhook/Thread linkage logic
+        let threadIdToUse = input.externalThreadId;
+        let finalTargetChannel = targetChannel;
+
         // Forum Handling - Creating a New Thread
-        if (targetChannel.type === ChannelType.GuildForum && !input.externalThreadId) {
+        if (targetChannel.type === ChannelType.GuildForum && !threadIdToUse) {
             console.log(`[Discord Bridge] Creating new thread in Forum room via webhook for impersonation`);
 
-            // Webhook send to Forum with threadName creates a PERSONIFIED thread
+            // We need a webhook for the forum channel
+            let webhook = await getWebhookForChannel(targetChannel as any);
+            if (!webhook) return;
+
             const result = await webhook.send({
                 username,
                 content: content || (files && files.length > 0 ? "" : undefined),
@@ -281,46 +267,60 @@ export async function relayMatrixMessageToDiscord(input: {
                 threadName: input.content.slice(0, 50) || "Skerry Conversation"
             } as any);
 
-            // The result should contain the ID of the newly created thread
-            const threadId = (result as any).thread?.id || (result as any).channelId;
-            // NOTE: In some discord.js versions, result is the message, and message.channelId is the thread ID
-            // or there's a .thread property. We'll log it to be sure.
-            console.log(`[Discord Bridge] Webhook sent to forum. Result ID: ${threadId}`);
+            const newThreadId = (result as any).thread?.id || (result as any).channelId;
+            console.log(`[Discord Bridge] Webhook sent to forum. New Thread ID: ${newThreadId}`);
 
-            if (input.messageId && threadId) {
+            if (input.messageId && newThreadId) {
                 await withDb(async (db) => {
                     await db.query(
-                        "update chat_messages set external_thread_id = $1 where id = $2",
-                        [threadId, input.messageId]
+                        "update chat_messages set external_thread_id = $1, external_message_id = $2 where id = $3",
+                        [newThreadId, (result as any).id, input.messageId]
                     );
                 });
-                console.log(`[Discord Bridge] Persisted thread mapping ${threadId} for ${input.messageId}`);
+                console.log(`[Discord Bridge] Persisted thread mapping ${newThreadId} and msg ${(result as any).id} for ${input.messageId}`);
             }
             return;
         }
 
-        // Redirect to thread if it's a forum reply
-        if (targetChannel.type === ChannelType.GuildForum && input.externalThreadId) {
-            console.log(`[Discord Bridge] Resolving thread ${input.externalThreadId} for forum room`);
-            const thread = await client.channels.fetch(input.externalThreadId);
+        // If it's a forum reply, we MUST redirect to the thread before calculating isThread/parentChannel
+        if (targetChannel.type === ChannelType.GuildForum && threadIdToUse) {
+            console.log(`[Discord Bridge] Resolving thread ${threadIdToUse} for forum room`);
+            const thread = await client.channels.fetch(threadIdToUse);
             if (thread && (thread.type === ChannelType.PublicThread || thread.type === ChannelType.PrivateThread || thread.type === ChannelType.AnnouncementThread)) {
-                targetChannel = thread;
+                finalTargetChannel = thread;
                 console.log(`[Discord Bridge] Target redirected to thread ${thread.id}`);
             } else {
-                console.warn(`[Discord Bridge] Thread ${input.externalThreadId} not found or invalid type`);
+                console.warn(`[Discord Bridge] Thread ${threadIdToUse} not found or invalid type`);
             }
         }
 
-        const finalThreadId = isThread ? targetChannel.id : input.externalThreadId;
+        const isThread = [ChannelType.PublicThread, ChannelType.PrivateThread, ChannelType.AnnouncementThread].includes(finalTargetChannel.type);
+        const parentChannel = (isThread && (finalTargetChannel as any).parent) ? (finalTargetChannel as any).parent : finalTargetChannel;
+
+        let webhook = await getWebhookForChannel(parentChannel as any);
+        if (!webhook) return;
+
+        const finalThreadId = isThread ? finalTargetChannel.id : threadIdToUse;
         console.log(`[Discord Bridge] Sending message to webhook. threadId: ${finalThreadId || "none"}`);
 
-        await webhook.send({
+        const result = await webhook.send({
             username,
             content: content || (files && files.length > 0 ? "" : undefined),
             avatarURL: input.avatarUrl,
             files: files,
             threadId: finalThreadId
         });
+
+        if (input.messageId && result) {
+            await withDb(async (db) => {
+                await db.query(
+                    "update chat_messages set external_message_id = $1 where id = $2",
+                    [(result as any).id, input.messageId]
+                );
+            });
+            console.log(`[Discord Bridge] Persisted external_message_id ${(result as any).id} for ${input.messageId}`);
+        }
+
         console.log(`[Discord Bridge] Message sent successfully`);
     } catch (error) {
         logEvent("error", "discord_outbound_relay_failed", { error: String(error) });
