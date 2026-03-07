@@ -439,40 +439,37 @@ export async function createMessage(input: {
       }
       // Outbound Discord Relay Logic
       if (!row.is_relay) {
-        // Fire and forget relay to avoid blocking response
-        (async () => {
-          try {
-            const { listDiscordChannelMappings } = await import("./discord-bridge-service.js");
-            const { relayMatrixMessageToDiscord } = await import("./discord-bot-client.js");
+        try {
+          const { listDiscordChannelMappings } = await import("./discord-bridge-service.js");
+          const { relayMatrixMessageToDiscord } = await import("./discord-bot-client.js");
 
-            // We need to find which server this channel belongs to
-            const channelRow = await db.query<{ server_id: string }>(
-              "select server_id from channels where id = $1 limit 1",
-              [input.channelId]
-            );
-            const serverId = channelRow.rows[0]?.server_id;
+          // We need to find which server this channel belongs to
+          const channelRow = await db.query<{ server_id: string }>(
+            "select server_id from channels where id = $1 limit 1",
+            [input.channelId]
+          );
+          const serverId = channelRow.rows[0]?.server_id;
 
-            if (serverId) {
-              const mappings = await listDiscordChannelMappings(serverId);
-              const mappedChannels = mappings.filter(m => m.matrixChannelId === input.channelId && m.enabled);
-              for (const m of mappedChannels) {
-                await relayMatrixMessageToDiscord({
-                  serverId,
-                  discordChannelId: m.discordChannelId,
-                  authorName: authorDisplayName,
-                  content: input.content,
-                  avatarUrl,
-                  attachments: input.attachments,
-                  parentId: input.parentId,
-                  externalThreadId: input.externalThreadId,
-                  messageId: row.id // Pass the persisted message ID
-                });
-              }
+          if (serverId) {
+            const mappings = await listDiscordChannelMappings(serverId);
+            const mappedChannels = mappings.filter(m => m.matrixChannelId === input.channelId && m.enabled);
+            for (const m of mappedChannels) {
+              await relayMatrixMessageToDiscord({
+                serverId,
+                discordChannelId: m.discordChannelId,
+                authorName: authorDisplayName,
+                content: input.content,
+                avatarUrl,
+                attachments: input.attachments,
+                parentId: input.parentId,
+                externalThreadId: input.externalThreadId,
+                messageId: row.id // Pass the persisted message ID
+              });
             }
-          } catch (error) {
-            console.error("Failed to relay message to Discord:", error);
           }
-        })();
+        } catch (error) {
+          console.error("Failed to relay message to Discord:", error);
+        }
       }
 
       return message;

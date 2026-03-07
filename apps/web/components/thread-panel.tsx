@@ -168,7 +168,7 @@ export function ThreadPanel() {
             </div>
 
             <form className="thread-composer" onSubmit={handleSendReply}>
-                <div className="input-wrapper">
+                <div className="thread-input-wrapper">
                     <textarea
                         value={draft}
                         onChange={e => setDraft(e.target.value)}
@@ -180,7 +180,7 @@ export function ThreadPanel() {
                             }
                         }}
                     />
-                    <div className="composer-actions">
+                    <div className="thread-composer-actions">
                         <input
                             type="file"
                             ref={fileInputRef}
@@ -188,10 +188,10 @@ export function ThreadPanel() {
                             onChange={handleFileUpload}
                             accept="image/*"
                         />
-                        <button type="button" className="icon-button" onClick={() => fileInputRef.current?.click()}>
+                        <button type="button" className="thread-icon-button" onClick={() => fileInputRef.current?.click()}>
                             📎
                         </button>
-                        <button type="submit" className="send-button" disabled={sending || (!draft.trim() && attachments.length === 0)}>
+                        <button type="submit" className="thread-send-button" disabled={sending || (!draft.trim() && attachments.length === 0)}>
                             {sending ? "..." : "Send"}
                         </button>
                     </div>
@@ -313,7 +313,7 @@ export function ThreadPanel() {
                     border-top: 1px solid var(--border);
                     background: var(--surface-alt);
                 }
-                .input-wrapper {
+                .thread-input-wrapper {
                     display: flex;
                     flex-direction: column;
                     gap: 0.5rem;
@@ -322,7 +322,7 @@ export function ThreadPanel() {
                     border-radius: 0.75rem;
                     padding: 0.5rem;
                 }
-                .input-wrapper textarea {
+                .thread-input-wrapper textarea {
                     width: 100%;
                     background: transparent;
                     border: none;
@@ -333,16 +333,17 @@ export function ThreadPanel() {
                     font-family: inherit;
                     font-size: 0.9rem;
                 }
-                .input-wrapper textarea:focus {
+                .thread-input-wrapper textarea:focus {
                     outline: none;
                 }
-                .composer-actions {
+                .thread-composer-actions {
                     display: flex;
+                    flex-direction: row;
                     justify-content: flex-end;
                     align-items: center;
                     gap: 0.5rem;
                 }
-                .icon-button {
+                .thread-icon-button {
                     background: transparent;
                     border: none;
                     font-size: 1.1rem;
@@ -351,10 +352,10 @@ export function ThreadPanel() {
                     border-radius: 4px;
                     transition: background 0.2s;
                 }
-                .icon-button:hover {
+                .thread-icon-button:hover {
                     background: var(--surface-alt);
                 }
-                .send-button {
+                .thread-send-button {
                     background: var(--accent);
                     color: white;
                     border: none;
@@ -365,10 +366,10 @@ export function ThreadPanel() {
                     cursor: pointer;
                     transition: background 0.2s;
                 }
-                .send-button:hover:not(:disabled) {
+                .thread-send-button:hover:not(:disabled) {
                     background: var(--accent-strong);
                 }
-                .send-button:disabled {
+                .thread-send-button:disabled {
                     opacity: 0.5;
                     cursor: not-allowed;
                 }
