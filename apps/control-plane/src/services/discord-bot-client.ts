@@ -302,7 +302,8 @@ export async function relayMatrixMessageToDiscord(input: {
                 content: content || (files && files.length > 0 ? "" : undefined),
                 avatarURL: input.avatarUrl,
                 files: files,
-                threadName: input.content.slice(0, 50) || "Skerry Conversation"
+                threadName: input.content.slice(0, 50) || "Skerry Conversation",
+                wait: true
             } as any);
 
             const newThreadId = (result as any).thread?.id || (result as any).channelId;
@@ -346,8 +347,9 @@ export async function relayMatrixMessageToDiscord(input: {
             content: content || (files && files.length > 0 ? "" : undefined),
             avatarURL: input.avatarUrl,
             files: files,
-            threadId: finalThreadId
-        });
+            threadId: finalThreadId,
+            wait: true
+        } as any);
 
         if (input.messageId && result) {
             await withDb(async (db) => {
