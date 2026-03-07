@@ -664,22 +664,7 @@ textarea:focus-visible,
   font-size: 1.2rem;
 }
 
-/* Server specific unread dot */
-.list-item-container {
-  position: relative;
-}
-
-.list-item.server-entry.unread::after {
-  content: "";
-  position: absolute;
-  left: -12px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 8px;
-  height: 8px;
-  background: var(--text);
-  border-radius: 50%;
-}
+/* End of server specific unread dot */
 
 .channel-header {
   display: flex;
