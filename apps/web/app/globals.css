@@ -521,13 +521,18 @@ textarea:focus-visible,
   }
 }
 
-.channels ul {
+.unified-sidebar ul {
   list-style: none;
   margin: 0;
   padding: 0;
+}
+
+.servers ul,
+.channels ul {
   display: grid;
   gap: 0.35rem;
 }
+
 
 .filter-input {
   width: 100%;
@@ -664,7 +669,7 @@ textarea:focus-visible,
   font-size: 1.2rem;
 }
 
-/* End of server specific unread dot */
+/* Server unread indicator removed */
 
 .channel-header {
   display: flex;
