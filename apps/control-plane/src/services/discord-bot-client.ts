@@ -317,7 +317,7 @@ export async function relayMatrixMessageToDiscord(input: {
             if (input.messageId && newThreadId) {
                 await withDb(async (db) => {
                     await db.query(
-                        "update chat_messages set external_thread_id = $1, external_message_id = $2 where id = $3",
+                        "update chat_messages set external_thread_id = $1, external_message_id = $2, external_provider = 'discord' where id = $3",
                         [newThreadId, (result as any).id, input.messageId]
                     );
                 });
@@ -365,7 +365,7 @@ export async function relayMatrixMessageToDiscord(input: {
         if (input.messageId && result) {
             await withDb(async (db) => {
                 await db.query(
-                    "update chat_messages set external_message_id = $1, external_thread_id = coalesce(external_thread_id, $2) where id = $3",
+                    "update chat_messages set external_message_id = $1, external_thread_id = coalesce(external_thread_id, $2), external_provider = 'discord' where id = $3",
                     [(result as any).id, finalThreadId || null, input.messageId]
                 );
             });

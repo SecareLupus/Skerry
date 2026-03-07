@@ -347,7 +347,7 @@ export async function createMessage(input: {
         const parentCandidate = await db.query<{ id: string, parent_id: string | null }>(
           `select id, parent_id from chat_messages 
            where (external_thread_id = $1 or external_message_id = $1) 
-           and external_provider = $2
+           and (external_provider = $2 or external_provider is null)
            order by created_at asc limit 1`,
           [input.externalThreadId, input.externalProvider || 'discord']
         );
