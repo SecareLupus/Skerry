@@ -70,7 +70,7 @@ export async function startDiscordBot() {
 
                     await relayDiscordMessageToMappedChannel({
                         serverId,
-                        discordChannelId: message.channelId,
+                        discordChannelId: message.channel.isThread() ? (message.channel as any).parentId : message.channelId,
                         authorId: message.author.id,
                         authorName: message.member?.displayName ?? message.author.displayName ?? message.author.username,
                         authorAvatarUrl: message.author.displayAvatarURL() ?? undefined,

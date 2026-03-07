@@ -487,7 +487,8 @@ export async function registerDomainRoutes(app: FastifyInstance): Promise<void> 
     const query = z
       .object({
         before: z.string().datetime().optional(),
-        limit: z.coerce.number().int().min(1).max(200).default(50)
+        limit: z.coerce.number().int().min(1).max(200).default(50),
+        parentId: z.string().optional()
       })
       .parse(request.query);
 
@@ -496,6 +497,7 @@ export async function registerDomainRoutes(app: FastifyInstance): Promise<void> 
         channelId: params.channelId,
         before: query.before,
         limit: query.limit,
+        parentId: query.parentId === "null" ? null : query.parentId,
         viewerUserId: request.auth!.productUserId
       })
     };

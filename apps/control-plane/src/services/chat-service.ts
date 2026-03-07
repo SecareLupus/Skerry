@@ -337,6 +337,17 @@ export async function createMessage(input: {
       const authorDisplayName = profile?.preferred_username ?? fallbackName;
       const avatarUrl = profile?.avatar_url ?? undefined;
 
+      // Automatically resolve parentId from externalThreadId if not provided
+      if (!input.parentId && input.externalThreadId) {
+        const rootMessage = await db.query<{ id: string }>(
+          "select id from chat_messages where channel_id = $1 and external_thread_id = $2 order by created_at asc limit 1",
+          [input.channelId, input.externalThreadId]
+        );
+        if (rootMessage.rows[0]) {
+          input.parentId = rootMessage.rows[0].id;
+        }
+      }
+
       // Outbound Discord Relay Logic
       if (!input.isRelay) {
         try {
