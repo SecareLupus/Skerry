@@ -600,7 +600,7 @@ export function ChatWindow({
                                     <span>{new Date(message.createdAt).toLocaleDateString()}</span>
                                 </div>
                             ) : null}
-                            <article onContextMenu={(e) => handleContextMenu(e, message)}>
+                            <article className="message-item-container" onContextMenu={(e) => handleContextMenu(e, message)}>
                                 {showHeader ? (
                                     <header>
                                         <strong
@@ -725,6 +725,26 @@ export function ChatWindow({
                                                 />
                                             </div>
                                         </div>
+                                    )}
+                                    {message.repliesCount ? (
+                                        <button
+                                            type="button"
+                                            className="thread-trigger-btn"
+                                            onClick={() => dispatch({ type: "SET_THREAD_PARENT_ID", payload: message.id })}
+                                            style={{ marginTop: "0.25rem", fontSize: "0.85rem", color: "var(--accent-color)", background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.25rem", padding: 0 }}
+                                        >
+                                            <span style={{ opacity: 0.8 }}>💬</span>
+                                            <span style={{ fontWeight: 600 }}>{message.repliesCount} {message.repliesCount === 1 ? 'reply' : 'replies'}</span>
+                                        </button>
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            className="thread-reply-btn"
+                                            onClick={() => dispatch({ type: "SET_THREAD_PARENT_ID", payload: message.id })}
+                                            style={{ marginTop: "0.25rem", fontSize: "0.85rem", opacity: 0, transition: "opacity 0.2s", color: "var(--text-secondary)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                                        >
+                                            Reply
+                                        </button>
                                     )}
                                 </div>
                                 {message.clientState === "sending" ? <small className="message-meta">Sending...</small> : null}

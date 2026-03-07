@@ -34,6 +34,11 @@ export const controlPlaneBaseUrl =
   process.env.NEXT_PUBLIC_CONTROL_PLANE_URL ||
   (isServer ? "http://control-plane:4000" : "");
 
+export function formatMessageTime(value: string): string {
+  const date = new Date(value);
+  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
 export interface ViewerSession {
   productUserId: string;
   identity: {
@@ -295,18 +300,26 @@ export async function listCategories(serverId: string): Promise<Category[]> {
   return json.items;
 }
 
-export async function listMessages(channelId: string): Promise<ChatMessage[]> {
+export async function listMessages(channelId: string, parentId?: string | null): Promise<ChatMessage[]> {
+  const query = new URLSearchParams({ limit: "100" });
+  if (parentId !== undefined) {
+    if (parentId === null) {
+      query.set("parentId", "null");
+    } else {
+      query.set("parentId", parentId);
+    }
+  }
   const json = await apiFetch<{ items: ChatMessage[] }>(
-    `/v1/channels/${encodeURIComponent(channelId)}/messages?limit=100`
+    `/v1/channels/${encodeURIComponent(channelId)}/messages?${query.toString()}`
   );
   return json.items;
 }
 
-export async function sendMessage(channelId: string, content: string, attachments?: ChatMessage["attachments"]): Promise<ChatMessage> {
+export async function sendMessage(channelId: string, content: string, attachments?: ChatMessage["attachments"], parentId?: string): Promise<ChatMessage> {
   return apiFetch(`/v1/channels/${encodeURIComponent(channelId)}/messages`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ content, attachments })
+    body: JSON.stringify({ content, attachments, parentId })
   });
 }
 

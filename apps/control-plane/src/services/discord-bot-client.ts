@@ -56,7 +56,7 @@ export async function startDiscordBot() {
                 try {
                     const media = [
                         ...message.attachments.map(a => ({ url: a.url, sourceUrl: a.url })),
-                        ...message.embeds.map(e => {
+                        ...message.embeds.map((e: any) => {
                             let url = e.video?.url || e.image?.url || e.thumbnail?.url;
 
                             // If it's a Giphy gifv, try to ensure we have the .gif version if possible
@@ -75,7 +75,8 @@ export async function startDiscordBot() {
                         authorName: message.member?.displayName ?? message.author.displayName ?? message.author.username,
                         authorAvatarUrl: message.author.displayAvatarURL() ?? undefined,
                         content: message.content,
-                        media
+                        media,
+                        externalThreadId: message.channel.isThread() ? message.channelId : undefined
                     });
                 } catch (error) {
                     logEvent("error", "discord_relay_failed", { serverId, messageId: message.id, error: String(error) });
@@ -179,6 +180,8 @@ export async function relayMatrixMessageToDiscord(input: {
     content: string;
     avatarUrl?: string; // Optional avatar from Matrix
     attachments?: Array<{ url: string; contentType: string; filename: string }>;
+    parentId?: string; // Skerry parent message ID
+    externalThreadId?: string; // Discord thread ID
 }) {
     if (!client || !client.isReady()) {
         // Try to start the bot if it's not ready
@@ -187,15 +190,59 @@ export async function relayMatrixMessageToDiscord(input: {
     }
 
     try {
-        const channel = await client.channels.fetch(input.discordChannelId);
-        if (!channel || channel.type !== ChannelType.GuildText) return;
+        const allowedTypes: ChannelType[] = [
+            ChannelType.GuildText,
+            ChannelType.GuildAnnouncement,
+            ChannelType.GuildForum,
+            ChannelType.PublicThread,
+            ChannelType.PrivateThread
+        ];
 
-        const textChannel = channel as TextChannel;
+        let targetChannel = await client.channels.fetch(input.discordChannelId);
+        if (!targetChannel || !allowedTypes.includes(targetChannel.type as any)) return;
+
+        // Forum Handling
+        if (targetChannel.type === ChannelType.GuildForum) {
+            const forum = targetChannel as any;
+            if (input.externalThreadId) {
+                // We have a thread ID, try to find it
+                const thread = await client.channels.fetch(input.externalThreadId);
+                if (thread && (thread.type === ChannelType.PublicThread || thread.type === ChannelType.PrivateThread)) {
+                    targetChannel = thread;
+                }
+            } else {
+                // No thread ID, must be a new "root" message in Skerry
+                // Create a new thread in the forum
+                const thread = await forum.threads.create({
+                    name: input.content.slice(0, 50) || "Skerry Conversation",
+                    message: {
+                        content: input.content,
+                        files: input.attachments?.map(a => a.url)
+                    },
+                    reason: "Skerry root message pinned to forum"
+                });
+
+                // We should ideally callback to Skerry to update the mapping for this message 
+                // but for now we just return as the thread creation sent the initial message.
+                // NOTE: We need a way to store this mapping back in Skerry.
+                return;
+            }
+        }
+
+        const channel = targetChannel;
+
+        // Ensure it's a channel we can send messages to (has webhooks or .send)
+        if (!("send" in channel) && channel.type !== ChannelType.GuildForum) return;
+
+        const textChannel = channel as any;
         let webhook = webhookCache.get(input.discordChannelId);
 
         if (!webhook) {
+            // Webhooks can't be created on Forum channels directly (only threads)
+            if (textChannel.type === ChannelType.GuildForum) return;
+
             const webhooks = await textChannel.fetchWebhooks();
-            const existing = webhooks.find(wh => wh.name === "EscapeHatch Bridge");
+            const existing = webhooks.find((wh: any) => wh.name === "EscapeHatch Bridge");
 
             if (existing) {
                 webhook = new WebhookClient({ id: existing.id, token: existing.token! });
@@ -213,14 +260,14 @@ export async function relayMatrixMessageToDiscord(input: {
         // Attempt to find the custom emoji if it exists in the guild
         let content = input.content;
         const guild = textChannel.guild;
-        const emojis = await guild.emojis.fetch();
-        const skerryEmoji = emojis.find(e => e.name === "skerry");
+        const emojis = await (guild as any).emojis.fetch();
+        const skerryEmoji = emojis.find((e: any) => e.name === "skerry");
 
         if (skerryEmoji) {
             content = `${skerryEmoji} ${content}`;
         }
 
-        const files = input.attachments?.map(a => ({
+        const files = input.attachments?.map((a: any) => ({
             attachment: a.url,
             name: a.filename
         }));

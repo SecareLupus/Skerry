@@ -119,6 +119,7 @@ export interface ChatState {
     members: ChatMember[];
     allDmChannels: Channel[];
     lastChannelByServer: Record<string, string>;
+    threadParentId: string | null;
 }
 
 type ChatAction =
@@ -186,7 +187,8 @@ type ChatAction =
     | { type: "UNBLOCK_USER"; payload: string }
     | { type: "SET_MEMBERS"; payload: ChatMember[] }
     | { type: "SET_ALL_DM_CHANNELS", payload: Channel[] }
-    | { type: "SET_LAST_CHANNEL_BY_SERVER", payload: { serverId: string; channelId: string } };
+    | { type: "SET_LAST_CHANNEL_BY_SERVER", payload: { serverId: string; channelId: string } }
+    | { type: "SET_THREAD_PARENT_ID", payload: string | null };
 
 const initialState: ChatState = {
     viewer: null,
@@ -254,7 +256,8 @@ const initialState: ChatState = {
     blockedUserIds: [],
     members: [],
     allDmChannels: [],
-    lastChannelByServer: {}
+    lastChannelByServer: {},
+    threadParentId: null
 };
 
 function chatReducer(state: ChatState, action: ChatAction): ChatState {
@@ -453,6 +456,8 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
                     [action.payload.serverId]: action.payload.channelId
                 }
             };
+        case "SET_THREAD_PARENT_ID":
+            return { ...state, threadParentId: action.payload };
         default:
             return state;
     }

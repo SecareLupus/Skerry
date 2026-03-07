@@ -12,6 +12,7 @@ import { ContextMenu, ContextMenuItem } from "./context-menu";
 import { ProfileModal } from "./profile-modal";
 import type { Category, Channel, ChatMessage, MentionMarker, ModerationAction, ModerationReport, Server, VoicePresenceMember, VoiceTokenGrant } from "@skerry/shared";
 import { getChannelName } from "../lib/channel-utils";
+import { ThreadPanel } from "./thread-panel";
 import {
   bootstrapAdmin,
   createReport,
@@ -550,7 +551,7 @@ export function ChatClient() {
     }
 
     if (shouldFetchMessages) {
-      const messageItems = await listMessages(nextChannelId);
+      const messageItems = await listMessages(nextChannelId, null); // Fetch root messages only
       if (requestId !== chatStateRequestIdRef.current) {
         return;
       }
@@ -1776,6 +1777,7 @@ export function ChatClient() {
             messageInputRef={messageInputRef}
             refreshChatState={refreshChatState}
           />
+          {state.threadParentId && <ThreadPanel />}
 
           <div className="details-drawer-container">
             {isDetailsOpen && (

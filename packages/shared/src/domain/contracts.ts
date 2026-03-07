@@ -305,6 +305,9 @@ export interface ChatMessage {
     externalProvider?: string;
     externalAuthorName?: string;
     externalAuthorAvatarUrl?: string;
+    parentId?: string;
+    externalThreadId?: string;
+    repliesCount?: number;
     createdAt: string;
     updatedAt?: string;
     deletedAt?: string;

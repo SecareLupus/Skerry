@@ -169,6 +169,7 @@ export async function listMessages(input: {
   channelId: string;
   limit: number;
   before?: string;
+  parentId?: string | null;
   viewerUserId?: string;
 }): Promise<ChatMessage[]> {
   return withDb(async (db) => {
@@ -178,8 +179,17 @@ export async function listMessages(input: {
     `;
     const params: any[] = [input.channelId];
 
+    if (input.parentId !== undefined) {
+      if (input.parentId === null) {
+        query += ` and parent_id is null`;
+      } else {
+        query += ` and parent_id = $${params.length + 1}`;
+        params.push(input.parentId);
+      }
+    }
+
     if (input.viewerUserId) {
-      query += ` and author_user_id not in (select blocked_user_id from user_blocks where blocker_user_id = $2)`;
+      query += ` and author_user_id not in (select blocked_user_id from user_blocks where blocker_user_id = $${params.length + 1})`;
       params.push(input.viewerUserId);
     }
 
@@ -202,12 +212,26 @@ export async function listMessages(input: {
       external_provider: string | null;
       external_author_name: string | null;
       external_author_avatar_url: string | null;
+      parent_id: string | null;
+      external_thread_id: string | null;
       created_at: string;
       updated_at?: string;
       deleted_at?: string;
     }>(query, params);
 
     const messageIds = rows.rows.map(r => r.id);
+    let repliesCountMap: Record<string, number> = {};
+
+    if (messageIds.length > 0) {
+      const counts = await db.query<{ parent_id: string; count: string }>(
+        "select parent_id, count(*) from chat_messages where parent_id = any($1) group by parent_id",
+        [messageIds]
+      );
+      for (const row of counts.rows) {
+        repliesCountMap[row.parent_id] = parseInt(row.count, 10);
+      }
+    }
+
     let reactionsMap: Record<string, any[]> = {};
 
     if (messageIds.length > 0) {
@@ -273,6 +297,9 @@ export async function listMessages(input: {
         externalProvider: row.external_provider ?? undefined,
         externalAuthorName: row.external_author_name ?? undefined,
         externalAuthorAvatarUrl: row.external_author_avatar_url ?? undefined,
+        parentId: row.parent_id ?? undefined,
+        externalThreadId: row.external_thread_id ?? undefined,
+        repliesCount: repliesCountMap[row.id] || 0,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
         deletedAt: row.deleted_at
@@ -291,6 +318,8 @@ export async function createMessage(input: {
   externalProvider?: string;
   externalAuthorName?: string;
   externalAuthorAvatarUrl?: string;
+  parentId?: string;
+  externalThreadId?: string;
 }): Promise<ChatMessage> {
   return withDb(async (db) => {
     try {
@@ -331,7 +360,9 @@ export async function createMessage(input: {
                 authorName: authorDisplayName,
                 content: input.content,
                 avatarUrl,
-                attachments: input.attachments
+                attachments: input.attachments,
+                parentId: input.parentId,
+                externalThreadId: input.externalThreadId
               });
             }
           }
@@ -353,13 +384,16 @@ export async function createMessage(input: {
         external_provider: string | null;
         external_author_name: string | null;
         external_author_avatar_url: string | null;
+        parent_id: string | null;
+        external_thread_id: string | null;
         created_at: string;
       }>(
         `insert into chat_messages (
           id, channel_id, author_user_id, author_display_name, content, attachments, is_relay,
-          external_author_id, external_provider, external_author_name, external_author_avatar_url
+          external_author_id, external_provider, external_author_name, external_author_avatar_url,
+          parent_id, external_thread_id
         )
-        values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
         returning *`,
         [
           `msg_${crypto.randomUUID().replaceAll("-", "")}`,
@@ -372,7 +406,9 @@ export async function createMessage(input: {
           input.externalAuthorId ?? null,
           input.externalProvider ?? null,
           input.externalAuthorName ?? null,
-          input.externalAuthorAvatarUrl ?? null
+          input.externalAuthorAvatarUrl ?? null,
+          input.parentId ?? null,
+          input.externalThreadId ?? null
         ]
       );
 
@@ -381,7 +417,7 @@ export async function createMessage(input: {
         throw new Error("Message was not created.");
       }
 
-      const message = {
+      const message: ChatMessage = {
         id: row.id,
         channelId: row.channel_id,
         authorUserId: row.author_user_id,
@@ -393,6 +429,8 @@ export async function createMessage(input: {
         externalProvider: row.external_provider ?? undefined,
         externalAuthorName: row.external_author_name ?? undefined,
         externalAuthorAvatarUrl: row.external_author_avatar_url ?? undefined,
+        parentId: row.parent_id ?? undefined,
+        externalThreadId: row.external_thread_id ?? undefined,
         createdAt: row.created_at
       };
 

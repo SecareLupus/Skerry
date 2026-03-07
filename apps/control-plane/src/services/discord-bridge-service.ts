@@ -607,6 +607,8 @@ export async function relayDiscordMessageToMappedChannel(input: {
   authorAvatarUrl?: string;
   content: string;
   media?: Array<{ url: string; sourceUrl: string }>;
+  parentId?: string;
+  externalThreadId?: string;
 }): Promise<{ relayed: boolean; matrixChannelId?: string; limitation?: string }> {
   const mappings = await listDiscordChannelMappings(input.serverId);
   const mapping = mappings.find((item) => item.discordChannelId === input.discordChannelId && item.enabled);
@@ -642,13 +644,13 @@ export async function relayDiscordMessageToMappedChannel(input: {
     const isGif = url.toLowerCase().includes(".gif");
     const isMp4 = url.toLowerCase().includes(".mp4");
     const isWebm = url.toLowerCase().includes(".webm");
-    
+
     // Clean up content: if the message content contains the media or source URL, strip it
     if (item.sourceUrl && finalContent.includes(item.sourceUrl)) {
-        finalContent = finalContent.replace(item.sourceUrl, "").trim();
+      finalContent = finalContent.replace(item.sourceUrl, "").trim();
     }
     if (url && finalContent.includes(url)) {
-        finalContent = finalContent.replace(url, "").trim();
+      finalContent = finalContent.replace(url, "").trim();
     }
 
     return {
@@ -669,7 +671,9 @@ export async function relayDiscordMessageToMappedChannel(input: {
     externalAuthorId: input.authorId,
     externalProvider: "discord",
     externalAuthorName: input.authorName,
-    externalAuthorAvatarUrl: input.authorAvatarUrl
+    externalAuthorAvatarUrl: input.authorAvatarUrl,
+    parentId: input.parentId,
+    externalThreadId: input.externalThreadId
   });
 
   publishChannelMessage(message);
@@ -685,7 +689,9 @@ export async function listDiscordGuildChannels(guildId: string): Promise<Array<{
   if (config.discordBridge.mockMode) {
     return [
       { id: "mock_chan_1", name: "general" },
-      { id: "mock_chan_2", name: "announcements" }
+      { id: "mock_chan_2", name: "announcements" },
+      { id: "mock_forum_1", name: "community-forum" },
+      { id: "mock_thread_1", name: "awesome-thread" }
     ];
   }
 
@@ -701,9 +707,22 @@ export async function listDiscordGuildChannels(guildId: string): Promise<Array<{
     }
 
     const channels = await guild.channels.fetch();
+    const allowedTypes: ChannelType[] = [
+      ChannelType.GuildText,
+      ChannelType.GuildAnnouncement,
+      ChannelType.GuildForum,
+      ChannelType.PublicThread,
+      ChannelType.PrivateThread
+    ];
+
     return channels
-      .filter((c) => c && (c.type === ChannelType.GuildText || c.type === ChannelType.GuildAnnouncement))
-      .map((c) => ({ id: c!.id, name: c!.name }));
+      .filter((c) => c && allowedTypes.includes(c.type as any))
+      .map((c: any) => {
+        let prefix = "";
+        if (c.type === ChannelType.GuildForum) prefix = "[Forum] ";
+        if (c.type === ChannelType.PublicThread || c.type === ChannelType.PrivateThread) prefix = "[Thread] ";
+        return { id: c.id, name: `${prefix}${c.name}` };
+      });
   } catch (error) {
     throw new Error(`Failed to fetch Discord channels: ${error instanceof Error ? error.message : String(error)}`);
   }

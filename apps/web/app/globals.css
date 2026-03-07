@@ -634,6 +634,18 @@ textarea:focus-visible,
   min-height: 0;
 }
 
+.chat-shell.thread-open {
+  grid-template-columns: 280px minmax(0, 1fr) 350px;
+}
+
+.chat-shell.thread-open.details-collapsed {
+  grid-template-columns: 280px minmax(0, 1fr) 350px;
+}
+
+.chat-shell.thread-open:not(.details-collapsed) {
+  grid-template-columns: 240px minmax(0, 1fr) 350px 300px;
+}
+
 .unread-pill {
   width: 8px;
   height: 8px;
@@ -798,6 +810,24 @@ textarea:focus-visible,
   overflow-y: auto;
   height: 100%;
   min-height: 0;
+}
+
+.message-item-container {
+  position: relative;
+}
+
+.message-item-container:hover .thread-reply-btn {
+  opacity: 1 !important;
+}
+
+.thread-panel {
+  display: flex !important;
+  flex-direction: column;
+  height: 100%;
+  border-left: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: -4px 0 12px rgba(0, 0, 0, 0.05);
+  z-index: 10;
 }
 
 .messages li {

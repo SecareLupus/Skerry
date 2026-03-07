@@ -1,15 +1,15 @@
 "use client";
 
 import { useState, useEffect, FormEvent } from "react";
-import { 
-    discordBridgeStartUrl, 
-    fetchDiscordBridgeHealth, 
-    fetchDiscordBridgePendingSelection, 
-    selectDiscordBridgeGuild, 
-    retryDiscordBridgeSyncAction, 
-    listDiscordBridgeMappings, 
+import {
+    discordBridgeStartUrl,
+    fetchDiscordBridgeHealth,
+    fetchDiscordBridgePendingSelection,
+    selectDiscordBridgeGuild,
+    retryDiscordBridgeSyncAction,
+    listDiscordBridgeMappings,
     listDiscordBridgeGuildChannels,
-    upsertDiscordBridgeMapping, 
+    upsertDiscordBridgeMapping,
     deleteDiscordBridgeMapping,
     listChannels,
     fetchHubSettings
@@ -99,10 +99,10 @@ export default function BridgeManager({ serverId, hubId, returnTo }: BridgeManag
         try {
             const res = await fetchDiscordBridgePendingSelection(pendingId);
             setDiscordGuilds(res.guilds);
-            
+
             // Priority: 1. preSelectedGuildId (from URL), 2. res.selectedGuildId (from backend), 3. first guild
             const guildIdToSelect = preSelectedGuildId || res.selectedGuildId || (res.guilds.length > 0 ? res.guilds[0]?.id : "");
-            
+
             if (guildIdToSelect) {
                 setSelectedGuildId(guildIdToSelect);
             }
@@ -219,12 +219,12 @@ export default function BridgeManager({ serverId, hubId, returnTo }: BridgeManag
                         </a>
                     )}
                 </div>
-                
+
                 {bridgeStatus?.connection && (
-                    <button 
-                        type="button" 
-                        className="ghost" 
-                        disabled={busy} 
+                    <button
+                        type="button"
+                        className="ghost"
+                        disabled={busy}
                         onClick={handleRetryBridge}
                         style={{ marginTop: '1rem' }}
                     >
@@ -279,7 +279,7 @@ export default function BridgeManager({ serverId, hubId, returnTo }: BridgeManag
                                 <option value="">Select a Discord channel...</option>
                                 {availableDiscordChannels.map((chan) => (
                                     <option key={chan.id} value={chan.id}>
-                                        #{chan.name}
+                                        {chan.name.startsWith("[") ? chan.name : `#${chan.name}`}
                                     </option>
                                 ))}
                             </select>
