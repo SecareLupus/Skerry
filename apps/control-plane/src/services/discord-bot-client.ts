@@ -175,6 +175,33 @@ export async function provisionProjectEmoji(guildId: string) {
     }
 }
 
+async function getWebhookForChannel(channel: any): Promise<WebhookClient | null> {
+    let webhook = webhookCache.get(channel.id);
+    if (!webhook) {
+        console.log(`[Discord Bridge] Fetching webhooks for channel ${channel.id}`);
+        try {
+            const webhooks = await channel.fetchWebhooks();
+            const existing = webhooks.find((wh: any) => wh.name === "EscapeHatch Bridge");
+
+            if (existing) {
+                webhook = new WebhookClient({ id: existing.id, token: existing.token! });
+            } else {
+                console.log(`[Discord Bridge] Creating new webhook for channel ${channel.id}`);
+                const created = await channel.createWebhook({
+                    name: "EscapeHatch Bridge",
+                    reason: "Automated bridge for EscapeHatch community"
+                });
+                webhook = new WebhookClient({ id: created.id, token: created.token! });
+            }
+            webhookCache.set(channel.id, webhook);
+        } catch (error) {
+            console.error(`[Discord Bridge] Failed to fetch/create webhook for channel ${channel.id}:`, error);
+            return null;
+        }
+    }
+    return webhook;
+}
+
 export async function relayMatrixMessageToDiscord(input: {
     serverId: string;
     discordChannelId: string;
@@ -397,8 +424,8 @@ async function seedPresenceCache() {
 
     for (const guildId of guildIds) {
         await seedGuildPresence(guildId);
-        // Rate limit mitigation for initial burst. 
-        // Discord allows 120 gateway events per 60 seconds. 
+        // Rate limit mitigation for initial burst.
+        // Discord allows 120 gateway events per 60 seconds.
         // Large guilds may require multiple chunk requests per fetch.
         await new Promise(resolve => setTimeout(resolve, 10000));
     }
@@ -452,6 +479,7 @@ export async function unbanDiscordMember(guildId: string, discordUserId: string,
     await guild.members.unban(discordUserId, reason);
     logEvent("info", "discord_member_unbanned", { guildId, discordUserId, reason });
 }
+
 export async function timeoutDiscordMember(guildId: string, discordUserId: string, durationSeconds: number, reason: string) {
     if (!client || !client.isReady()) return;
     const guild = await client.guilds.fetch(guildId);
@@ -462,6 +490,7 @@ export async function timeoutDiscordMember(guildId: string, discordUserId: strin
         logEvent("info", "discord_member_timed_out", { guildId, discordUserId, durationSeconds, reason });
     }
 }
+
 export async function fetchDiscordUserProfile(discordUserId: string) {
     if (!client || !client.isReady()) {
         await startDiscordBot();
