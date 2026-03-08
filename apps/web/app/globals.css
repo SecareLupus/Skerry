@@ -816,6 +816,51 @@ textarea:focus-visible,
   position: relative;
 }
 
+.message-hover-actions {
+  position: absolute;
+  top: -16px;
+  right: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  display: flex;
+  gap: 2px;
+  padding: 4px;
+  z-index: 20;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease-in-out, transform 0.15s ease-in-out;
+  transform: translateY(4px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.message-item-container:hover .message-hover-actions {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.hover-action-item {
+  background: none !important;
+  border: none !important;
+  cursor: pointer;
+  padding: 4px 8px !important;
+  min-width: 32px !important;
+  height: 28px !important;
+  border-radius: 4px !important;
+  font-size: 14px !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s !important;
+  color: var(--text-muted) !important;
+}
+
+.hover-action-item:hover {
+  background: var(--accent) !important;
+  color: #fff !important;
+}
+
 .message-item-container:hover .thread-reply-btn {
   opacity: 1 !important;
 }
