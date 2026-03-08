@@ -306,24 +306,24 @@ export async function relayMatrixMessageToDiscord(input: {
                 wait: true
             } as any);
 
-            console.log(`[Discord Bridge] Webhook Result (Forum) FULL:`, JSON.stringify(result, null, 2));
-            const newThreadId = (result as any).thread?.id || (result as any).channelId;
-            console.log(`[Discord Bridge] Webhook Result (Forum) Summary:`, JSON.stringify({
-                id: (result as any).id,
-                channelId: (result as any).channelId,
-                threadId: (result as any).thread?.id,
+            const response = result as any;
+            const newThreadId = response.thread?.id || response.channelId || response.id;
+
+            console.log(`[Discord Bridge] Forum Webhook Response:`, JSON.stringify({
+                id: response.id,
+                channelId: response.channelId,
+                threadId: response.thread?.id,
                 newThreadId
             }));
 
             if (input.messageId && newThreadId) {
                 await withDb(async (db) => {
-                    console.log(`[Discord Bridge] Persisting Forum IDs to Skerry: messageId=${input.messageId}, external_thread_id=${newThreadId}, external_message_id=${(result as any).id}`);
+                    console.log(`[Discord Bridge] Persisting Forum mapping: Skerry msg ${input.messageId} -> Discord thread ${newThreadId}`);
                     await db.query(
                         "update chat_messages set external_thread_id = $1, external_message_id = $2, external_provider = 'discord' where id = $3",
-                        [newThreadId, (result as any).id, input.messageId]
+                        [newThreadId, response.id, input.messageId]
                     );
                 });
-                console.log(`[Discord Bridge] Persisted thread mapping ${newThreadId} and msg ${(result as any).id} for ${input.messageId}`);
             }
             return;
         }
@@ -358,22 +358,21 @@ export async function relayMatrixMessageToDiscord(input: {
             wait: true
         } as any);
 
-        console.log(`[Discord Bridge] Webhook Result (Regular/Reply) FULL:`, JSON.stringify(result, null, 2));
-        console.log(`[Discord Bridge] Webhook Result (Regular/Reply) Summary:`, JSON.stringify({
-            id: (result as any).id,
-            channelId: (result as any).channelId,
+        const response = result as any;
+        console.log(`[Discord Bridge] Webhook Result (Regular/Reply):`, JSON.stringify({
+            id: response.id,
+            channelId: response.channelId,
             finalThreadId
         }));
 
-        if (input.messageId && result) {
+        if (input.messageId && response) {
             await withDb(async (db) => {
-                console.log(`[Discord Bridge] Persisting Regular IDs to Skerry: messageId=${input.messageId}, external_thread_id=${finalThreadId}, external_message_id=${(result as any).id}`);
+                console.log(`[Discord Bridge] Persisting Regular mapping: Skerry msg ${input.messageId} -> Discord msg ${response.id} (thread: ${finalThreadId || 'none'})`);
                 await db.query(
                     "update chat_messages set external_message_id = $1, external_thread_id = coalesce(external_thread_id, $2), external_provider = 'discord' where id = $3",
-                    [(result as any).id, finalThreadId || null, input.messageId]
+                    [response.id, finalThreadId || null, input.messageId]
                 );
             });
-            console.log(`[Discord Bridge] Persisted external mapping (msg: ${(result as any).id}, thread: ${finalThreadId}) for ${input.messageId}`);
         }
 
         console.log(`[Discord Bridge] Message sent successfully`);
