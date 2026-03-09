@@ -117,6 +117,7 @@ export function ChatWindow({
     const [editContent, setEditContent] = useState("");
     const [isUploading, setIsUploading] = useState(false);
     const [reactionTargetMessageId, setReactionTargetMessageId] = useState<string | null>(null);
+    const [reactionPickerPos, setReactionPickerPos] = useState<{ x: number; y: number } | null>(null);
     const [channelMembers, setChannelMembers] = useState<{ productUserId: string; displayName: string }[]>([]);
     const [isEditingTopic, setIsEditingTopic] = useState(false);
     const [attachments, setAttachments] = useState<any[]>([]);
@@ -158,6 +159,25 @@ export function ChatWindow({
             document.removeEventListener("mousedown", handleClickOutside);
         };
     }, [showEmojiPicker]);
+
+    useEffect(() => {
+        if (reactionTargetMessageId) {
+            const messagesList = messagesRef.current;
+            if (messagesList) {
+                messagesList.style.overflow = "hidden";
+            }
+        } else {
+            const messagesList = messagesRef.current;
+            if (messagesList) {
+                messagesList.style.overflow = "auto";
+            }
+        }
+        return () => {
+            if (messagesRef.current) {
+                messagesRef.current.style.overflow = "auto";
+            }
+        };
+    }, [reactionTargetMessageId, messagesRef]);
 
     const canManageChannel = useMemo(
         () =>
@@ -622,9 +642,9 @@ export function ChatWindow({
                 {renderedMessages.map(({ message, showHeader, showDateDivider }, index) => {
                     const mediaUrls = extractMediaUrls(message.content);
                     const isNearBottomIndex = index >= renderedMessages.length - 2;
-                    const pickerPositionStyle = isNearBottomIndex
-                        ? { bottom: "100%", left: 0, marginBottom: "0.5rem" }
-                        : { top: "100%", left: 0, marginTop: "0.5rem" };
+                    const pickerPositionStyle = reactionPickerPos
+                        ? { top: Math.max(10, Math.min(window.innerHeight - 380, reactionPickerPos.y - 150)), right: "1rem" }
+                        : { top: "100%", right: 0 };
 
                     return (
                         <li key={message.id}>
@@ -789,8 +809,8 @@ export function ChatWindow({
                                     {/* Emoji Picker for adding a reaction */}
                                     {reactionTargetMessageId === message.id && (
                                         <div className="reaction-picker-overlay" style={{ position: "absolute", zIndex: 50, ...pickerPositionStyle }}>
-                                            <div className="picker-backdrop" style={{ position: "fixed", inset: 0 }} onClick={() => setReactionTargetMessageId(null)} />
-                                            <div className="emoji-picker-container" style={{ position: "relative", zIndex: 100 }}>
+                                            <div className="picker-backdrop" style={{ position: "fixed", inset: 0, zIndex: 90 }} onClick={() => setReactionTargetMessageId(null)} />
+                                            <div className="emoji-picker-container reaction-picker-compact" style={{ position: "relative", zIndex: 100 }}>
                                                 <EmojiPicker
                                                     onEmojiClick={async (emojiData: EmojiClickData) => {
                                                         await addReaction(message.channelId, message.id, emojiData.emoji);
@@ -806,8 +826,7 @@ export function ChatWindow({
                                                         "--epr-emoji-padding": "2px",
                                                         "--epr-emoji-size": "22px",
                                                         "--epr-horizontal-padding": "6px",
-                                                        "--epr-search-input-height": "32px",
-                                                        "--epr-category-navigation-button-size": "22px"
+                                                        "--epr-search-input-height": "32px"
                                                     } as any}
                                                 />
                                             </div>

@@ -1673,21 +1673,32 @@ textarea:focus-visible,
 }
 
 /* Emoji Picker React Overrides */
-/* The skin tone picker is absolutely positioned at the top right of the search container.
-   By padding the outermost enclosing container (.epr-header), both the search field
-   and the skin tone picker are smoothly "squeezed" inwards uniformly. */
 .emoji-picker-container .epr-header {
-  padding: 15px 20px !important;
+  padding: 8px 12px !important;
   box-sizing: border-box !important;
   width: 100% !important;
   display: block !important;
 }
 
+.reaction-picker-compact .epr-header {
+  padding: 4px 8px !important;
+}
+
 .emoji-picker-container .epr-search-container {
   margin: 0 !important;
-  padding-right: 48px !important;
+  padding-right: 0 !important;
   width: 100% !important;
   box-sizing: border-box !important;
+}
+
+.reaction-picker-compact .epr-category-nav {
+  display: flex !important;
+  justify-content: center !important;
+  padding: 2px 4px !important;
+}
+
+.reaction-picker-compact .epr-body {
+  margin-top: -8px !important;
 }
 
 .emoji-picker-container .epr-search-container input {
