@@ -845,7 +845,7 @@ export function ChatWindow({
             {/* Single fixed-position reaction picker — decoupled from message DOM */}
             {reactionTargetMessageId && reactionPickerPos && (() => {
                 const pickerH = 345;
-                const pickerW = 260;
+                const pickerW = 300;
                 const vw = window.innerWidth;
                 const vh = window.innerHeight;
                 // Prefer opening below the button; flip up if not enough room

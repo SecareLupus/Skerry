@@ -1695,12 +1695,6 @@ textarea:focus-visible,
   display: flex !important;
   justify-content: center !important;
   padding: 0 !important;
-  overflow: hidden !important;
-}
-
-/* Scale icons by targeting the picker root where the library reads the variable from */
-.reaction-picker-compact aside.EmojiPickerReact {
-  --epr-category-navigation-button-size: 22px !important;
 }
 
 .reaction-picker-compact .epr-body {
