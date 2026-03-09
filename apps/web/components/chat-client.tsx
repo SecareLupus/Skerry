@@ -6,6 +6,7 @@ import { useChat, MessageItem, ModalType } from "../context/chat-context";
 import { AuthOverlay } from "./auth-overlay";
 import { Sidebar } from "./sidebar";
 import { ChatWindow } from "./chat-window";
+import { ErrorBoundary } from "./error-boundary";
 import Link from "next/link";
 import { useToast } from "./toast-provider";
 import { ContextMenu, ContextMenuItem } from "./context-menu";
@@ -77,6 +78,14 @@ import {
   type ViewerSession
 } from "../lib/control-plane";
 
+// Custom Hooks
+import { useVoice } from "../hooks/use-voice";
+import { useNotifications } from "../hooks/use-notifications";
+import { useDMs } from "../hooks/use-dms";
+import { useModeration } from "../hooks/use-moderation";
+import { usePresence } from "../hooks/use-presence";
+import { useMembers } from "../hooks/use-members";
+
 
 
 function formatMessageTime(value: string): string {
@@ -136,13 +145,6 @@ export function ChatClient() {
     renameRoomType,
     renameRoomCategoryId,
     selectedCategoryIdForCreate,
-    voiceConnected,
-    voiceMuted,
-    voiceDeafened,
-    voiceVideoEnabled,
-    voiceVideoQuality,
-    voiceGrant,
-    voiceMembers,
     unreadCountByChannel,
     creatingSpace,
     creatingRoom,
@@ -165,7 +167,6 @@ export function ChatClient() {
 
   const [mentions, setMentions] = useState<MentionMarker[]>([]);
   const { blockedUserIds } = state;
-  const previousServerIdRef = useRef<string | null>(null);
 
   const filteredChannels = useMemo(() => {
     const term = channelFilter.trim().toLowerCase();
@@ -217,8 +218,6 @@ export function ChatClient() {
   const [roomType, setRoomType] = useState<"text" | "announcement" | "voice" | "forum">("text");
   const [selectedHubIdForCreate, setSelectedHubIdForCreate] = useState<string | null>(null);
   const [categoryName, setCategoryName] = useState("New Category");
-
-  const [userContextMenu, setUserContextMenu] = useState<{ x: number; y: number; userId: string; displayName: string } | null>(null);
 
   const messagesRef = useRef<HTMLOListElement>(null);
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
@@ -376,97 +375,6 @@ export function ChatClient() {
       .catch(() => dispatch({ type: "SET_BLOCKED_USER_IDS", payload: [] }));
   }, [dispatch]);
 
-  const handleUserContextMenu = (event: React.MouseEvent, member: { id: string, displayName: string }) => {
-    event.preventDefault();
-    setUserContextMenu({ x: event.clientX, y: event.clientY, userId: member.id, displayName: member.displayName });
-  };
-
-  const userContextMenuItems: ContextMenuItem[] = useMemo(() => {
-    if (!userContextMenu) return [];
-    const isModerator = allowedActions.includes("moderation.kick") || allowedActions.includes("moderation.ban");
-    const isSelf = userContextMenu.userId === viewer?.productUserId;
-
-    const items: ContextMenuItem[] = [
-      {
-        label: "View Profile",
-        icon: "👤",
-        onClick: () => {
-          dispatch({ type: "SET_PROFILE_USER_ID", payload: userContextMenu.userId });
-          dispatch({ type: "SET_ACTIVE_MODAL", payload: "profile" });
-        }
-      },
-      {
-        label: "Direct Message",
-        icon: "💬",
-        onClick: async () => {
-          if (!selectedHubIdForCreate) return;
-          try {
-            const channel = await createDMChannel(selectedHubIdForCreate, [userContextMenu.userId]);
-            setUrlSelection(channel.serverId, channel.id);
-            void refreshChatState(channel.serverId, channel.id);
-          } catch (e) {
-            showToast("Failed to create DM channel", "error");
-          }
-        }
-      }
-    ];
-
-    if (!isSelf) {
-      const isBlocked = blockedUserIds.includes(userContextMenu.userId);
-      items.push({
-        label: isBlocked ? "Unblock User" : "Ignore / Block",
-        icon: isBlocked ? "✅" : "🚫",
-        onClick: async () => {
-          try {
-            if (isBlocked) {
-              await unblockUser(userContextMenu.userId);
-              dispatch({ type: "UNBLOCK_USER", payload: userContextMenu.userId });
-              showToast("User unblocked", "success");
-            } else {
-              await blockUser(userContextMenu.userId);
-              dispatch({ type: "BLOCK_USER", payload: userContextMenu.userId });
-              showToast("User blocked", "success");
-            }
-          } catch (e) {
-            showToast("Failed to update block status", "error");
-          }
-        }
-      });
-    }
-
-    if (isModerator && !isSelf) {
-      items.push({
-        label: "Timeout (Shadow Mute)",
-        icon: "⏳",
-        danger: true,
-        onClick: () => {
-          void performModerationAction({
-            action: "timeout",
-            serverId: selectedServerId || "",
-            targetUserId: userContextMenu.userId,
-            timeoutSeconds: 3600,
-            reason: "Shadow mute requested via context menu"
-          });
-        }
-      });
-      items.push({
-        label: "Kick",
-        icon: "👢",
-        danger: true,
-        onClick: () => {
-          void performModerationAction({
-            action: "kick",
-            serverId: selectedServerId || "",
-            targetUserId: userContextMenu.userId,
-            reason: "Kick requested via context menu"
-          });
-        }
-      });
-    }
-
-    return items;
-  }, [userContextMenu, allowedActions, viewer, selectedServerId, dispatch]);
-
   const refreshChatState = useCallback(async (preferredServerId?: string, preferredChannelId?: string): Promise<void> => {
     const requestId = ++chatStateRequestIdRef.current;
     const [serverItems, roleBindings] = await Promise.all([
@@ -595,6 +503,35 @@ export function ChatClient() {
     }
   }, [selectedServerId, selectedChannelId, setUrlSelection, urlChannelId, urlServerId, dispatch, draftMessagesByChannel, channelScrollPositions]);
 
+  const {
+    voiceConnected,
+    voiceMuted,
+    voiceDeafened,
+    voiceVideoEnabled,
+    voiceGrant,
+    voiceMembers,
+    voiceVideoQuality,
+    handleJoinVoice,
+    handleLeaveVoice,
+    handleToggleMuteDeafen,
+    handleToggleVideo,
+    handleSetVoiceChannelVideoDefaults
+  } = useVoice();
+
+  useNotifications();
+  useDMs();
+  usePresence();
+  useMembers();
+
+  const {
+    userContextMenu,
+    setUserContextMenu,
+    handleUserContextMenu,
+    userContextMenuItems
+  } = useModeration(setUrlSelection, refreshChatState);
+
+
+
   const initialize = useCallback(async (): Promise<void> => {
     dispatch({ type: "SET_LOADING", payload: true });
     dispatch({ type: "SET_ERROR", payload: null });
@@ -612,32 +549,6 @@ export function ChatClient() {
   useEffect(() => {
     void initialize();
   }, [initialize]);
-
-  // Presence Heartbeat
-  useEffect(() => {
-    if (!viewer) return;
-
-    const sendHeartbeat = () => {
-      updatePresence().catch(() => { });
-    };
-
-    sendHeartbeat();
-    const interval = setInterval(sendHeartbeat, 60000); // Every minute
-    return () => clearInterval(interval);
-  }, [viewer]);
-
-  // Periodic member list refresh for presence updates
-  useEffect(() => {
-    if (!selectedChannelId) return;
-
-    const interval = setInterval(() => {
-      listChannelMembers(selectedChannelId)
-        .then((items) => dispatch({ type: "SET_MEMBERS", payload: items }))
-        .catch(() => { });
-    }, 30000); // Every 30 seconds
-
-    return () => clearInterval(interval);
-  }, [selectedChannelId, dispatch]);
 
   // Potential bug trigger: This effect initializes the chat state (server/channel) based on 
   // bootstrap defaults. If bootstrapStatus or its properties update unexpectedly, this 
@@ -706,22 +617,6 @@ export function ChatClient() {
 
   useEffect(() => {
     if (!canAccessWorkspace) return;
-
-    const refreshNotifications = () => {
-      void fetchNotificationSummary()
-        .then((summary) => dispatch({ type: "SET_NOTIFICATIONS", payload: summary }))
-        .catch(() => {
-          // Ignore transient fetch failures
-        });
-    };
-
-    refreshNotifications();
-    const timer = setInterval(refreshNotifications, 15000);
-    return () => clearInterval(timer);
-  }, [canAccessWorkspace, dispatch]);
-
-  useEffect(() => {
-    if (!canAccessWorkspace) return;
     const dmServer = servers.find((s) => s.type === "dm");
     if (!dmServer) return;
 
@@ -748,20 +643,6 @@ export function ChatClient() {
     dispatch({ type: "SET_DELETE_TARGET_SPACE_ID", payload: state.deleteTargetSpaceId || selectedServer?.id || servers[0]?.id || "" });
   }, [selectedServerId, servers, dispatch, state.deleteTargetSpaceId]);
 
-  useEffect(() => {
-    // Reset voice state ONLY if the server actually changed
-    if (previousServerIdRef.current !== selectedServerId) {
-      console.log("[ChatClient] Voice reset effect: Server changed. Previous:", previousServerIdRef.current, "New:", selectedServerId);
-      dispatch({ type: "SET_VOICE_CONNECTED", payload: false });
-      dispatch({ type: "SET_VOICE_MUTED", payload: false });
-      dispatch({ type: "SET_VOICE_DEAFENED", payload: false });
-      dispatch({ type: "SET_VOICE_GRANT", payload: null });
-      dispatch({ type: "SET_VOICE_MEMBERS", payload: [] });
-      previousServerIdRef.current = selectedServerId;
-    } else {
-      console.log("[ChatClient] Voice reset effect: Server unchanged. Skipping reset.");
-    }
-  }, [selectedServerId, dispatch]);
 
   useEffect(() => {
     const selected = channels.find((channel) => channel.id === selectedChannelId);
@@ -1480,126 +1361,6 @@ export function ChatClient() {
 
 
 
-  const handleJoinVoice = useCallback(async (): Promise<void> => {
-    console.log("[ChatClient] handleJoinVoice called, server:", selectedServerId, "channel:", selectedChannelId);
-    if (!selectedServerId || !selectedChannelId || activeChannel?.type !== "voice") {
-      return;
-    }
-
-    dispatch({ type: "SET_ERROR", payload: null });
-    try {
-      const grant = await issueVoiceTokenWithVideo({
-        serverId: selectedServerId,
-        channelId: selectedChannelId,
-        videoQuality: voiceVideoQuality
-      });
-      await joinVoicePresence({
-        serverId: selectedServerId,
-        channelId: selectedChannelId,
-        muted: voiceMuted,
-        deafened: voiceDeafened,
-        videoEnabled: voiceVideoEnabled,
-        videoQuality: voiceVideoQuality
-      });
-      dispatch({
-        type: "SET_VOICE_SESSION",
-        payload: { connected: true, grant }
-      });
-      dispatch({
-        type: "SET_VOICE_MEMBERS",
-        payload: await listVoicePresence({
-          serverId: selectedServerId,
-          channelId: selectedChannelId
-        })
-      });
-    } catch (cause) {
-      dispatch({ type: "SET_ERROR", payload: cause instanceof Error ? cause.message : "Failed to join voice." });
-    }
-  }, [selectedServerId, selectedChannelId, activeChannel?.type, voiceVideoQuality, voiceMuted, voiceDeafened, voiceVideoEnabled, dispatch]);
-
-  const handleLeaveVoice = useCallback(async (): Promise<void> => {
-    console.log("[ChatClient] handleLeaveVoice called. Connected:", voiceConnected, "Server:", selectedServerId, "Channel:", selectedChannelId);
-    if (!selectedServerId || !selectedChannelId || !voiceConnected) {
-      console.log("[ChatClient] handleLeaveVoice early exit - not connected or missing IDs.");
-      return;
-    }
-
-    dispatch({ type: "SET_ERROR", payload: null });
-    try {
-      await leaveVoicePresence({
-        serverId: selectedServerId,
-        channelId: selectedChannelId
-      });
-      dispatch({ type: "SET_VOICE_CONNECTED", payload: false });
-      dispatch({ type: "SET_VOICE_GRANT", payload: null });
-      dispatch({ type: "SET_VOICE_MEMBERS", payload: [] });
-    } catch (cause) {
-      dispatch({ type: "SET_ERROR", payload: cause instanceof Error ? cause.message : "Failed to leave voice." });
-    }
-  }, [selectedServerId, selectedChannelId, voiceConnected, dispatch]);
-
-  async function handleToggleMuteDeafen(nextMuted: boolean, nextDeafened: boolean): Promise<void> {
-    if (!selectedServerId || !selectedChannelId || !voiceConnected) {
-      dispatch({ type: "SET_VOICE_MUTED", payload: nextMuted });
-      dispatch({ type: "SET_VOICE_DEAFENED", payload: nextDeafened });
-      return;
-    }
-
-    dispatch({ type: "SET_ERROR", payload: null });
-    try {
-      await updateVoicePresenceState({
-        serverId: selectedServerId,
-        channelId: selectedChannelId,
-        muted: nextMuted,
-        deafened: nextDeafened,
-        videoEnabled: voiceVideoEnabled,
-        videoQuality: voiceVideoQuality
-      });
-      dispatch({ type: "SET_VOICE_MUTED", payload: nextMuted });
-      dispatch({ type: "SET_VOICE_DEAFENED", payload: nextDeafened });
-    } catch (cause) {
-      dispatch({ type: "SET_ERROR", payload: cause instanceof Error ? cause.message : "Failed to update voice state." });
-    }
-  }
-
-  async function handleToggleVideo(nextVideoEnabled: boolean): Promise<void> {
-    dispatch({ type: "SET_VOICE_VIDEO_ENABLED", payload: nextVideoEnabled });
-    if (!selectedServerId || !selectedChannelId || !voiceConnected) {
-      return;
-    }
-    dispatch({ type: "SET_ERROR", payload: null });
-    try {
-      await updateVoicePresenceState({
-        serverId: selectedServerId,
-        channelId: selectedChannelId,
-        muted: voiceMuted,
-        deafened: voiceDeafened,
-        videoEnabled: nextVideoEnabled,
-        videoQuality: voiceVideoQuality
-      });
-    } catch (cause) {
-      dispatch({ type: "SET_ERROR", payload: cause instanceof Error ? cause.message : "Failed to update video state." });
-    }
-  }
-
-  async function handleSetVoiceChannelVideoDefaults(event: FormEvent<HTMLFormElement>): Promise<void> {
-    event.preventDefault();
-    if (!selectedServerId || !selectedChannelId || activeChannel?.type !== "voice") {
-      return;
-    }
-    dispatch({ type: "SET_ERROR", payload: null });
-    try {
-      await updateChannelVideoControls({
-        channelId: selectedChannelId,
-        serverId: selectedServerId,
-        videoEnabled: voiceVideoEnabled,
-        maxVideoParticipants: 4
-      });
-      await refreshChatState(selectedServerId, selectedChannelId);
-    } catch (cause) {
-      dispatch({ type: "SET_ERROR", payload: cause instanceof Error ? cause.message : "Failed to update voice defaults." });
-    }
-  }
 
 
   async function sendContentWithOptimistic(content: string, attachments: any[] = [], existingMessageId?: string): Promise<void> {
@@ -1764,16 +1525,19 @@ export function ChatClient() {
           aria-label="Chat workspace"
         >
           <div className="sidebar-drawer-container">
-            <Sidebar
-              handleServerChange={handleServerChange}
-              handleChannelChange={handleChannelChange}
-              handleServerKeyboardNavigation={handleServerKeyboardNavigation}
-              handleChannelKeyboardNavigation={handleChannelKeyboardNavigation}
-              performDeleteSpace={performDeleteSpace}
-              performDeleteRoom={performDeleteRoom}
-            />
+            <ErrorBoundary>
+              <Sidebar
+                handleServerChange={handleServerChange}
+                handleChannelChange={handleChannelChange}
+                handleServerKeyboardNavigation={handleServerKeyboardNavigation}
+                handleChannelKeyboardNavigation={handleChannelKeyboardNavigation}
+                performDeleteSpace={performDeleteSpace}
+                performDeleteRoom={performDeleteRoom}
+              />
+            </ErrorBoundary>
           </div>
-          <ChatWindow
+          <ErrorBoundary>
+            <ChatWindow
             handleSendMessage={handleSendMessage}
             handleMessageListScroll={handleMessageListScroll}
             jumpToLatest={jumpToLatest}
@@ -1797,12 +1561,17 @@ export function ChatClient() {
             messageInputRef={messageInputRef}
             refreshChatState={refreshChatState}
           />
-          {state.threadParentId && <ThreadPanel />}
+        </ErrorBoundary>
+          
+          <ErrorBoundary>
+            {state.threadParentId && <ThreadPanel />}
+          </ErrorBoundary>
 
           <div className="details-drawer-container">
             {isDetailsOpen && (
-              <aside className="context panel scrollable-pane" aria-label="Channel context">
-                <h2>Channel Details</h2>
+              <ErrorBoundary>
+                <aside className="context panel scrollable-pane" aria-label="Channel context">
+                  <h2>Channel Details</h2>
                 {activeChannel ? (
                   <>
                     <p className="context-line">
@@ -1903,6 +1672,7 @@ export function ChatClient() {
                   <p>Select a channel to see details</p>
                 )}
               </aside >
+              </ErrorBoundary>
             )}
           </div >
         </section >

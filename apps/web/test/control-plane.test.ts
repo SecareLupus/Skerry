@@ -9,21 +9,21 @@ import {
 } from "../lib/control-plane";
 
 test("providerLoginUrl builds Discord auth route", () => {
-  assert.equal(providerLoginUrl("discord"), "http://localhost:4000/auth/login/discord");
+  assert.equal(providerLoginUrl("discord"), "http://control-plane:4000/auth/login/discord");
 });
 
 test("providerLoginUrl builds developer login route", () => {
-  assert.equal(providerLoginUrl("dev", "alice"), "http://localhost:4000/auth/dev-login?username=alice");
+  assert.equal(providerLoginUrl("dev", "alice"), "http://control-plane:4000/auth/dev-login?username=alice");
 });
 
 test("providerLinkUrl builds OAuth linking route", () => {
-  assert.equal(providerLinkUrl("google"), "http://localhost:4000/auth/link/google");
+  assert.equal(providerLinkUrl("google"), "http://control-plane:4000/auth/link/google");
 });
 
 test("discordBridgeStartUrl builds bridge OAuth route", () => {
   assert.equal(
     discordBridgeStartUrl("hub_123"),
-    "http://localhost:4000/v1/discord/oauth/start?serverId=hub_123"
+    "http://control-plane:4000/v1/discord/oauth/start?serverId=hub_123"
   );
 });
 

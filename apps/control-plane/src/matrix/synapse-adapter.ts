@@ -201,3 +201,42 @@ export async function setUserAvatar(userId: string, avatarUrl: string): Promise<
     { method: "PUT", userId }
   );
 }
+
+export async function setUserMuted(roomId: string, userId: string, muted: boolean): Promise<void> {
+  if (!config.synapse.baseUrl || !config.synapse.asToken) {
+    return;
+  }
+  const url = new URL(`${config.synapse.baseUrl}/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/state/m.room.power_levels/`);
+  url.searchParams.set("access_token", config.synapse.asToken);
+  
+  let response: Response;
+  try {
+    response = await fetch(url.toString(), {
+      method: "GET",
+      headers: { "Content-Type": "application/json" }
+    });
+  } catch (err) {
+    console.warn(`Failed to fetch power levels for ${roomId}:`, err);
+    return;
+  }
+
+  if (!response.ok) {
+    console.warn(`Failed to fetch power levels for ${roomId}: ${response.status}`);
+    return;
+  }
+
+  const currentLevels = (await response.json()) as any;
+  const users = currentLevels.users || {};
+
+  if (muted) {
+    users[userId] = -1; // -1 prevents sending messages if default is 0
+  } else {
+    delete users[userId];
+  }
+
+  await synapseRequest(
+    `/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/state/m.room.power_levels/`,
+    { ...currentLevels, users },
+    { method: "PUT" }
+  );
+}

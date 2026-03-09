@@ -5,6 +5,7 @@ import { startDiscordBot } from "./services/discord-bot-client.js";
 import { initDb } from "./db/client.js";
 
 import { ensureAppserviceRegistration } from "./matrix/synapse-bootstrap.js";
+import { startTimeoutWorker } from "./workers/timeout-worker.js";
 
 async function start() {
   // Ensure Appservice registration is in sync with environment
@@ -20,6 +21,9 @@ async function start() {
 
     // Start Discord bot client
     await startDiscordBot();
+
+    // Start background background worker for timeouts
+    startTimeoutWorker();
   } catch (err) {
     app.log.error(err);
     process.exit(1);

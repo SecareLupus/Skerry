@@ -208,11 +208,37 @@ export async function performModerationAction(
             break;
           case "timeout":
             if (!input.targetUserId) throw new Error("targetUserId is required for timeout");
-            await kickUser({
-              roomId: dbData.serverMatrixId,
-              userId: input.targetUserId,
-              reason: `Timeout (${input.timeoutSeconds ?? 0}s): ${input.reason}`
+            const timeoutSeconds = input.timeoutSeconds ?? 3600;
+            const expiresAt = new Date(Date.now() + timeoutSeconds * 1000).toISOString();
+            
+            // 1. Save restriction in DB
+            await withDb(async (db) => {
+              await db.query(
+                `insert into moderation_time_restrictions (id, server_id, target_user_id, status, expires_at)
+                 values ($1, $2, $3, 'active', $4)`,
+                [
+                  `timerest_${crypto.randomUUID().replaceAll("-", "")}`,
+                  input.serverId,
+                  input.targetUserId,
+                  expiresAt
+                ]
+              );
             });
+
+            // 2. Mute them in Matrix
+            const channels = await withDb(async (db) => {
+              const res = await db.query<{ matrix_room_id: string }>(
+                "select matrix_room_id from channels where server_id = $1 and matrix_room_id is not null",
+                [input.serverId]
+              );
+              return res.rows.map(r => r.matrix_room_id);
+            });
+
+            const { setUserMuted } = await import("../matrix/synapse-adapter.js");
+            const roomIds = [dbData.serverMatrixId, ...channels];
+            await Promise.allSettled(
+              roomIds.map(roomId => setUserMuted(roomId, input.targetUserId!, true))
+            );
             break;
         }
       } catch (error) {

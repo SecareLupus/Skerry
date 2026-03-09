@@ -21,6 +21,32 @@ interface ChannelRow {
   created_at: string;
 }
 
+export interface ChatMessageRow {
+  id: string;
+  channel_id: string;
+  author_user_id: string;
+  author_display_name: string;
+  content: string;
+  attachments: ChatMessage["attachments"] | null;
+  is_relay: boolean;
+  external_provider: string | null;
+  external_author_name: string | null;
+  external_author_avatar_url: string | null;
+  parent_id: string | null;
+  external_thread_id: string | null;
+  external_message_id?: string | null;
+  created_at: string;
+  updated_at?: string;
+  deleted_at?: string;
+}
+
+export interface ReactionRow {
+  message_id: string;
+  emoji: string;
+  user_id: string;
+  display_name: string;
+}
+
 interface CategoryRow {
   id: string;
   server_id: string;
@@ -177,7 +203,7 @@ export async function listMessages(input: {
       select * from chat_messages
       where channel_id = $1 and deleted_at is null
     `;
-    const params: any[] = [input.channelId];
+    const params: unknown[] = [input.channelId];
 
     if (input.parentId !== undefined) {
       if (input.parentId === null) {
@@ -207,7 +233,7 @@ export async function listMessages(input: {
       author_user_id: string;
       author_display_name: string;
       content: string;
-      attachments: any;
+      attachments: ChatMessage["attachments"] | null;
       is_relay: boolean;
       external_provider: string | null;
       external_author_name: string | null;
@@ -232,15 +258,12 @@ export async function listMessages(input: {
       }
     }
 
-    let reactionsMap: Record<string, any[]> = {};
+
+
+    let reactionsMap: Record<string, ReactionRow[]> = {};
 
     if (messageIds.length > 0) {
-      const reactionsResult = await db.query<{
-        message_id: string;
-        emoji: string;
-        user_id: string;
-        display_name: string;
-      }>(
+      const reactionsResult = await db.query<ReactionRow>(
         `select mr.message_id, mr.emoji, mr.user_id, 
            coalesce(
              (select preferred_username 
@@ -267,25 +290,25 @@ export async function listMessages(input: {
   });
 }
 
-function mapChatMessage(row: any, repliesCountMap: Record<string, number>, reactionsMap: Record<string, any[]>, viewerUserId?: string): ChatMessage {
+function mapChatMessage(row: ChatMessageRow, repliesCountMap: Record<string, number>, reactionsMap: Record<string, ReactionRow[]>, viewerUserId?: string): ChatMessage {
   const rawReactions = reactionsMap[row.id] ?? [];
-  const reactionsByEmoji: Record<string, any> = {};
+  const reactionsByEmoji: Record<string, NonNullable<ChatMessage["reactions"]>[number]> = {};
 
   for (const r of rawReactions) {
-    if (!reactionsByEmoji[r.emoji]) {
-      reactionsByEmoji[r.emoji] = {
+    let reaction = reactionsByEmoji[r.emoji];
+    if (!reaction) {
+      reaction = {
         emoji: r.emoji,
         count: 0,
         me: false,
-        userIds: [],
-        displayNames: []
+        userIds: []
       };
+      reactionsByEmoji[r.emoji] = reaction;
     }
-    reactionsByEmoji[r.emoji].count++;
-    reactionsByEmoji[r.emoji].userIds.push(r.user_id);
-    reactionsByEmoji[r.emoji].displayNames.push(r.display_name);
+    reaction.count++;
+    reaction.userIds.push(r.user_id);
     if (viewerUserId && r.user_id === viewerUserId) {
-      reactionsByEmoji[r.emoji].me = true;
+      reaction.me = true;
     }
   }
 
@@ -295,7 +318,7 @@ function mapChatMessage(row: any, repliesCountMap: Record<string, number>, react
     authorUserId: row.author_user_id,
     authorDisplayName: row.author_display_name,
     content: row.content,
-    attachments: row.attachments,
+    attachments: row.attachments ?? undefined,
     reactions: Object.values(reactionsByEmoji),
     isRelay: row.is_relay,
     externalProvider: row.external_provider ?? undefined,
@@ -312,23 +335,7 @@ function mapChatMessage(row: any, repliesCountMap: Record<string, number>, react
 
 export async function fetchMessage(channelId: string, messageId: string, viewerUserId?: string): Promise<ChatMessage | null> {
   return withDb(async (db) => {
-    const rows = await db.query<{
-      id: string;
-      channel_id: string;
-      author_user_id: string;
-      author_display_name: string;
-      content: string;
-      attachments: any;
-      is_relay: boolean;
-      external_provider: string | null;
-      external_author_name: string | null;
-      external_author_avatar_url: string | null;
-      parent_id: string | null;
-      external_thread_id: string | null;
-      created_at: string;
-      updated_at?: string;
-      deleted_at?: string;
-    }>(
+    const rows = await db.query<ChatMessageRow>(
       "select * from chat_messages where id = $1 and channel_id = $2 and deleted_at is null",
       [messageId, channelId]
     );
@@ -337,7 +344,7 @@ export async function fetchMessage(channelId: string, messageId: string, viewerU
       return null;
     }
 
-    const row = rows.rows[0];
+    const row = rows.rows[0]!;
 
     // Get replies count
     const counts = await db.query<{ count: string }>(
@@ -460,7 +467,7 @@ export async function createMessage(input: {
         author_user_id: string;
         author_display_name: string;
         content: string;
-        attachments: any;
+        attachments: ChatMessage["attachments"] | null;
         is_relay: boolean;
         external_author_id: string | null;
         external_provider: string | null;
@@ -506,7 +513,7 @@ export async function createMessage(input: {
         authorUserId: row.author_user_id,
         authorDisplayName: row.author_display_name,
         content: row.content,
-        attachments: row.attachments,
+        attachments: row.attachments ?? undefined,
         reactions: [],
         isRelay: row.is_relay,
         externalProvider: row.external_provider ?? undefined,
@@ -1378,7 +1385,7 @@ export async function updateMessage(input: {
       author_user_id: string;
       author_display_name: string;
       content: string;
-      attachments: any;
+      attachments: ChatMessage["attachments"] | null;
       created_at: string;
       updated_at: string;
     }>(
@@ -1400,7 +1407,7 @@ export async function updateMessage(input: {
       authorUserId: row.author_user_id,
       authorDisplayName: row.author_display_name,
       content: row.content,
-      attachments: row.attachments,
+      attachments: row.attachments ?? undefined,
       reactions: [],
       createdAt: row.created_at,
       updatedAt: row.updated_at
@@ -1516,7 +1523,14 @@ export async function listServerMembers(serverId: string): Promise<{
     const { getDiscordBotClient } = await import("./discord-bot-client.js");
 
     const connection = await getDiscordBridgeConnection(serverId);
-    let bridgedMembers: any[] = [];
+    let bridgedMembers: {
+      productUserId: string;
+      displayName: string;
+      avatarUrl?: string;
+      isOnline: boolean;
+      isBridged: boolean;
+      bridgedUserStatus?: string;
+    }[] = [];
 
     if (connection && connection.guildId && connection.status === "connected") {
       const client = getDiscordBotClient();
