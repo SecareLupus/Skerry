@@ -797,10 +797,18 @@ export function ChatWindow({
                                                         setReactionTargetMessageId(null);
                                                     }}
                                                     theme={theme as any}
-                                                    width={280}
-                                                    height={320}
+                                                    width={260}
+                                                    height={340}
+                                                    emojiSize={22}
                                                     previewConfig={{ showPreview: false }}
                                                     skinTonesDisabled={true}
+                                                    style={{
+                                                        "--epr-emoji-padding": "2px",
+                                                        "--epr-emoji-size": "22px",
+                                                        "--epr-horizontal-padding": "6px",
+                                                        "--epr-search-input-height": "32px",
+                                                        "--epr-category-navigation-button-size": "22px"
+                                                    } as any}
                                                 />
                                             </div>
                                         </div>
