@@ -682,7 +682,13 @@ export function ChatWindow({
                                         <button
                                             type="button"
                                             className="hover-action-item"
-                                            onClick={() => setReactionTargetMessageId(message.id)}
+                                            onClick={(e) => {
+                                                const rect = e.currentTarget.getBoundingClientRect();
+                                                const listRect = messagesRef.current?.getBoundingClientRect();
+                                                const relativeY = listRect ? rect.top - listRect.top : 0;
+                                                setReactionPickerPos({ x: rect.left, y: relativeY });
+                                                setReactionTargetMessageId(message.id);
+                                            }}
                                             title="Add Reaction"
                                         >
                                             😀
@@ -784,6 +790,49 @@ export function ChatWindow({
                                         </div>
                                     )}
 
+                                    {/* Emoji Picker for adding a reaction */}
+                                    {reactionTargetMessageId === message.id && (() => {
+                                        const pickerHeight = 345;
+                                        const listHeight = messagesRef.current?.clientHeight ?? 600;
+                                        const spaceBelow = listHeight - (reactionPickerPos?.y ?? 0);
+                                        const openUpward = spaceBelow < pickerHeight + 20;
+                                        return (
+                                            <div
+                                                className="reaction-picker-overlay"
+                                                style={{
+                                                    position: "absolute",
+                                                    zIndex: 2000,
+                                                    right: 0,
+                                                    ...(openUpward
+                                                        ? { bottom: "100%", marginBottom: "4px" }
+                                                        : { top: "100%", marginTop: "4px" })
+                                                }}
+                                            >
+                                                <div className="picker-backdrop" style={{ position: "fixed", inset: 0, zIndex: 90 }} onClick={() => setReactionTargetMessageId(null)} />
+                                                <div className="emoji-picker-container reaction-picker-compact" style={{ position: "relative", zIndex: 100 }}>
+                                                    <EmojiPicker
+                                                        onEmojiClick={async (emojiData: EmojiClickData) => {
+                                                            await addReaction(message.channelId, message.id, emojiData.emoji);
+                                                            setReactionTargetMessageId(null);
+                                                        }}
+                                                        theme={theme as any}
+                                                        width={260}
+                                                        height={340}
+                                                        emojiSize={22}
+                                                        previewConfig={{ showPreview: false }}
+                                                        skinTonesDisabled={true}
+                                                        style={{
+                                                            "--epr-emoji-padding": "2px",
+                                                            "--epr-emoji-size": "22px",
+                                                            "--epr-horizontal-padding": "6px",
+                                                            "--epr-search-input-height": "32px"
+                                                        } as any}
+                                                    />
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
+
                                     {/* Reactions rendering */}
                                     {message.reactions && message.reactions.length > 0 && (
                                         <div className="message-reactions-container" style={{ display: "flex", flexWrap: "wrap", gap: "0.25rem", marginTop: "0.25rem" }}>
@@ -837,40 +886,7 @@ export function ChatWindow({
                 })}
             </ol>
 
-            {/* Emoji Picker for adding a reaction - moved out of loop for stability */}
-            {reactionTargetMessageId && (
-                <div className="reaction-picker-overlay" style={{
-                    position: "absolute",
-                    zIndex: 2000,
-                    right: "1rem",
-                    top: reactionPickerPos ? Math.max(10, Math.min((messagesRef.current?.clientHeight || 500) - 350, reactionPickerPos.y - 150)) : '50%'
-                }}>
-                    <div className="picker-backdrop" style={{ position: "fixed", inset: 0, zIndex: 90 }} onClick={() => setReactionTargetMessageId(null)} />
-                    <div className="emoji-picker-container reaction-picker-compact" style={{ position: "relative", zIndex: 100 }}>
-                        <EmojiPicker
-                            onEmojiClick={async (emojiData: EmojiClickData) => {
-                                const targetMsg = messages.find(m => m.id === reactionTargetMessageId);
-                                if (targetMsg) {
-                                    await addReaction(targetMsg.channelId, targetMsg.id, emojiData.emoji);
-                                }
-                                setReactionTargetMessageId(null);
-                            }}
-                            theme={theme as any}
-                            width={260}
-                            height={340}
-                            emojiSize={22}
-                            previewConfig={{ showPreview: false }}
-                            skinTonesDisabled={true}
-                            style={{
-                                "--epr-emoji-padding": "2px",
-                                "--epr-emoji-size": "22px",
-                                "--epr-horizontal-padding": "6px",
-                                "--epr-search-input-height": "32px"
-                            } as any}
-                        />
-                    </div>
-                </div>
-            )}
+
 
             {contextMenu && (
                 <ContextMenu
