@@ -880,8 +880,7 @@ export function ChatWindow({
                                     "--epr-emoji-padding": "2px",
                                     "--epr-emoji-size": "22px",
                                     "--epr-horizontal-padding": "6px",
-                                    "--epr-search-input-height": "32px",
-                                    "--epr-category-navigation-button-size": "20px"
+                                    "--epr-search-input-height": "32px"
                                 } as any}
                             />
                         </div>

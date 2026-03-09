@@ -1694,8 +1694,8 @@ textarea:focus-visible,
 .reaction-picker-compact .epr-category-nav {
   display: flex !important;
   justify-content: center !important;
-  padding: 0 4px !important;
-  --epr-category-navigation-button-size: 20px !important;
+  padding: 0 !important;
+  overflow: hidden !important;
 }
 
 .reaction-picker-compact .epr-body {
