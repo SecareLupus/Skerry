@@ -1694,23 +1694,61 @@ export function ChatClient() {
                     {selectedServerId && activeServer?.type !== "dm" && (
                       <button
                         type="button"
-                        className="icon-button"
                         onClick={() => setIsCreatingHubInvite(true)}
                         title="Create Hub Invite"
-                        style={{ background: "var(--accent-color, #5865f2)", padding: "0.5rem 1.2rem", borderRadius: "8px", fontSize: "0.9rem", fontWeight: 700, color: "white", border: "none", boxShadow: "0 2px 8px rgba(0,0,0,0.2)", transition: "all 0.2s ease" }}
+                        style={{
+                          background: "var(--accent-color, #5865f2)",
+                          padding: "0.4rem 1rem",
+                          borderRadius: "10px",
+                          fontSize: "0.8rem",
+                          fontWeight: 700,
+                          color: "white",
+                          border: "none",
+                          boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+                          transition: "all 0.2s ease",
+                          width: "auto",
+                          minWidth: "64px",
+                          minHeight: "44px",
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          lineHeight: "1.2",
+                          gap: "0.1rem"
+                        }}
                       >
-                        ➕ Invite
+                        <span style={{ fontSize: "1.2rem" }}>➕</span>
+                        <span>Invite</span>
                       </button>
                     )}
                     {activeChannel?.type === "dm" && (
                       <button
                         type="button"
-                        className="icon-button"
                         onClick={() => setIsInviting(true)}
                         title="Invite Participants"
-                        style={{ background: "var(--accent-color, #5865f2)", padding: "0.5rem 1.2rem", borderRadius: "8px", fontSize: "0.9rem", fontWeight: 700, color: "white", border: "none", boxShadow: "0 2px 8px rgba(0,0,0,0.2)", transition: "all 0.2s ease" }}
+                        style={{
+                          background: "var(--accent-color, #5865f2)",
+                          padding: "0.4rem 1rem",
+                          borderRadius: "10px",
+                          fontSize: "0.8rem",
+                          fontWeight: 700,
+                          color: "white",
+                          border: "none",
+                          boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+                          transition: "all 0.2s ease",
+                          width: "auto",
+                          minWidth: "64px",
+                          minHeight: "44px",
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          lineHeight: "1.2",
+                          gap: "0.1rem"
+                        }}
                       >
-                        👤+ Invite
+                        <span style={{ fontSize: "1.2rem" }}>👤+</span>
+                        <span>Invite</span>
                       </button>
                     )}
                   </div>
