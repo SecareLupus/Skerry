@@ -1016,10 +1016,10 @@ export function ChatWindow({
             }
 
             {
-                !isNearBottom && pendingNewMessageCount > 0 ? (
+                !isNearBottom ? (
                     <div className="jump-latest">
                         <button type="button" onClick={jumpToLatest}>
-                            Jump to latest ({pendingNewMessageCount})
+                            {pendingNewMessageCount > 0 ? `Jump to latest (${pendingNewMessageCount})` : "Scroll to Present"}
                         </button>
                     </div>
                 ) : null
@@ -1300,6 +1300,35 @@ export function ChatWindow({
             }
             .unread-banner:hover {
                 background: #4752c4;
+            }
+            .jump-latest {
+                position: absolute;
+                bottom: 5.5rem;
+                left: 50%;
+                transform: translateX(-50%);
+                z-index: 20;
+                animation: slide-up 0.2s ease-out;
+            }
+            .jump-latest button {
+                background: var(--accent, #5865f2);
+                color: white;
+                border: none;
+                border-radius: 20px;
+                padding: 0.5rem 1rem;
+                font-size: 0.85rem;
+                font-weight: 600;
+                cursor: pointer;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+                transition: all 0.2s;
+            }
+            .jump-latest button:hover {
+                background: var(--accent-hover, #4752c4);
+                transform: translateY(-2px);
+                box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+            }
+            @keyframes slide-up {
+                from { transform: translate(-50%, 10px); opacity: 0; }
+                to { transform: translate(-50%, 0); opacity: 1; }
             }
             `}</style>
         </section >
