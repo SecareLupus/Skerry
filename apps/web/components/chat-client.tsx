@@ -1717,8 +1717,8 @@ export function ChatClient() {
                           gap: "0.1rem"
                         }}
                       >
-                        <span style={{ fontSize: "1.2rem" }}>➕</span>
-                        <span>Invite</span>
+                        <span style={{ fontSize: "1.4rem", color: "white", fontWeight: 800 }}>+</span>
+                        <span style={{ color: "white" }}>Invite</span>
                       </button>
                     )}
                     {activeChannel?.type === "dm" && (
@@ -1747,8 +1747,8 @@ export function ChatClient() {
                           gap: "0.1rem"
                         }}
                       >
-                        <span style={{ fontSize: "1.2rem" }}>👤+</span>
-                        <span>Invite</span>
+                        <span style={{ fontSize: "1.4rem", color: "white", fontWeight: 800 }}>👤+</span>
+                        <span style={{ color: "white" }}>Invite</span>
                       </button>
                     )}
                   </div>
