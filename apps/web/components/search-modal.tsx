@@ -119,15 +119,60 @@ export function SearchModal() {
             </div>
 
             <style jsx>{`
+                .modal-overlay {
+                    position: fixed;
+                    inset: 0;
+                    background: rgba(0, 0, 0, 0.7);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 3000;
+                    backdrop-filter: blur(8px);
+                    padding: 1rem;
+                }
                 .search-modal {
                     width: 100%;
                     max-width: 600px;
-                    background: var(--panel-bg, #ffffff);
-                    border-radius: 8px;
+                    background: var(--surface, #ffffff);
+                    border: 1px solid var(--border, #ccc);
+                    border-radius: 12px;
                     overflow: hidden;
                     display: flex;
                     flex-direction: column;
                     max-height: 80vh;
+                    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+                    animation: modal-enter 0.2s ease-out;
+                }
+                @keyframes modal-enter {
+                    from { transform: scale(0.95); opacity: 0; }
+                    to { transform: scale(1); opacity: 1; }
+                }
+                .modal-header {
+                    padding: 1rem;
+                    background: var(--surface-alt, #f9f9f9);
+                    border-bottom: 1px solid var(--border);
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                }
+                .modal-header h2 {
+                    margin: 0;
+                    font-size: 1.1rem;
+                    color: var(--text);
+                }
+                .close-button {
+                    background: transparent;
+                    border: none;
+                    color: var(--text-muted);
+                    font-size: 1.5rem;
+                    cursor: pointer;
+                    line-height: 1;
+                }
+                .modal-body {
+                    display: flex;
+                    flex-direction: column;
+                    flex: 1;
+                    overflow: hidden;
                 }
                 .search-controls {
                     padding: 1rem;
@@ -142,11 +187,11 @@ export function SearchModal() {
                 .search-input {
                     width: 100%;
                     padding: 0.75rem;
-                    border: 1px solid var(--border-color, #ccc);
-                    border-radius: 4px;
+                    border: 1px solid var(--border);
+                    border-radius: 8px;
                     font-size: 1rem;
-                    background: var(--input-bg, #fff);
-                    color: var(--text-color, #333);
+                    background: var(--surface-alt, #fff);
+                    color: var(--text, #333);
                 }
                 .scope-selector {
                     display: flex;
@@ -154,17 +199,21 @@ export function SearchModal() {
                 }
                 .scope-button {
                     padding: 0.4rem 0.8rem;
-                    border-radius: 4px;
-                    border: 1px solid var(--border-color, #ccc);
+                    border-radius: 6px;
+                    border: 1px solid var(--border);
                     background: transparent;
                     cursor: pointer;
                     font-size: 0.85rem;
                     color: var(--text-muted, #666);
+                    transition: all 0.2s;
+                }
+                .scope-button:hover {
+                    background: var(--surface-alt);
                 }
                 .scope-button.active {
-                    background: #5865f2;
+                    background: var(--accent, #5865f2);
                     color: white;
-                    border-color: #5865f2;
+                    border-color: var(--accent);
                 }
                 .results-container {
                     flex: 1;
@@ -173,13 +222,13 @@ export function SearchModal() {
                 }
                 .search-result-item {
                     padding: 0.75rem 1rem;
-                    border-radius: 4px;
+                    border-radius: 8px;
                     cursor: pointer;
                     transition: background 0.2s;
-                    border-bottom: 1px solid var(--border-color, #f0f0f0);
+                    border-bottom: 1px solid var(--border);
                 }
                 .search-result-item:hover {
-                    background: var(--hover-bg, #f5f5f5);
+                    background: var(--surface-alt);
                 }
                 .result-meta {
                     display: flex;
@@ -190,14 +239,13 @@ export function SearchModal() {
                 }
                 .author {
                     font-weight: 600;
-                    color: var(--text-color, #444);
+                    color: var(--text);
                 }
                 .result-content {
                     font-size: 0.9rem;
-                    color: var(--text-color, #333);
-                    white-space: nowrap;
-                    overflow: hidden;
-                    text-overflow: ellipsis;
+                    color: var(--text);
+                    white-space: pre-wrap;
+                    word-break: break-word;
                 }
                 .loading-state, .no-results {
                     padding: 2rem;
