@@ -539,6 +539,10 @@ export function ChatClient() {
       setTimeout(() => {
         const list = messagesRef.current;
         if (list) {
+          // If we are jumping to a specific message, don't restore saved scroll position
+          // as ChatWindow will handle scrolling to that message.
+          if (urlMessageId) return;
+
           const savedPos = channelScrollPositions[nextChannelId];
           if (savedPos !== undefined) {
             list.scrollTop = savedPos;

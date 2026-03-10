@@ -236,10 +236,14 @@ export function ChatWindow({
     }, [reactionTargetMessageId]);
     useEffect(() => {
         if (state.highlightedMessageId && messagesRef.current) {
-            const el = document.getElementById(`message-${state.highlightedMessageId}`);
-            if (el) {
-                el.scrollIntoView({ behavior: "smooth", block: "center" });
-            }
+            // Use a small timeout to ensure DOM is settled/rendered
+            const timeoutId = setTimeout(() => {
+                const el = document.getElementById(`message-${state.highlightedMessageId}`);
+                if (el) {
+                    el.scrollIntoView({ behavior: "smooth", block: "center" });
+                }
+            }, 100);
+            return () => clearTimeout(timeoutId);
         }
     }, [state.highlightedMessageId, messages, messagesRef]);
 
