@@ -62,7 +62,12 @@ import {
   getFirstUnreadMessageId
 } from "../services/chat-service.js";
 import { getBootstrapStatus } from "../services/bootstrap-service.js";
-import { publishChannelMessage, subscribeToChannelMessages } from "../services/chat-realtime.js";
+import {
+  publishChannelMessage,
+  publishHubEvent,
+  subscribeToChannelMessages,
+  subscribeToHubEvents
+} from "../services/chat-realtime.js";
 import { listHubsForUser } from "../services/hub-service.js";
 import {
   joinVoicePresence,
@@ -589,14 +594,16 @@ export async function registerDomainRoutes(app: FastifyInstance): Promise<void> 
     const params = z.object({ channelId: z.string().min(1) }).parse(request.params);
     const payload = z
       .object({
-        at: z.string().datetime().optional()
+        at: z.string().datetime().optional(),
+        isMuted: z.boolean().optional(),
+        notificationPreference: z.enum(["all", "mentions", "none"]).optional()
       })
       .parse(request.body ?? {});
 
     return upsertChannelReadState({
       productUserId: request.auth!.productUserId,
       channelId: params.channelId,
-      at: payload.at
+      ...payload
     });
   });
 
@@ -1092,8 +1099,50 @@ export async function registerDomainRoutes(app: FastifyInstance): Promise<void> 
       connectedAt: new Date().toISOString()
     });
 
-    const unsubscribe = subscribeToChannelMessages(params.channelId, (event, message) => {
-      writeEvent(event, message);
+    const unsubscribe = subscribeToChannelMessages(params.channelId, (event, payload) => {
+      writeEvent(event, payload);
+    });
+
+    const keepAliveTimer = setInterval(() => {
+      writeEvent("ping", { at: Date.now() });
+    }, 25000);
+
+    request.raw.on("close", () => {
+      clearInterval(keepAliveTimer);
+      unsubscribe();
+      reply.raw.end();
+    });
+  });
+
+  app.get("/v1/hubs/:hubId/stream", initializedAuthHandlers, async (request, reply) => {
+    const params = z.object({ hubId: z.string().min(1) }).parse(request.params);
+
+    // Verify hub access
+    const hubs = await listHubsForUser(request.auth!.productUserId);
+    if (!hubs.some(h => h.id === params.hubId)) {
+      reply.code(403).send({ message: "Forbidden: hub access denied." });
+      return;
+    }
+
+    reply.hijack();
+    reply.raw.writeHead(200, {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache, no-transform",
+      Connection: "keep-alive"
+    });
+
+    const writeEvent = (event: string, payload: unknown) => {
+      reply.raw.write(`event: ${event}\n`);
+      reply.raw.write(`data: ${JSON.stringify(payload)}\n\n`);
+    };
+
+    writeEvent("ready", {
+      hubId: params.hubId,
+      connectedAt: new Date().toISOString()
+    });
+
+    const unsubscribe = subscribeToHubEvents(params.hubId, (event, payload) => {
+      writeEvent(event, payload);
     });
 
     const keepAliveTimer = setInterval(() => {

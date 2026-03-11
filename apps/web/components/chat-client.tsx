@@ -20,6 +20,7 @@ import {
   bootstrapAdmin,
   createReport,
   connectMessageStream,
+  connectHubStream,
   completeUsernameOnboarding,
   createCategory,
   createChannel,
@@ -88,6 +89,7 @@ import {
 // Custom Hooks
 import { useVoice } from "../hooks/use-voice";
 import { useNotifications } from "../hooks/use-notifications";
+import { useNotificationBadge } from "../hooks/use-notification-badge";
 import { useDMs } from "../hooks/use-dms";
 import { useModeration } from "../hooks/use-moderation";
 import { usePresence } from "../hooks/use-presence";
@@ -170,6 +172,8 @@ export function ChatClient() {
     members,
     blockedUserIds
   } = state;
+
+  useNotificationBadge();
 
   const { showToast } = useToast();
   const [isInviting, setIsInviting] = useState(false);
@@ -794,8 +798,9 @@ export function ChatClient() {
     dispatch({ type: "SET_LAST_SEEN_MESSAGE_ID", payload: newest.id });
   }, [isNearBottom, lastSeenMessageId, messages, dispatch, pendingNewMessageCount]);
 
+  const hubId = activeServer?.hubId;
   useEffect(() => {
-    if (!canAccessWorkspace || !selectedChannelId) {
+    if (!canAccessWorkspace || !hubId) {
       dispatch({ type: "SET_REALTIME_STATE", payload: "disconnected" });
       return;
     }
@@ -804,27 +809,26 @@ export function ChatClient() {
     let pollInterval: ReturnType<typeof setInterval> | null = null;
 
     const startPolling = () => {
-      if (pollInterval) {
+      if (pollInterval || !selectedChannelId) {
         return;
       }
 
       dispatch({ type: "SET_REALTIME_STATE", payload: "polling" });
+      const channelToPoll = selectedChannelId;
+      if (!channelToPoll) return;
+
       pollInterval = setInterval(() => {
-        void listMessages(selectedChannelId, null)
+        void listMessages(channelToPoll, null)
           .then((next: MessageItem[]) => {
             dispatch({
               type: "UPDATE_MESSAGES",
               payload: (current: MessageItem[]) => {
                 const map = new Map<string, MessageItem>();
-                // Keep all current sending/failed messages
                 current.forEach((m: MessageItem) => {
                   if (m.clientState === "sending" || m.clientState === "failed") {
                     map.set(m.id, m);
                   }
                 });
-                // Add all server messages, letting them overwrite if ID matches
-                // (Server messages won't have clientState so they'll overwrite "sending" if ID is same,
-                // but usually tmp IDs are different).
                 next.forEach((m: MessageItem) => map.set(m.id, m));
 
                 return Array.from(map.values()).sort((a, b) =>
@@ -833,37 +837,36 @@ export function ChatClient() {
               }
             });
           })
-          .catch(() => {
-            // Keep previous messages on transient polling failures.
-          });
+          .catch(() => {});
       }, 3000);
     };
 
     const stopPolling = () => {
-      if (!pollInterval) {
-        return;
+      if (pollInterval) {
+        clearInterval(pollInterval);
+        pollInterval = null;
       }
-      clearInterval(pollInterval);
-      pollInterval = null;
     };
 
-    startPolling();
+    if (selectedChannelId) startPolling();
 
-    const disconnectStream = connectMessageStream(selectedChannelId, {
-      onOpen: () => {
-        if (closed) {
-          return;
-        }
-        stopPolling();
-        dispatch({ type: "SET_REALTIME_STATE", payload: "live" });
-      },
-      onError: () => {
-        if (closed) {
-          return;
-        }
-        startPolling();
-      },
-      onMessageCreated: (message: ChatMessage) => {
+    const source = connectHubStream(hubId);
+
+    source.onopen = () => {
+      if (closed) return;
+      stopPolling();
+      dispatch({ type: "SET_REALTIME_STATE", payload: "live" });
+    };
+
+    source.onerror = () => {
+      if (closed) return;
+      startPolling();
+    };
+
+    source.addEventListener("message.created", (event: any) => {
+      const message = JSON.parse(event.data) as ChatMessage;
+
+      if (message.channelId === selectedChannelId) {
         dispatch({
           type: "UPDATE_MESSAGES",
           payload: (current: MessageItem[]) => {
@@ -871,7 +874,6 @@ export function ChatClient() {
               return current;
             }
             if (message.parentId) {
-              // It's a reply. Find the parent and update its reply count.
               return current.map(item => {
                 if (item.id === message.parentId) {
                   return { ...item, repliesCount: (item.repliesCount || 0) + 1 };
@@ -879,72 +881,63 @@ export function ChatClient() {
                 return item;
               });
             }
-            // Root message: add it to the list
             return [...current, message];
           }
         });
-        // If we are already at the bottom of the channel where message was received
-        if (state.selectedChannelId === message.channelId && state.isNearBottom && !message.parentId) {
+        if (state.isNearBottom && !message.parentId) {
           void markChannelAsRead(message.channelId);
         }
+      } else {
+        void fetchNotificationSummary().then(summary => dispatch({ type: "SET_NOTIFICATIONS", payload: summary }));
+      }
 
-        // Browser Notifications
-        if (typeof window !== "undefined" && document.hidden && Notification.permission === "granted" && message.authorUserId !== viewer?.productUserId) {
-          const channel = channels.find(c => c.id === message.channelId);
-          new Notification(`${message.authorDisplayName} in ${channel ? getChannelName(channel) : 'Channel'}`, {
-            body: message.content,
-            icon: "/favicon.ico" // Fallback icon
-          });
-        }
-      },
-      onMessageUpdated: (updatedMessage: ChatMessage) => {
+      if (typeof window !== "undefined" && document.hidden && Notification.permission === "granted" && message.authorUserId !== viewer?.productUserId) {
+        const channel = channels.find(c => c.id === message.channelId);
+        new Notification(`${message.authorDisplayName} in ${channel ? getChannelName(channel) : 'Channel'}`, {
+          body: message.content,
+          icon: "/favicon.ico"
+        });
+      }
+    });
+
+    source.addEventListener("message.updated", (event: any) => {
+      const updatedMessage = JSON.parse(event.data) as ChatMessage;
+      if (updatedMessage.channelId === selectedChannelId) {
         dispatch({
           type: "UPDATE_MESSAGES",
           payload: (current: MessageItem[]) => {
             return current.map((item: MessageItem) => (item.id === updatedMessage.id ? updatedMessage : item));
           }
         });
-      },
-      onMessageDeleted: (deletedMessageId: string) => {
+      }
+    });
+
+    source.addEventListener("message.deleted", (event: any) => {
+      const { id, channelId } = JSON.parse(event.data) as { id: string; channelId: string };
+      if (channelId === selectedChannelId) {
         dispatch({
           type: "UPDATE_MESSAGES",
-          payload: (current: MessageItem[]) => {
-            return current.filter((item: MessageItem) => item.id !== deletedMessageId);
-          }
-        });
-      },
-      onTypingStart: (typingInfo: any) => {
-        if (typingInfo.authorUserId === viewer?.productUserId) return;
-        dispatch({
-          type: "SET_TYPING_USER",
-          payload: {
-            channelId: typingInfo.channelId,
-            userId: typingInfo.authorUserId,
-            displayName: typingInfo.authorDisplayName,
-            isTyping: true
-          }
-        });
-      },
-      onTypingStop: (typingInfo: any) => {
-        if (typingInfo.authorUserId === viewer?.productUserId) return;
-        dispatch({
-          type: "SET_TYPING_USER",
-          payload: {
-            channelId: typingInfo.channelId,
-            userId: typingInfo.authorUserId,
-            displayName: typingInfo.authorDisplayName,
-            isTyping: false
-          }
+          payload: (current: MessageItem[]) => current.filter((m) => m.id !== id)
         });
       }
-    } as any);
+    });
+
+    source.addEventListener("typing.start", (event: any) => {
+      const data = JSON.parse(event.data);
+      dispatch({ type: "SET_TYPING_USER", payload: { ...data, isTyping: true } });
+    });
+
+    source.addEventListener("typing.stop", (event: any) => {
+      const data = JSON.parse(event.data);
+      dispatch({ type: "SET_TYPING_USER", payload: { ...data, isTyping: false } });
+    });
 
     return () => {
       closed = true;
-      disconnectStream();
+      source.close();
       stopPolling();
     };
-  }, [canAccessWorkspace, selectedChannelId, dispatch, markChannelAsRead, state.isNearBottom, state.selectedChannelId]);
+  }, [canAccessWorkspace, hubId, selectedChannelId, dispatch, markChannelAsRead, state.isNearBottom, viewer?.productUserId, channels]);
 
 
   function getAdjacentId(currentId: string, ids: string[], direction: "next" | "previous"): string | null {

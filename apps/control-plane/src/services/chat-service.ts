@@ -820,9 +820,11 @@ export async function listChannelReadStates(input: {
       channel_id: string;
       product_user_id: string;
       last_read_at: string;
+      is_muted: boolean;
+      notification_preference: "all" | "mentions" | "none";
       updated_at: string;
     }>(
-      `select rs.channel_id, rs.product_user_id, rs.last_read_at, rs.updated_at
+      `select rs.channel_id, rs.product_user_id, rs.last_read_at, rs.is_muted, rs.notification_preference, rs.updated_at
        from channel_read_states rs
        join channels ch on ch.id = rs.channel_id
        where rs.product_user_id = $1 and ch.server_id = $2
@@ -834,6 +836,8 @@ export async function listChannelReadStates(input: {
       channelId: row.channel_id,
       userId: row.product_user_id,
       lastReadAt: row.last_read_at,
+      isMuted: row.is_muted,
+      notificationPreference: row.notification_preference,
       updatedAt: row.updated_at
     }));
   });
@@ -843,20 +847,28 @@ export async function upsertChannelReadState(input: {
   productUserId: string;
   channelId: string;
   at?: string;
+  isMuted?: boolean;
+  notificationPreference?: "all" | "mentions" | "none";
 }): Promise<ChannelReadState> {
   return withDb(async (db) => {
     const rows = await db.query<{
       channel_id: string;
       product_user_id: string;
       last_read_at: string;
+      is_muted: boolean;
+      notification_preference: "all" | "mentions" | "none";
       updated_at: string;
     }>(
-      `insert into channel_read_states(product_user_id, channel_id, last_read_at)
-  values($1, $2, coalesce($3:: timestamptz, now()))
+      `insert into channel_read_states(product_user_id, channel_id, last_read_at, is_muted, notification_preference)
+  values($1, $2, coalesce($3:: timestamptz, now()), coalesce($4, false), coalesce($5, 'all'))
        on conflict(product_user_id, channel_id)
-  do update set last_read_at = excluded.last_read_at, updated_at = now()
-       returning channel_id, product_user_id, last_read_at, updated_at`,
-      [input.productUserId, input.channelId, input.at ?? null]
+  do update set 
+    last_read_at = case when excluded.last_read_at is not null then excluded.last_read_at else channel_read_states.last_read_at end,
+    is_muted = coalesce(excluded.is_muted, channel_read_states.is_muted),
+    notification_preference = coalesce(excluded.notification_preference, channel_read_states.notification_preference),
+    updated_at = now()
+       returning channel_id, product_user_id, last_read_at, is_muted, notification_preference, updated_at`,
+      [input.productUserId, input.channelId, input.at ?? null, input.isMuted ?? null, input.notificationPreference ?? null]
     );
 
     const row = rows.rows[0];
@@ -868,6 +880,8 @@ export async function upsertChannelReadState(input: {
       channelId: row.channel_id,
       userId: row.product_user_id,
       lastReadAt: row.last_read_at,
+      isMuted: row.is_muted,
+      notificationPreference: row.notification_preference,
       updatedAt: row.updated_at
     };
   });

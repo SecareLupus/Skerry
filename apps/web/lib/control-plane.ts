@@ -678,11 +678,18 @@ export async function listChannelReadStates(serverId: string): Promise<ChannelRe
   return json.items;
 }
 
-export async function upsertChannelReadState(channelId: string, at?: string): Promise<ChannelReadState> {
+export async function upsertChannelReadState(
+  channelId: string,
+  payload?: {
+    at?: string;
+    isMuted?: boolean;
+    notificationPreference?: "all" | "mentions" | "none";
+  }
+): Promise<ChannelReadState> {
   return apiFetch<ChannelReadState>(`/v1/channels/${encodeURIComponent(channelId)}/read-state`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(at ? { at } : {})
+    body: JSON.stringify(payload ?? {})
   });
 }
 
@@ -1215,5 +1222,11 @@ export async function performBulkModerationAction(input: {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input)
+  });
+}
+
+export function connectHubStream(hubId: string): EventSource {
+  return new EventSource(`${controlPlaneBaseUrl}/v1/hubs/${encodeURIComponent(hubId)}/stream`, {
+    withCredentials: true
   });
 }

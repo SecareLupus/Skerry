@@ -276,6 +276,8 @@ export interface ChannelReadState {
     channelId: string;
     userId: string;
     lastReadAt: string;
+    isMuted?: boolean;
+    notificationPreference: "all" | "mentions" | "none";
     updatedAt: string;
 }
 
