@@ -78,6 +78,7 @@ export interface ChatState {
     mentionCountByChannel: Record<string, number>;
     unreadCountByChannel: Record<string, number>;
     muteStatusByChannel: Record<string, boolean>;
+    notificationPreferenceByChannel: Record<string, 'all' | 'mentions' | 'none'>;
     channelFilter: string;
     // Rename/Delete states
     renameSpaceId: string;
@@ -203,7 +204,7 @@ type ChatAction =
     | { type: "SET_SEARCH_RESULTS", payload: ChatMessage[] }
     | { type: "SET_IS_SEARCHING", payload: boolean }
     | { type: "SET_HIGHLIGHTED_MESSAGE_ID", payload: string | null }
-    | { type: "SET_MUTE_STATUS", payload: { channelId: string; isMuted: boolean } };
+    | { type: "SET_NOTIFICATION_PREFERENCE", payload: { channelId: string; preference: 'all' | 'mentions' | 'none'; isMuted?: boolean } };
 
 const initialState: ChatState = {
     viewer: null,
@@ -233,6 +234,7 @@ const initialState: ChatState = {
     mentionCountByChannel: {},
     unreadCountByChannel: {},
     muteStatusByChannel: {},
+    notificationPreferenceByChannel: {},
     channelFilter: "",
     renameSpaceId: "",
     renameSpaceName: "",
@@ -377,19 +379,23 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
         case "SET_UNREAD_COUNTS":
             return { ...state, unreadCountByChannel: action.payload };
         case "SET_NOTIFICATIONS": {
+            const payload = action.payload as Record<string, { unreadCount: number; mentionCount: number; isMuted: boolean; notificationPreference?: 'all' | 'mentions' | 'none' }>;
             const unreadCounts: Record<string, number> = {};
             const mentionCounts: Record<string, number> = {};
             const muteStatuses: Record<string, boolean> = {};
-            for (const [channelId, data] of Object.entries(action.payload)) {
+            const preferences: Record<string, 'all' | 'mentions' | 'none'> = {};
+            for (const [channelId, data] of Object.entries(payload)) {
                 unreadCounts[channelId] = data.unreadCount;
                 mentionCounts[channelId] = data.mentionCount;
                 muteStatuses[channelId] = data.isMuted;
+                preferences[channelId] = data.notificationPreference || 'all';
             }
             return {
                 ...state,
                 unreadCountByChannel: unreadCounts,
                 mentionCountByChannel: mentionCounts,
-                muteStatusByChannel: muteStatuses
+                muteStatusByChannel: muteStatuses,
+                notificationPreferenceByChannel: preferences
             };
         }
         case "CLEAR_NOTIFICATIONS": {
@@ -449,12 +455,16 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
                     [action.payload.channelId]: action.payload.position
                 }
             };
-        case "SET_MUTE_STATUS":
+        case "SET_NOTIFICATION_PREFERENCE":
             return {
                 ...state,
                 muteStatusByChannel: {
                     ...state.muteStatusByChannel,
-                    [action.payload.channelId]: action.payload.isMuted
+                    [action.payload.channelId]: action.payload.isMuted ?? !!state.muteStatusByChannel[action.payload.channelId]
+                },
+                notificationPreferenceByChannel: {
+                    ...state.notificationPreferenceByChannel,
+                    [action.payload.channelId]: action.payload.preference
                 }
             };
         case "SET_CHANNEL_DRAFT":

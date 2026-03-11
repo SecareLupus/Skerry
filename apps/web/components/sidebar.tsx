@@ -112,11 +112,14 @@ export function Sidebar({
     const updateChannelPreference = async (channelId: string, preference: 'all' | 'mentions' | 'none', isMuted?: boolean) => {
         try {
             await upsertChannelReadState(channelId, { notificationPreference: preference, isMuted: isMuted });
-            // The SSE event or a manual refresh would typically update the state, 
-            // but we can optimistically update the state if we had a dedicated action.
-            // For now, we rely on the implementation where upsert might trigger a refresh
-            // or we can manually dispatch if the context supports it.
-            dispatch({ type: "SET_MUTE_STATUS", payload: { channelId, isMuted: isMuted ?? !!state.muteStatusByChannel[channelId] } });
+            dispatch({ 
+                type: "SET_NOTIFICATION_PREFERENCE", 
+                payload: { 
+                    channelId, 
+                    preference, 
+                    isMuted: isMuted ?? !!state.muteStatusByChannel[channelId] 
+                } 
+            });
         } catch (err) {
             console.error("Failed to update channel preference", err);
         }
@@ -124,6 +127,9 @@ export function Sidebar({
 
     const handleChannelContextMenu = (e: React.MouseEvent, channel: Channel) => {
         e.preventDefault();
+        const currentPref = state.notificationPreferenceByChannel[channel.id] || 'all';
+        const isMuted = !!state.muteStatusByChannel[channel.id];
+
         const items: ContextMenuItem[] = [
             {
                 label: "Notification Settings",
@@ -135,16 +141,17 @@ export function Sidebar({
             {
                 label: "All Messages",
                 onClick: () => updateChannelPreference(channel.id, 'all', false),
-                icon: state.muteStatusByChannel[channel.id] === false ? "✓" : ""
+                icon: (currentPref === 'all' && !isMuted) ? "✓" : ""
             },
             {
                 label: "Mentions Only",
                 onClick: () => updateChannelPreference(channel.id, 'mentions', false),
+                icon: (currentPref === 'mentions' && !isMuted) ? "✓" : ""
             },
             {
                 label: "Muted",
                 onClick: () => updateChannelPreference(channel.id, 'none', true),
-                icon: state.muteStatusByChannel[channel.id] ? "✓" : ""
+                icon: isMuted ? "✓" : ""
             }
         ];
         setContextMenu({ x: e.clientX, y: e.clientY, items });
