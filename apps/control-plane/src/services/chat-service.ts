@@ -1,6 +1,8 @@
 import crypto from "node:crypto";
 import type { Category, Channel, ChannelReadState, ChatMessage, HubInvite, MentionMarker, Server } from "@skerry/shared";
 import { withDb } from "../db/client.js";
+import { processMessageContentForLinks } from "./link-service.js";
+
 
 interface ChannelRow {
   id: string;
@@ -28,7 +30,9 @@ export interface ChatMessageRow {
   author_display_name: string;
   content: string;
   attachments: ChatMessage["attachments"] | null;
+  embeds: ChatMessage["embeds"] | null;
   is_relay: boolean;
+  external_author_id: string | null;
   external_provider: string | null;
   external_author_name: string | null;
   external_author_avatar_url: string | null;
@@ -40,6 +44,7 @@ export interface ChatMessageRow {
   updated_at?: string;
   deleted_at?: string;
 }
+
 
 export interface ReactionRow {
   message_id: string;
@@ -228,24 +233,8 @@ export async function listMessages(input: {
     query += ` order by created_at desc limit $${params.length + 1}`;
     params.push(input.limit);
 
-    const rows = await db.query<{
-      id: string;
-      channel_id: string;
-      author_user_id: string;
-      author_display_name: string;
-      content: string;
-      attachments: ChatMessage["attachments"] | null;
-      is_relay: boolean;
-      external_provider: string | null;
-      external_author_name: string | null;
-      external_author_avatar_url: string | null;
-      parent_id: string | null;
-      external_thread_id: string | null;
-      is_pinned: boolean;
-      created_at: string;
-      updated_at?: string;
-      deleted_at?: string;
-    }>(query, params);
+    const rows = await db.query<ChatMessageRow>(query, params);
+
 
     const messageIds = rows.rows.map(r => r.id);
     let repliesCountMap: Record<string, number> = {};
@@ -435,6 +424,7 @@ function mapChatMessage(row: ChatMessageRow, repliesCountMap: Record<string, num
     authorDisplayName: row.author_display_name,
     content: row.content,
     attachments: row.attachments ?? undefined,
+    embeds: row.embeds ?? undefined,
     reactions: Object.values(reactionsByEmoji),
     isRelay: row.is_relay,
     externalProvider: row.external_provider ?? undefined,
@@ -448,6 +438,8 @@ function mapChatMessage(row: ChatMessageRow, repliesCountMap: Record<string, num
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at
   };
+
+
 }
 
 export async function fetchMessage(channelId: string, messageId: string, viewerUserId?: string): Promise<ChatMessage | null> {
@@ -577,29 +569,15 @@ export async function createMessage(input: {
         console.log(`[Bridge] Parent Linkage Diagnostic - End`);
       }
 
+      const embeds = await processMessageContentForLinks(input.content);
 
-      const created = await db.query<{
-        id: string;
-        channel_id: string;
-        author_user_id: string;
-        author_display_name: string;
-        content: string;
-        attachments: ChatMessage["attachments"] | null;
-        is_relay: boolean;
-        external_author_id: string | null;
-        external_provider: string | null;
-        external_author_name: string | null;
-        external_author_avatar_url: string | null;
-        parent_id: string | null;
-        external_thread_id: string | null;
-        created_at: string;
-      }>(
+      const created = await db.query<ChatMessageRow>(
         `insert into chat_messages(
-            id, channel_id, author_user_id, author_display_name, content, attachments, is_relay,
+            id, channel_id, author_user_id, author_display_name, content, attachments, embeds, is_relay,
             external_author_id, external_provider, external_author_name, external_author_avatar_url,
             parent_id, external_thread_id, external_message_id
           )
-        values($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+        values($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
         returning * `,
         [
           `msg_${crypto.randomUUID().replaceAll("-", "")} `,
@@ -608,6 +586,7 @@ export async function createMessage(input: {
           authorDisplayName,
           input.content,
           JSON.stringify(input.attachments ?? []),
+          JSON.stringify(embeds),
           Boolean(input.isRelay),
           input.externalAuthorId ?? null,
           input.externalProvider ?? null,
@@ -618,6 +597,7 @@ export async function createMessage(input: {
           input.externalMessageId ?? null
         ]
       );
+
 
       const row = created.rows[0];
       if (!row) {
@@ -631,6 +611,7 @@ export async function createMessage(input: {
         authorDisplayName: row.author_display_name,
         content: row.content,
         attachments: row.attachments ?? undefined,
+        embeds: row.embeds ?? undefined,
         reactions: [],
         isRelay: row.is_relay,
         externalProvider: row.external_provider ?? undefined,
@@ -640,6 +621,7 @@ export async function createMessage(input: {
         externalThreadId: row.external_thread_id ?? undefined,
         createdAt: row.created_at
       };
+
 
       const mentionHandles = [...new Set((input.content.match(/@([a-zA-Z0-9._-]{3,40})/g) ?? []).map((token) => token.slice(1).toLowerCase()))];
       if (mentionHandles.length > 0) {
@@ -1510,21 +1492,14 @@ export async function updateMessage(input: {
   content: string;
 }): Promise<ChatMessage> {
   return withDb(async (db) => {
-    const result = await db.query<{
-      id: string;
-      channel_id: string;
-      author_user_id: string;
-      author_display_name: string;
-      content: string;
-      attachments: ChatMessage["attachments"] | null;
-      created_at: string;
-      updated_at: string;
-    }>(
+    const embeds = await processMessageContentForLinks(input.content);
+
+    const result = await db.query<ChatMessageRow>(
       `update chat_messages
-       set content = $1, updated_at = now()
+       set content = $1, embeds = $4, updated_at = now()
        where id = $2 and author_user_id = $3
   returning * `,
-      [input.content, input.messageId, input.actorUserId]
+      [input.content, input.messageId, input.actorUserId, JSON.stringify(embeds)]
     );
 
     const row = result.rows[0];
@@ -1539,12 +1514,14 @@ export async function updateMessage(input: {
       authorDisplayName: row.author_display_name,
       content: row.content,
       attachments: row.attachments ?? undefined,
+      embeds: row.embeds ?? undefined,
       reactions: [],
       createdAt: row.created_at,
       updatedAt: row.updated_at
     };
   });
 }
+
 
 export async function deleteMessage(input: {
   messageId: string;

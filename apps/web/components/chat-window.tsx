@@ -14,6 +14,8 @@ import dynamic from "next/dynamic";
 const EmojiPicker = dynamic(() => import("emoji-picker-react"), { ssr: false }) as any;
 import type { EmojiClickData } from "emoji-picker-react";
 import { VoiceRoom } from "./voice-room";
+import { EmbedCard } from "./embed-card";
+
 
 interface ChatWindowProps {
     handleSendMessage: (event: React.FormEvent) => Promise<void>;
@@ -167,6 +169,8 @@ export function ChatWindow({
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
     const [editContent, setEditContent] = useState("");
+    const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+
     const [isUploading, setIsUploading] = useState(false);
     const [reactionTargetMessageId, setReactionTargetMessageId] = useState<string | null>(null);
     const [reactionPickerPos, setReactionPickerPos] = useState<{ x: number; y: number } | null>(null);
@@ -542,8 +546,8 @@ export function ChatWindow({
         }
 
         return items;
-        return items;
     }, [userContextMenu, viewer, allowedActions, selectedServerId, dispatch]);
+
 
     const handleUserContextMenu = (event: React.MouseEvent, userId: string, displayName: string) => {
         event.preventDefault();
@@ -852,7 +856,15 @@ export function ChatWindow({
                                         <>
                                             <MessageContent message={message} />
                                             {message.updatedAt && <small className="message-meta-edited" style={{ fontSize: "0.75rem", opacity: 0.6 }}>(edited)</small>}
+                                            {message.embeds && message.embeds.length > 0 && (
+                                                <div className="message-embeds-container">
+                                                    {message.embeds.map((embed, i) => (
+                                                        <EmbedCard key={i} embed={embed} />
+                                                    ))}
+                                                </div>
+                                            )}
                                         </>
+
                                     )}
 
                                     {/* Attachments rendering */}
@@ -860,18 +872,39 @@ export function ChatWindow({
                                         <div className="message-attachments-container" style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginTop: "0.5rem" }}>
                                             {message.attachments.map((att) => (
                                                 <div key={att.id} className="attachment" style={{ maxWidth: "300px" }}>
-                                                    <a href={att.sourceUrl || att.url} target="_blank" rel="noopener noreferrer" style={{ display: "block", textDecoration: "none" }}>
+                                                    <div style={{ display: "block", textDecoration: "none" }}>
                                                         {att.contentType.startsWith("image/") ? (
-                                                            <img src={att.url} alt={att.filename} loading="lazy" style={{ maxWidth: "100%", borderRadius: "4px", display: "block", cursor: "pointer" }} />
+                                                            <img 
+                                                                src={att.url} 
+                                                                alt={att.filename} 
+                                                                loading="lazy" 
+                                                                style={{ maxWidth: "100%", borderRadius: "4px", display: "block", cursor: "pointer" }} 
+                                                                onClick={(e) => {
+                                                                    e.preventDefault();
+                                                                    setLightboxUrl(att.url);
+                                                                }}
+                                                            />
                                                         ) : att.contentType.startsWith("video/") ? (
-                                                            <video src={att.url} autoPlay loop muted playsInline style={{ maxWidth: "100%", borderRadius: "4px", display: "block", cursor: "pointer" }} />
+                                                            <video 
+                                                                src={att.url} 
+                                                                autoPlay 
+                                                                loop 
+                                                                muted 
+                                                                playsInline 
+                                                                controls
+                                                                style={{ maxWidth: "100%", borderRadius: "4px", display: "block", cursor: "pointer" }} 
+                                                                onClick={(e) => {
+                                                                    // Toggle play/pause on click or let controls handle it
+                                                                }}
+                                                            />
                                                         ) : (
-                                                            <div className="attachment-link" style={{ background: "var(--bg-accent)", padding: "0.5rem", borderRadius: "4px", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                                            <a href={att.sourceUrl || att.url} target="_blank" rel="noopener noreferrer" className="attachment-link" style={{ background: "var(--bg-accent)", padding: "0.5rem", borderRadius: "4px", display: "flex", alignItems: "center", gap: "0.5rem", textDecoration: "none" }}>
                                                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" /></svg>
                                                                 <span style={{ fontSize: "0.9rem", color: "var(--text-primary)" }}>{att.filename}</span>
-                                                            </div>
+                                                            </a>
                                                         )}
-                                                    </a>
+                                                    </div>
+
                                                 </div>
                                             ))}
                                         </div>
@@ -1283,6 +1316,62 @@ export function ChatWindow({
                     </div>
                 )
             }
+            {
+                lightboxUrl && (
+                    <div 
+                        className="lightbox-overlay" 
+                        onClick={() => setLightboxUrl(null)}
+                        style={{
+                            position: 'fixed',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            backgroundColor: 'rgba(0, 0, 0, 0.9)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            zIndex: 1000,
+                            cursor: 'zoom-out',
+                            backdropFilter: 'blur(8px)',
+                            animation: 'fadeIn 0.2s ease-out'
+                        }}
+                    >
+                        <img 
+                            src={lightboxUrl} 
+                            alt="Full size preview" 
+                            style={{ maxWidth: '95vw', maxHeight: '95vh', objectFit: 'contain', boxShadow: '0 0 40px rgba(0,0,0,0.5)' }} 
+                            onClick={(e) => e.stopPropagation()}
+                        />
+                        <button 
+                            className="lightbox-close"
+                            onClick={() => setLightboxUrl(null)}
+                            style={{
+                                position: 'absolute',
+                                top: '1.5rem',
+                                right: '1.5rem',
+                                backgroundColor: 'rgba(255,255,255,0.1)',
+                                border: 'none',
+                                borderRadius: '50%',
+                                width: '40px',
+                                height: '40px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: 'white',
+                                fontSize: '24px',
+                                cursor: 'pointer',
+                                transition: 'background 0.2s',
+                            }}
+
+                            onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.2)'}
+                            onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)'}
+                        >
+                            &times;
+                        </button>
+                    </div>
+                )
+            }
             <style jsx>{`
             .highlighted-message {
                 background: rgba(255, 255, 0, 0.15);
@@ -1330,7 +1419,12 @@ export function ChatWindow({
                 from { transform: translate(-50%, 10px); opacity: 0; }
                 to { transform: translate(-50%, 0); opacity: 1; }
             }
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
             `}</style>
+
         </section >
     );
 }

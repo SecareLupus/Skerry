@@ -305,6 +305,18 @@ export interface Reaction {
     userIds: string[];
 }
 
+export interface LinkEmbed {
+    url: string;
+    title?: string;
+    description?: string;
+    siteName?: string;
+    imageUrl?: string;
+    imageWidth?: number;
+    imageHeight?: number;
+    videoUrl?: string; // For things like YouTube/Vimeo embeds
+    type?: "link" | "image" | "video" | "gifv";
+}
+
 export interface ChatMessage {
     id: string;
     channelId: string;
@@ -313,6 +325,7 @@ export interface ChatMessage {
     content: string;
     attachments?: Attachment[];
     reactions?: Reaction[];
+    embeds?: LinkEmbed[];
     isRelay?: boolean;
     externalProvider?: string;
     externalAuthorName?: string;
@@ -325,6 +338,7 @@ export interface ChatMessage {
     updatedAt?: string;
     deletedAt?: string;
 }
+
 
 export interface ChannelMember {
     channelId: string;
