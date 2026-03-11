@@ -3,8 +3,10 @@
 import React, { useMemo } from "react";
 import Link from "next/link";
 import { useChat, ModalType } from "../context/chat-context";
-import { Channel } from "@skerry/shared";
+import { Channel, Server } from "@skerry/shared";
 import { getChannelName } from "../lib/channel-utils";
+import { ContextMenu, ContextMenuItem } from "./context-menu";
+import { upsertChannelReadState } from "../lib/control-plane";
 
 const cn = (...classes: (string | boolean | undefined)[]) => classes.filter(Boolean).join(" ");
 
@@ -105,6 +107,61 @@ export function Sidebar({
     }, [selectedServerId]);
 
     const activeServer = useMemo(() => servers.find(s => s.id === selectedServerId), [servers, selectedServerId]);
+    const [contextMenu, setContextMenu] = React.useState<{ x: number, y: number, items: ContextMenuItem[] } | null>(null);
+
+    const updateChannelPreference = async (channelId: string, preference: 'all' | 'mentions' | 'none', isMuted?: boolean) => {
+        try {
+            await upsertChannelReadState(channelId, { notificationPreference: preference, isMuted: isMuted });
+            // The SSE event or a manual refresh would typically update the state, 
+            // but we can optimistically update the state if we had a dedicated action.
+            // For now, we rely on the implementation where upsert might trigger a refresh
+            // or we can manually dispatch if the context supports it.
+            dispatch({ type: "SET_MUTE_STATUS", payload: { channelId, isMuted: isMuted ?? !!state.muteStatusByChannel[channelId] } });
+        } catch (err) {
+            console.error("Failed to update channel preference", err);
+        }
+    };
+
+    const handleChannelContextMenu = (e: React.MouseEvent, channel: Channel) => {
+        e.preventDefault();
+        const items: ContextMenuItem[] = [
+            {
+                label: "All Messages",
+                onClick: () => updateChannelPreference(channel.id, 'all', false),
+                icon: state.muteStatusByChannel[channel.id] === false ? "✓" : ""
+            },
+            {
+                label: "Mentions Only",
+                onClick: () => updateChannelPreference(channel.id, 'mentions', false),
+            },
+            {
+                label: "Muted",
+                onClick: () => updateChannelPreference(channel.id, 'none', true),
+                icon: state.muteStatusByChannel[channel.id] ? "✓" : ""
+            }
+        ];
+        setContextMenu({ x: e.clientX, y: e.clientY, items });
+    };
+
+    const handleServerContextMenu = (e: React.MouseEvent, server: Server) => {
+        e.preventDefault();
+        const serverChannels = channels.filter(c => c.serverId === server.id);
+        const items: ContextMenuItem[] = [
+            {
+                label: "Mute All Channels",
+                onClick: () => {
+                    serverChannels.forEach(c => updateChannelPreference(c.id, 'none', true));
+                }
+            },
+            {
+                label: "Unmute All Channels",
+                onClick: () => {
+                    serverChannels.forEach(c => updateChannelPreference(c.id, 'all', false));
+                }
+            }
+        ];
+        setContextMenu({ x: e.clientX, y: e.clientY, items });
+    };
 
 
     return (
@@ -144,6 +201,7 @@ export function Sidebar({
                                         onKeyDown={(event) => {
                                             handleServerKeyboardNavigation(event, server.id);
                                         }}
+                                        onContextMenu={(e) => handleServerContextMenu(e, server)}
                                     >
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
                                             <span className="server-icon-placeholder">
@@ -362,10 +420,12 @@ export function Sidebar({
                                                     onKeyDown={(event) => {
                                                         handleChannelKeyboardNavigation(event, channel.id);
                                                     }}
+                                                    onContextMenu={(e) => handleChannelContextMenu(e, channel)}
                                                 >
-                                                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px', opacity: state.muteStatusByChannel[channel.id] ? 0.5 : 1 }}>
                                                         {channel.type === 'voice' ? '🔊' : '#'}
                                                         {getChannelName(channel, viewer?.productUserId)}
+                                                        {state.muteStatusByChannel[channel.id] && <span title="Muted">🔇</span>}
                                                     </span>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                         {(unreadCountByChannel[channel.id] ?? 0) > 0 ? (
@@ -415,6 +475,14 @@ export function Sidebar({
                         </ul>
                     </div>
                 </nav>
+            )}
+            {contextMenu && (
+                <ContextMenu
+                    x={contextMenu.x}
+                    y={contextMenu.y}
+                    items={contextMenu.items}
+                    onClose={() => setContextMenu(null)}
+                />
             )}
         </aside>
     );

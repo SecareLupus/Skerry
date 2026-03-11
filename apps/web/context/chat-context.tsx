@@ -202,7 +202,8 @@ type ChatAction =
     | { type: "SET_SEARCH_QUERY", payload: string }
     | { type: "SET_SEARCH_RESULTS", payload: ChatMessage[] }
     | { type: "SET_IS_SEARCHING", payload: boolean }
-    | { type: "SET_HIGHLIGHTED_MESSAGE_ID", payload: string | null };
+    | { type: "SET_HIGHLIGHTED_MESSAGE_ID", payload: string | null }
+    | { type: "SET_MUTE_STATUS", payload: { channelId: string; isMuted: boolean } };
 
 const initialState: ChatState = {
     viewer: null,
@@ -446,6 +447,14 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
                 channelScrollPositions: {
                     ...state.channelScrollPositions,
                     [action.payload.channelId]: action.payload.position
+                }
+            };
+        case "SET_MUTE_STATUS":
+            return {
+                ...state,
+                muteStatusByChannel: {
+                    ...state.muteStatusByChannel,
+                    [action.payload.channelId]: action.payload.isMuted
                 }
             };
         case "SET_CHANNEL_DRAFT":
