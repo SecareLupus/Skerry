@@ -4,6 +4,25 @@ import { logEvent } from "./observability-service.js";
 
 export async function scrapeUrl(url: string): Promise<LinkEmbed | null> {
     try {
+        // First check if it's a direct media link to avoid fetching large files
+        if (/\.(jpeg|jpg|gif|png|webp|svg)$/i.test(url)) {
+            return {
+                url,
+                title: url.split('/').pop() || "Image",
+                imageUrl: url,
+                type: "link" // We'll let the frontend handle it as an image ifimageUrl is present
+            };
+        }
+
+        if (/\.(mp4|webm|mov)$/i.test(url)) {
+            return {
+                url,
+                title: url.split('/').pop() || "Video",
+                videoUrl: url,
+                type: "video"
+            };
+        }
+
         const response = await fetch(url, {
             headers: {
                 "User-Agent": "SkerryBot/1.0 (+https://github.com/SecareLupus/EscapeHatch)"
@@ -12,6 +31,25 @@ export async function scrapeUrl(url: string): Promise<LinkEmbed | null> {
         });
 
         if (!response.ok) return null;
+
+        const contentType = response.headers.get("content-type");
+        if (contentType?.startsWith("image/")) {
+            return {
+                url,
+                title: url.split('/').pop() || "Image",
+                imageUrl: url,
+                type: "link"
+            };
+        }
+
+        if (contentType?.startsWith("video/")) {
+            return {
+                url,
+                title: url.split('/').pop() || "Video",
+                videoUrl: url,
+                type: "video"
+            };
+        }
 
         const html = await response.text();
         const $ = cheerio.load(html);
@@ -22,6 +60,12 @@ export async function scrapeUrl(url: string): Promise<LinkEmbed | null> {
         const siteName = $('meta[property="og:site_name"]').attr("content");
         const videoUrl = $('meta[property="og:video:url"]').attr("content") || $('meta[property="og:video:secure_url"]').attr("content");
 
+        // YouTube special handling
+        let finalType: "link" | "video" = videoUrl ? "video" : "link";
+        if (url.includes("youtube.com") || url.includes("youtu.be")) {
+            finalType = "video";
+        }
+
         if (!title && !description && !image) return null;
 
         return {
@@ -31,7 +75,7 @@ export async function scrapeUrl(url: string): Promise<LinkEmbed | null> {
             imageUrl: image,
             siteName: siteName?.trim(),
             videoUrl: videoUrl,
-            type: videoUrl ? "video" : "link"
+            type: finalType
         };
     } catch (error) {
         logEvent("warn", "link_scrape_failed", { url, error: String(error) });

@@ -73,12 +73,12 @@ All Tier 1 blockers from the Feb 28 report are resolved. This roadmap covers the
 ## Phase 19 — Public Beta: Rich Media & Embeds
 
 **Goal:** Make shared content interactive and visually rich.
-**Status:** Planned
+**Status:** Complete
 
-- [ ] **URL preview / link embeds** — backend scraper (title, description, thumbnail via Open Graph); display card below message containing links
-- [ ] **Image lightbox** — click to expand inline images full-screen
-- [ ] **Video previews** — inline playback for video attachments
-- [ ] **GIF support** — animated GIF rendering (already stored, just needs `<img>` pointer vs `<video>`)
+- [x] **URL preview / link embeds** — backend scraper (title, description, thumbnail via Open Graph); display card below message containing links
+- [x] **Image lightbox** — click to expand inline images full-screen
+- [x] **Video previews** — support MP4/WebM inline previews and play icons for YouTube
+- [x] **GIF support** — ensure animated GIFs are correctly prioritized over static thumbnails
 
 ---
 
@@ -143,4 +143,5 @@ All Tier 1 blockers from the Feb 28 report are resolved. This roadmap covers the
 
 ## Current Sprint Focus
 
-Current focus is **Phase 19** (Rich Media & Embeds) and **Phase 20** (Moderation Hardening).
+Current focus is **Phase 20** (Moderation Hardening).
+- [x] Phase 19: Rich Media & Embeds (URL previews, image lightbox, video previews, GIF support)

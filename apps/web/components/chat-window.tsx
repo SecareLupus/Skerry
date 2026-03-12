@@ -869,16 +869,15 @@ export function ChatWindow({
 
                                     {/* Attachments rendering */}
                                     {message.attachments && message.attachments.length > 0 && (
-                                        <div className="message-attachments-container" style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginTop: "0.5rem" }}>
+                                        <div className="message-attachments-container">
                                             {message.attachments.map((att) => (
-                                                <div key={att.id} className="attachment" style={{ maxWidth: "300px" }}>
+                                                <div key={att.id} className="attachment">
                                                     <div style={{ display: "block", textDecoration: "none" }}>
                                                         {att.contentType.startsWith("image/") ? (
                                                             <img 
                                                                 src={att.url} 
                                                                 alt={att.filename} 
                                                                 loading="lazy" 
-                                                                style={{ maxWidth: "100%", borderRadius: "4px", display: "block", cursor: "pointer" }} 
                                                                 onClick={(e) => {
                                                                     e.preventDefault();
                                                                     setLightboxUrl(att.url);
@@ -892,15 +891,11 @@ export function ChatWindow({
                                                                 muted 
                                                                 playsInline 
                                                                 controls
-                                                                style={{ maxWidth: "100%", borderRadius: "4px", display: "block", cursor: "pointer" }} 
-                                                                onClick={(e) => {
-                                                                    // Toggle play/pause on click or let controls handle it
-                                                                }}
                                                             />
                                                         ) : (
-                                                            <a href={att.sourceUrl || att.url} target="_blank" rel="noopener noreferrer" className="attachment-link" style={{ background: "var(--bg-accent)", padding: "0.5rem", borderRadius: "4px", display: "flex", alignItems: "center", gap: "0.5rem", textDecoration: "none" }}>
+                                                            <a href={att.sourceUrl || att.url} target="_blank" rel="noopener noreferrer" className="attachment-link">
                                                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" /></svg>
-                                                                <span style={{ fontSize: "0.9rem", color: "var(--text-primary)" }}>{att.filename}</span>
+                                                                <span>{att.filename}</span>
                                                             </a>
                                                         )}
                                                     </div>
@@ -1318,54 +1313,16 @@ export function ChatWindow({
             }
             {
                 lightboxUrl && (
-                    <div 
-                        className="lightbox-overlay" 
-                        onClick={() => setLightboxUrl(null)}
-                        style={{
-                            position: 'fixed',
-                            top: 0,
-                            left: 0,
-                            right: 0,
-                            bottom: 0,
-                            backgroundColor: 'rgba(0, 0, 0, 0.9)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            zIndex: 1000,
-                            cursor: 'zoom-out',
-                            backdropFilter: 'blur(8px)',
-                            animation: 'fadeIn 0.2s ease-out'
-                        }}
-                    >
+                    <div className="lightbox-overlay" onClick={() => setLightboxUrl(null)}>
                         <img 
                             src={lightboxUrl} 
                             alt="Full size preview" 
-                            style={{ maxWidth: '95vw', maxHeight: '95vh', objectFit: 'contain', boxShadow: '0 0 40px rgba(0,0,0,0.5)' }} 
+                            className="lightbox-image" 
                             onClick={(e) => e.stopPropagation()}
                         />
                         <button 
                             className="lightbox-close"
                             onClick={() => setLightboxUrl(null)}
-                            style={{
-                                position: 'absolute',
-                                top: '1.5rem',
-                                right: '1.5rem',
-                                backgroundColor: 'rgba(255,255,255,0.1)',
-                                border: 'none',
-                                borderRadius: '50%',
-                                width: '40px',
-                                height: '40px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                color: 'white',
-                                fontSize: '24px',
-                                cursor: 'pointer',
-                                transition: 'background 0.2s',
-                            }}
-
-                            onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.2)'}
-                            onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)'}
                         >
                             &times;
                         </button>
