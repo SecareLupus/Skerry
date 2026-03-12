@@ -507,6 +507,7 @@ export function ChatClient() {
     }
 
     setUrlSelection(nextServerId, nextChannelId, urlMessageId);
+    lastSyncedUrlRef.current = `${nextServerId}:${nextChannelId}:${urlMessageId}`;
 
     if (!nextChannelId) {
       dispatch({ type: "SET_MESSAGES", payload: [] });
@@ -523,6 +524,7 @@ export function ChatClient() {
           dispatch({ type: "SET_HIGHLIGHTED_MESSAGE_ID", payload: null });
           // Clear the invalid message param from URL
           setUrlSelection(nextServerId, nextChannelId, null);
+          lastSyncedUrlRef.current = `${nextServerId}:${nextChannelId}:null`;
         } else {
           dispatch({ type: "SET_HIGHLIGHTED_MESSAGE_ID", payload: urlMessageId });
         }
@@ -564,7 +566,7 @@ export function ChatClient() {
     } else {
       dispatch({ type: "SET_MEMBERS", payload: [] });
     }
-  }, [selectedServerId, selectedChannelId, setUrlSelection, urlChannelId, urlServerId, urlMessageId, dispatch, draftMessagesByChannel, channelScrollPositions]);
+  }, [setUrlSelection, urlChannelId, urlServerId, urlMessageId, dispatch, draftMessagesByChannel, channelScrollPositions, selectedServerId, selectedChannelId]);
 
   const {
     voiceConnected,
@@ -652,8 +654,16 @@ export function ChatClient() {
   }, [viewer, bootstrapStatus?.initialized, bootstrapStatus?.defaultServerId, bootstrapStatus?.defaultChannelId, refreshChatState, dispatch, showToast]);
 
   // Synchronize state with URL parameters when they change (e.g. from search or deep links)
+  // We use a ref to prevent internal state refreshes from triggering redundant URL-driven refreshes
+  const lastSyncedUrlRef = useRef<string>("");
+
   useEffect(() => {
     if (!bootstrapStatus?.initialized) return;
+
+    const currentUrlSelection = `${urlServerId}:${urlChannelId}:${urlMessageId}`;
+    if (currentUrlSelection === lastSyncedUrlRef.current) {
+      return;
+    }
 
     // If URL params don't match current selection, or there's a message ID to jump to, sync them
     const needsSync = (urlServerId && urlServerId !== selectedServerId) ||
@@ -661,6 +671,8 @@ export function ChatClient() {
       (urlMessageId && messages.every(m => m.id !== urlMessageId));
 
     if (needsSync) {
+      console.log("[ChatClient] URL Sync triggered:", { urlServerId, urlChannelId, urlMessageId });
+      lastSyncedUrlRef.current = currentUrlSelection;
       void refreshChatState(urlServerId ?? undefined, urlChannelId ?? undefined);
     }
   }, [urlServerId, urlChannelId, urlMessageId, bootstrapStatus?.initialized, refreshChatState, selectedServerId, selectedChannelId, messages]);
