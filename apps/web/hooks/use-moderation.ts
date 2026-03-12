@@ -30,7 +30,10 @@ export function useModeration(setUrlSelection: (serverId: string | null, channel
 
   const userContextMenuItems: ContextMenuItem[] = useMemo(() => {
     if (!userContextMenu) return [];
-    const isModerator = allowedActions.includes("moderation.kick") || allowedActions.includes("moderation.ban");
+    const isModerator = allowedActions.includes("moderation.kick") || 
+                       allowedActions.includes("moderation.ban") ||
+                       allowedActions.includes("moderation.warn") ||
+                       allowedActions.includes("moderation.strike");
     const isSelf = userContextMenu.userId === viewer?.productUserId;
 
     const items: ContextMenuItem[] = [

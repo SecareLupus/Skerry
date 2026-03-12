@@ -385,7 +385,10 @@ export function ChatWindow({
     const messageContextMenuItems: ContextMenuItem[] = useMemo(() => {
         if (!contextMenu?.message) return [];
         const isAuthor = contextMenu.message.authorUserId === viewer?.productUserId;
-        const isModerator = allowedActions.includes("moderation.kick") || allowedActions.includes("moderation.ban");
+        const isModerator = allowedActions.includes("moderation.kick") || 
+                           allowedActions.includes("moderation.ban") ||
+                           allowedActions.includes("moderation.warn") ||
+                           allowedActions.includes("moderation.strike");
 
         const items: ContextMenuItem[] = [
             {

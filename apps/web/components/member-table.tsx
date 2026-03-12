@@ -25,6 +25,12 @@ interface MemberTableProps {
 export default function MemberTable({ serverId, hubId, members, onRefresh }: MemberTableProps) {
   const { showToast } = useToast();
   const { state, dispatch } = useChat();
+  const { allowedActions } = state;
+  const isModerator = allowedActions.includes("moderation.kick") || 
+                     allowedActions.includes("moderation.ban") || 
+                     allowedActions.includes("moderation.warn") || 
+                     allowedActions.includes("moderation.strike");
+
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "skerry" | "discord">("all");
@@ -32,7 +38,7 @@ export default function MemberTable({ serverId, hubId, members, onRefresh }: Mem
   const [moderationStats, setModerationStats] = useState<Record<string, { warningCount: number; strikeCount: number }>>({});
 
   useEffect(() => {
-    if (!members.length) return;
+    if (!members.length || !isModerator) return;
     
     // Fetch moderation status for SKERRY users (not discord ones as much for now)
     const fetchStats = async () => {
@@ -236,7 +242,7 @@ export default function MemberTable({ serverId, hubId, members, onRefresh }: Mem
                   </div>
                 </td>
                 <td style={{ textAlign: 'right' }}>
-                  {serverId && (
+                  {serverId && isModerator && (
                     <div style={{ display: 'inline-flex', gap: '0.5rem' }}>
                       <button
                         className="ghost"

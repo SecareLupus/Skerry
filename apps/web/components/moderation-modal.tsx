@@ -10,6 +10,7 @@ export function ModerationModal() {
   const {
     moderationTargetUserId,
     moderationTargetDisplayName,
+    moderationTargetMessageId,
     selectedServerId,
     selectedChannelId,
     viewerRoles,
@@ -22,6 +23,9 @@ export function ModerationModal() {
   const [reason, setReason] = useState("");
   const [timeoutSeconds, setTimeoutSeconds] = useState(3600);
   const [submitting, setSubmitting] = useState(false);
+
+  const activeChannel = state.channels.find(c => c.id === (moderationTargetMessageId ? state.messages.find(m => m.id === moderationTargetMessageId)?.channelId : selectedChannelId));
+  const activeServer = state.servers.find(s => s.id === (activeChannel?.serverId || selectedServerId));
 
   const canManageHub = useMemo(
     () => viewerRoles.some((binding) => binding.role === "hub_admin" && !binding.serverId),
@@ -47,8 +51,8 @@ export function ModerationModal() {
       await performModerationAction({
         action,
         hubId: scope === "hub" ? hubId : undefined,
-        serverId: (scope === "space" || scope === "room") ? (selectedServerId || "") : undefined,
-        channelId: scope === "room" ? (selectedChannelId || undefined) : undefined,
+        serverId: (scope === "space" || scope === "room") ? (activeServer?.id || selectedServerId || "") : undefined,
+        channelId: scope === "room" ? (activeChannel?.id || selectedChannelId || undefined) : undefined,
         targetUserId: moderationTargetUserId,
         reason: reason || `Action: ${action} via moderation panel`,
         timeoutSeconds: action === "timeout" ? timeoutSeconds : undefined
@@ -91,11 +95,11 @@ export function ModerationModal() {
             <div className="scope-options">
               <label className={`scope-option ${scope === "room" ? "active" : ""}`}>
                 <input type="radio" name="scope" value="room" checked={scope === "room"} onChange={() => setScope("room")} />
-                <span>Room</span>
+                <span>Room {activeChannel ? `(#${activeChannel.name})` : ""}</span>
               </label>
               <label className={`scope-option ${scope === "space" ? "active" : ""} ${!canManageServer ? "disabled" : ""}`}>
                 <input type="radio" name="scope" value="space" checked={scope === "space"} disabled={!canManageServer} onChange={() => setScope("space")} />
-                <span>Space</span>
+                <span>Space {activeServer ? `(${activeServer.name})` : ""}</span>
               </label>
               <label className={`scope-option ${scope === "hub" ? "active" : ""} ${!canManageHub ? "disabled" : ""}`}>
                 <input type="radio" name="scope" value="hub" checked={scope === "hub"} disabled={!canManageHub} onChange={() => setScope("hub")} />

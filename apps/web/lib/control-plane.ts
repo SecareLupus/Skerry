@@ -121,6 +121,8 @@ export type PrivilegedAction =
   | "moderation.ban"
   | "moderation.unban"
   | "moderation.timeout"
+  | "moderation.warn"
+  | "moderation.strike"
   | "moderation.redact"
   | "channel.lock"
   | "channel.unlock"
