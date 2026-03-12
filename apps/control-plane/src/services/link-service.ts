@@ -58,11 +58,15 @@ export async function scrapeUrl(url: string): Promise<LinkEmbed | null> {
         const description = $('meta[property="og:description"]').attr("content") || $('meta[name="description"]').attr("content");
         const image = $('meta[property="og:image"]').attr("content");
         const siteName = $('meta[property="og:site_name"]').attr("content");
-        const videoUrl = $('meta[property="og:video:url"]').attr("content") || $('meta[property="og:video:secure_url"]').attr("content");
+        
+        // Video detection
+        let videoUrl = $('meta[property="og:video:secure_url"]').attr("content") || 
+                       $('meta[property="og:video:url"]').attr("content") || 
+                       $('meta[property="og:video"]').attr("content");
 
         // YouTube special handling
         let finalType: "link" | "video" = videoUrl ? "video" : "link";
-        if (url.includes("youtube.com") || url.includes("youtu.be")) {
+        if (url.includes("youtube.com") || url.includes("youtu.be") || url.includes("twitch.tv")) {
             finalType = "video";
         }
 

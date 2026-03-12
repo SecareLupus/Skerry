@@ -26,20 +26,59 @@ export const EmbedCard: React.FC<EmbedCardProps> = ({ embed }) => {
     return videoId ? `https://www.youtube.com/embed/${videoId}?autoplay=1` : null;
   };
 
+  const getTwitchEmbedUrl = (url: string) => {
+    try {
+      const urlObj = new URL(url);
+      if (!urlObj.hostname.includes("twitch.tv")) return null;
+      
+      const parent = typeof window !== "undefined" ? window.location.hostname : "";
+      
+      // Channel: twitch.tv/username
+      // VOD: twitch.tv/videos/123
+      const parts = urlObj.pathname.split("/").filter(Boolean);
+      if (parts[0] === "videos") {
+        return `https://player.twitch.tv/?video=${parts[1]}&parent=${parent}&autoplay=true`;
+      } else if (parts[0]) {
+        return `https://player.twitch.tv/?channel=${parts[0]}&parent=${parent}&autoplay=true`;
+      }
+    } catch (e) {
+      return null;
+    }
+    return null;
+  };
+
+  const getVideoEmbedUrl = () => {
+    const yt = getYouTubeEmbedUrl(embed.url);
+    if (yt) return yt;
+
+    const twitch = getTwitchEmbedUrl(embed.url);
+    if (twitch) return twitch;
+
+    // Fallback to og:video if it looks like an embed URL
+    if (embed.videoUrl) {
+      if (embed.videoUrl.includes("player.") || embed.videoUrl.includes("/embed/")) {
+        return embed.videoUrl;
+      }
+    }
+
+    return null;
+  };
+
   const handlePlay = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsPlaying(true);
   };
 
-  const youtubeEmbedUrl = getYouTubeEmbedUrl(embed.url);
+  const videoEmbedUrl = getVideoEmbedUrl();
+  const showVideo = isPlaying && videoEmbedUrl;
 
   return (
     <div className="embed-card-container">
-      {isPlaying && youtubeEmbedUrl ? (
+      {showVideo ? (
         <div className="embed-video-container">
           <iframe
-            src={youtubeEmbedUrl}
+            src={videoEmbedUrl}
             frameBorder="0"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
@@ -62,7 +101,7 @@ export const EmbedCard: React.FC<EmbedCardProps> = ({ embed }) => {
                   className="embed-image"
                   loading="lazy"
                 />
-                {embed.type === "video" && youtubeEmbedUrl && (
+                {embed.type === "video" && videoEmbedUrl && (
                   <div className="embed-video-overlay" onClick={handlePlay}>
                     <div className="embed-play-button">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
