@@ -6,7 +6,7 @@ import { useChat, ModalType } from "../context/chat-context";
 import { Channel, Server } from "@skerry/shared";
 import { getChannelName } from "../lib/channel-utils";
 import { ContextMenu, ContextMenuItem } from "./context-menu";
-import { upsertChannelReadState } from "../lib/control-plane";
+import { upsertChannelReadState, joinServer } from "../lib/control-plane";
 
 const cn = (...classes: (string | boolean | undefined)[]) => classes.filter(Boolean).join(" ");
 
@@ -342,7 +342,25 @@ export function Sidebar({
                             </button>
                             <h2 className="server-title">{activeServer?.name || "Channels"}</h2>
                         </div>
-                        {canManageCurrentSpace && (
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                            {activeServer && !(activeServer as any).isMember && activeServer.type !== 'dm' && (
+                                <button
+                                    type="button"
+                                    className="join-space-button"
+                                    onClick={async () => {
+                                        try {
+                                            await joinServer(activeServer.id);
+                                            // Refresh server list manually or via parent
+                                            await handleServerChange(activeServer.id);
+                                        } catch (err) {
+                                            console.error("Failed to join server", err);
+                                        }
+                                    }}
+                                >
+                                    Join Space
+                                </button>
+                            )}
+                            {canManageCurrentSpace && (
                             <div style={{ position: "relative" }}>
                                 <button
                                     type="button"
@@ -371,6 +389,7 @@ export function Sidebar({
                                 )}
                             </div>
                         )}
+                        </div>
                     </div>
 
                     <input
@@ -436,10 +455,11 @@ export function Sidebar({
                                                     }}
                                                     onContextMenu={(e) => handleChannelContextMenu(e, channel)}
                                                 >
-                                                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px', opacity: state.muteStatusByChannel[channel.id] ? 0.5 : 1 }}>
+                                                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px', opacity: (state.muteStatusByChannel[channel.id] || channel.hubMemberAccess === 'locked' || channel.spaceMemberAccess === 'locked') ? 0.5 : 1 }}>
                                                         {channel.type === 'voice' ? '🔊' : '#'}
                                                         {getChannelName(channel, viewer?.productUserId)}
                                                         {state.muteStatusByChannel[channel.id] && <span title="Muted">🔇</span>}
+                                                        {(channel.hubMemberAccess === 'locked' || channel.spaceMemberAccess === 'locked') && <span title="Locked">🔒</span>}
                                                     </span>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                         {(unreadCountByChannel[channel.id] ?? 0) > 0 ? (

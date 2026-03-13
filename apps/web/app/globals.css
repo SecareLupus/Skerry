@@ -451,6 +451,53 @@ textarea:focus-visible,
   outline-offset: 2px;
 }
 
+.tabs {
+  display: flex;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1.5rem;
+}
+
+.tab-button {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  padding: 0.6rem 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  font-size: 0.9rem;
+}
+
+.tab-button:hover {
+  color: var(--text);
+  background: var(--surface-alt);
+}
+
+.tab-button.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.grid-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  align-items: center;
+}
+
+.badge-rules-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.badge-rules-table th, .badge-rules-table td {
+  padding: 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
 .ghost {
   background: var(--surface-alt);
   color: var(--text);

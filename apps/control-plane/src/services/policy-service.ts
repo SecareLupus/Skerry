@@ -1,9 +1,26 @@
-import crypto from "node:crypto";
-import type { Role, PrivilegedAction } from "@skerry/shared";
+import type { Role, PrivilegedAction, AccessLevel } from "@skerry/shared";
 import { withDb } from "../db/client.js";
 import { expireSpaceOwnerAssignments } from "./delegation-service.js";
 
 export const permissionMatrix: Record<Role, PrivilegedAction[]> = {
+  hub_owner: [
+    "moderation.kick",
+    "moderation.ban",
+    "moderation.unban",
+    "moderation.timeout",
+    "moderation.warn",
+    "moderation.strike",
+    "moderation.redact",
+    "channel.lock",
+    "channel.unlock",
+    "channel.slowmode",
+    "channel.posting",
+    "voice.token.issue",
+    "reports.triage",
+    "audit.read",
+    "hub.suspend",
+    "badges.manage"
+  ],
   hub_admin: [
     "moderation.kick",
     "moderation.ban",
@@ -18,7 +35,8 @@ export const permissionMatrix: Record<Role, PrivilegedAction[]> = {
     "channel.posting",
     "voice.token.issue",
     "reports.triage",
-    "audit.read"
+    "audit.read",
+    "badges.manage"
   ],
   space_owner: [
     "moderation.kick",
@@ -34,7 +52,8 @@ export const permissionMatrix: Record<Role, PrivilegedAction[]> = {
     "channel.posting",
     "voice.token.issue",
     "reports.triage",
-    "audit.read"
+    "audit.read",
+    "badges.manage"
   ],
   space_moderator: [
     "moderation.kick",
@@ -47,7 +66,8 @@ export const permissionMatrix: Record<Role, PrivilegedAction[]> = {
     "reports.triage",
     "audit.read"
   ],
-  user: ["voice.token.issue"]
+  user: ["voice.token.issue"],
+  visitor: []
 };
 
 export interface Scope {
@@ -61,10 +81,11 @@ interface RoleBinding {
   hub_id: string | null;
   server_id: string | null;
   channel_id: string | null;
+  isOwnerSuspended?: boolean;
 }
 
-const HUB_MANAGER_ROLES: Role[] = ["hub_admin"];
-const SERVER_MANAGER_ROLES: Role[] = ["hub_admin", "space_owner"];
+const HUB_MANAGER_ROLES: Role[] = ["hub_owner", "hub_admin"];
+const SERVER_MANAGER_ROLES: Role[] = ["hub_owner", "hub_admin", "space_owner"];
 
 export async function fetchServerScope(
   db: Parameters<Parameters<typeof withDb>[0]>[0],
@@ -113,6 +134,25 @@ async function getEffectiveRoleBindings(
     [input.productUserId]
   );
   const effective = [...rows.rows];
+
+  if (input.scope.hubId) {
+    const hub = await db.query<{ owner_user_id: string; is_suspended: boolean; suspension_expires_at: string | null }>(
+      "select owner_user_id, is_suspended, suspension_expires_at from hubs where id = $1 limit 1",
+      [input.scope.hubId]
+    );
+    const hubRow = hub.rows[0];
+    if (hubRow && hubRow.owner_user_id === input.productUserId) {
+      const isSuspended = hubRow.is_suspended && (!hubRow.suspension_expires_at || new Date(hubRow.suspension_expires_at) > new Date());
+      
+      effective.push({
+        role: isSuspended ? "hub_admin" : "hub_owner",
+        hub_id: input.scope.hubId,
+        server_id: null,
+        channel_id: null,
+        isOwnerSuspended: isSuspended
+      });
+    }
+  }
 
   if (input.scope.serverId) {
     const server = await fetchServerScope(db, input.scope.serverId);
@@ -388,17 +428,149 @@ export async function isActionAllowed(input: {
   action: PrivilegedAction;
   scope: Scope;
 }): Promise<boolean> {
-  await expireSpaceOwnerAssignments({
-    serverId: input.scope.serverId,
-    productUserId: input.productUserId
-  });
   return withDb(async (db) => {
-    const rows = await getEffectiveRoleBindings(db, {
+    // 1. Get Effective Roles & Owner Suspension Status
+    const roles = await getEffectiveRoleBindings(db, {
       productUserId: input.productUserId,
       scope: input.scope
     });
 
-    return rows.some((binding) => bindingAllowsAction(binding, input.action) && bindingMatchesScope(binding, input.scope));
+    const isOwner = roles.some(b => b.role === "hub_owner");
+    const isSuspended = roles.some(b => b.isOwnerSuspended);
+
+    // 0. Absolute Authority Actions - Block for suspended owners
+    const ABSOLUTE_AUTHORITY_ACTIONS: string[] = ["hub.delete", "ownership.transfer"];
+    if (isOwner && isSuspended && ABSOLUTE_AUTHORITY_ACTIONS.includes(input.action)) {
+      return false;
+    }
+
+    const isAdmin = isOwner || roles.some(b => b.role === "hub_admin");
+
+    // 2. Check traditional permission matrix first (for management actions)
+    const isRoleAllowedByMatrix = roles.some((binding) =>
+      bindingAllowsAction(binding, input.action) &&
+      bindingMatchesScope(binding, input.scope)
+    );
+
+    // For management actions, the traditional matrix wins.
+    const ACCESS_ACTIONS = ["channel.message.read", "channel.message.send", "channel.voice.join"];
+    if (!ACCESS_ACTIONS.includes(input.action)) {
+      return isRoleAllowedByMatrix;
+    }
+
+    // 3. Resolve user's "Relation" to the resource
+    // Precedence: Admin > Space Member > Hub Member > Visitor
+    let relation: "admin" | "space_member" | "hub_member" | "visitor" = "visitor";
+    if (isAdmin) {
+      relation = "admin";
+    } else {
+      const isSpaceMember = await db.query(
+        "select 1 from server_members where server_id = $1 and product_user_id = $2",
+        [input.scope.serverId, input.productUserId]
+      );
+      if (isSpaceMember.rows.length > 0) {
+        relation = "space_member";
+      } else {
+        const hubId = input.scope.hubId || (await db.query<{ hub_id: string }>("select hub_id from servers where id = $1", [input.scope.serverId])).rows[0]?.hub_id;
+        if (hubId) {
+          const isHubMember = await db.query(
+            "select 1 from hub_members where hub_id = $1 and product_user_id = $2",
+            [hubId, input.productUserId]
+          );
+          if (isHubMember.rows.length > 0) {
+            relation = "hub_member";
+          }
+        }
+      }
+    }
+
+    // 4. Fetch Resource Access Defaults
+    let hubAdminAccess: AccessLevel = "chat";
+    let spaceMemberAccess: AccessLevel = "chat";
+    let hubMemberAccess: AccessLevel = "chat";
+    let visitorAccess: AccessLevel = "hidden";
+
+    if (input.scope.channelId) {
+      const ch = await db.query<{
+        hub_admin_access: string;
+        space_member_access: string;
+        hub_member_access: string;
+        visitor_access: string;
+      }>(
+        "select hub_admin_access, space_member_access, hub_member_access, visitor_access from channels where id = $1",
+        [input.scope.channelId]
+      );
+      if (ch.rows[0]) {
+        hubAdminAccess = ch.rows[0].hub_admin_access as AccessLevel;
+        spaceMemberAccess = ch.rows[0].space_member_access as AccessLevel;
+        hubMemberAccess = ch.rows[0].hub_member_access as AccessLevel;
+        visitorAccess = ch.rows[0].visitor_access as AccessLevel;
+      }
+    } else {
+      const srv = await db.query<{
+        hub_admin_access: string;
+        space_member_access: string;
+        hub_member_access: string;
+        visitor_access: string;
+      }>(
+        "select hub_admin_access, space_member_access, hub_member_access, visitor_access from servers where id = $1",
+        [input.scope.serverId]
+      );
+      if (srv.rows[0]) {
+        hubAdminAccess = srv.rows[0].hub_admin_access as AccessLevel;
+        spaceMemberAccess = srv.rows[0].space_member_access as AccessLevel;
+        hubMemberAccess = srv.rows[0].hub_member_access as AccessLevel;
+        visitorAccess = srv.rows[0].visitor_access as AccessLevel;
+      }
+    }
+
+    // 5. Determine Base Access Level (from Role Default)
+    let userMaxAccess: AccessLevel = visitorAccess;
+    if (relation === "admin") userMaxAccess = hubAdminAccess;
+    else if (relation === "space_member") userMaxAccess = spaceMemberAccess;
+    else if (relation === "hub_member") userMaxAccess = hubMemberAccess;
+
+    // 6. Badge Overrides (Highest rank wins, Channel rules > Server rules)
+    const badgeRules = await db.query<{ access_level: string; rank: number; specificity: number }>(
+      `select br.access_level, b.rank, br.specificity
+       from (
+         select access_level, badge_id, 2 as specificity from channel_badge_rules where channel_id = $1
+         union all
+         select access_level, badge_id, 1 as specificity from server_badge_rules where server_id = $3
+       ) br
+       join badges b on b.id = br.badge_id
+       join user_badges ub on ub.badge_id = b.id
+       where ub.product_user_id = $2
+         and br.access_level is not null
+       order by br.specificity desc, b.rank asc`,
+      [input.scope.channelId ?? null, input.productUserId, input.scope.serverId]
+    );
+
+    if (badgeRules.rows.length > 0) {
+      const override = badgeRules.rows[0]?.access_level;
+      if (override) {
+        userMaxAccess = override as AccessLevel;
+      }
+    }
+
+    const ACCESS_PRIORITY: Record<AccessLevel, number> = {
+      hidden: 0,
+      locked: 1,
+      read: 2,
+      chat: 3
+    };
+
+    const userAccessPriority = ACCESS_PRIORITY[userMaxAccess] ?? 0;
+
+    if (input.action === "channel.message.read") {
+      return userAccessPriority >= ACCESS_PRIORITY.read;
+    }
+
+    if (input.action === "channel.message.send" || input.action === "channel.voice.join") {
+      return userAccessPriority >= ACCESS_PRIORITY.chat;
+    }
+
+    return false;
   });
 }
 

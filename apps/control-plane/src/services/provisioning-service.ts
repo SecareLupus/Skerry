@@ -75,12 +75,17 @@ export async function createServerWorkflow(input: {
       name: string;
       matrix_space_id: string | null;
       type: "default" | "dm";
+      hub_admin_access: string;
+      space_member_access: string;
+      hub_member_access: string;
+      visitor_access: string;
+      auto_join_hub_members: boolean;
       created_by_user_id: string;
       owner_user_id: string;
       created_at: string;
     }>(
-      `insert into servers (id, hub_id, name, type, matrix_space_id, created_by_user_id, owner_user_id)
-       values ($1, $2, $3, 'default', $4, $5, $6)
+      `insert into servers (id, hub_id, name, type, matrix_space_id, created_by_user_id, owner_user_id, auto_join_hub_members, hub_admin_access, space_member_access, hub_member_access, visitor_access)
+       values ($1, $2, $3, 'default', $4, $5, $6, true, 'chat', 'chat', 'chat', 'hidden')
        returning *`,
       [id, input.hubId, input.name, matrixSpaceId, input.productUserId, input.productUserId]
     );
@@ -96,6 +101,11 @@ export async function createServerWorkflow(input: {
       name: value.name,
       type: value.type,
       matrixSpaceId: value.matrix_space_id,
+      hubAdminAccess: value.hub_admin_access as any,
+      spaceMemberAccess: value.space_member_access as any,
+      hubMemberAccess: value.hub_member_access as any,
+      visitorAccess: value.visitor_access as any,
+      autoJoinHubMembers: value.auto_join_hub_members,
       createdByUserId: value.created_by_user_id,
       ownerUserId: value.owner_user_id,
       createdAt: value.created_at
@@ -161,6 +171,10 @@ export async function createChannelWorkflow(input: {
       is_locked: boolean;
       slow_mode_seconds: number;
       posting_restricted_to_roles: string[];
+      hub_admin_access: string;
+      space_member_access: string;
+      hub_member_access: string;
+      visitor_access: string;
       voice_sfu_room_id: string | null;
       voice_max_participants: number | null;
       video_enabled: boolean;
@@ -169,8 +183,8 @@ export async function createChannelWorkflow(input: {
       created_at: string;
     }>(
       `insert into channels
-       (id, server_id, category_id, name, type, matrix_room_id, position, voice_sfu_room_id, voice_max_participants, video_enabled, video_max_participants)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+       (id, server_id, category_id, name, type, matrix_room_id, position, voice_sfu_room_id, voice_max_participants, video_enabled, video_max_participants, hub_admin_access, space_member_access, hub_member_access, visitor_access)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'chat', 'chat', 'chat', 'hidden')
        returning *`,
       [
         id,
@@ -208,6 +222,10 @@ export async function createChannelWorkflow(input: {
       isLocked: value.is_locked,
       slowModeSeconds: value.slow_mode_seconds,
       postingRestrictedToRoles: (value.posting_restricted_to_roles ?? []) as Channel["postingRestrictedToRoles"],
+      hubAdminAccess: value.hub_admin_access as any,
+      spaceMemberAccess: value.space_member_access as any,
+      hubMemberAccess: value.hub_member_access as any,
+      visitorAccess: value.visitor_access as any,
       voiceMetadata:
         value.voice_sfu_room_id && value.voice_max_participants
           ? {

@@ -11,6 +11,10 @@ interface ChannelRow {
   name: string;
   type: Channel["type"];
   matrix_room_id: string | null;
+  hub_admin_access: string;
+  space_member_access: string;
+  hub_member_access: string;
+  visitor_access: string;
   is_locked: boolean;
   slow_mode_seconds: number;
   posting_restricted_to_roles: string[] | null;
@@ -83,6 +87,10 @@ function mapChannel(row: ChannelRow): Channel {
         }
         : null,
     position: row.position,
+    hubAdminAccess: row.hub_admin_access as any,
+    spaceMemberAccess: row.space_member_access as any,
+    hubMemberAccess: row.hub_member_access as any,
+    visitorAccess: row.visitor_access as any,
     topic: row.topic,
     createdAt: row.created_at
   };
@@ -99,8 +107,11 @@ function mapCategory(row: CategoryRow): Category {
   };
 }
 
-export async function listServers(): Promise<Server[]> {
+export async function listServers(productUserId?: string): Promise<Server[]> {
   return withDb(async (db) => {
+    // 1. Fetch servers. 
+    // Logic: If Hidden, must be owner/admin or have a role binding or channel membership.
+    // Or if Hidden but has at least one Public/Viewable channel.
     const rows = await db.query<{
       id: string;
       hub_id: string;
@@ -108,10 +119,33 @@ export async function listServers(): Promise<Server[]> {
       type: "default" | "dm";
       matrix_space_id: string | null;
       icon_url: string | null;
+      hub_admin_access: string;
+      space_member_access: string;
+      hub_member_access: string;
+      visitor_access: string;
+      auto_join_hub_members: boolean;
       created_by_user_id: string;
       owner_user_id: string;
       created_at: string;
-    }>("select * from servers order by created_at asc");
+      is_member: boolean;
+    }>(
+      `select s.*, 
+              (exists (select 1 from server_members where server_id = s.id and product_user_id = $1)) as is_member
+       from servers s
+       where s.type = 'dm'
+          or s.owner_user_id = $1
+          or exists (select 1 from role_bindings where (hub_id = s.hub_id or hub_id is null) and product_user_id = $1 and role in ('hub_owner', 'hub_admin'))
+          or (s.space_member_access != 'hidden' and exists (select 1 from server_members where server_id = s.id and product_user_id = $1))
+          or (s.hub_member_access != 'hidden' and exists (select 1 from hub_members where hub_id = s.hub_id and product_user_id = $1))
+          or (s.visitor_access != 'hidden')
+          or exists (select 1 from channels c where c.server_id = s.id and (
+              c.visitor_access != 'hidden' 
+              or (c.hub_member_access != 'hidden' and exists (select 1 from hub_members where hub_id = s.hub_id and product_user_id = $1))
+              or (c.space_member_access != 'hidden' and exists (select 1 from server_members where server_id = s.id and product_user_id = $1))
+          ))
+       order by s.created_at asc`,
+      [productUserId ?? null]
+    );
 
     return rows.rows.map((row) => ({
       id: row.id,
@@ -120,9 +154,15 @@ export async function listServers(): Promise<Server[]> {
       type: row.type || "default",
       matrixSpaceId: row.matrix_space_id,
       iconUrl: row.icon_url,
+      hubAdminAccess: row.hub_admin_access as any,
+      spaceMemberAccess: row.space_member_access as any,
+      hubMemberAccess: row.hub_member_access as any,
+      visitorAccess: row.visitor_access as any,
+      autoJoinHubMembers: row.auto_join_hub_members,
       createdByUserId: row.created_by_user_id,
       ownerUserId: row.owner_user_id,
-      createdAt: row.created_at
+      createdAt: row.created_at,
+      isMember: row.is_member
     }));
   });
 }
@@ -180,8 +220,18 @@ export async function listChannels(serverId: string, productUserId?: string): Pr
     }
 
     const rows = await db.query<ChannelRow>(
-      "select * from channels where server_id = $1 order by position asc, created_at asc",
-      [serverId]
+      `select ch.* 
+       from channels ch
+       join servers s on s.id = ch.server_id
+       where ch.server_id = $1 
+         and (
+           ch.privacy_tier != 'hidden'
+           or s.owner_user_id = $2
+           or exists (select 1 from role_bindings where (server_id = $1 or hub_id = s.hub_id) and product_user_id = $2)
+           or exists (select 1 from channel_members where channel_id = ch.id and product_user_id = $2)
+         )
+       order by ch.position asc, ch.created_at asc`,
+      [serverId, productUserId ?? null]
     );
     return rows.rows.map(mapChannel);
   });
@@ -701,9 +751,9 @@ export async function getOrCreateDMChannel(hubId: string, productUserIds: string
     let dmServerId = dmSrvRow.rows[0]?.id;
 
     if (!dmServerId) {
-      dmServerId = `srv_${crypto.randomUUID().replaceAll("-", "")} `;
+      dmServerId = `srv_${crypto.randomUUID().replaceAll("-", "")}`;
       await db.query(
-        "insert into servers (id, hub_id, name, type, created_by_user_id, owner_user_id) values ($1, $2, $3, $4, $5, $6)",
+        "insert into servers (id, hub_id, name, type, created_by_user_id, owner_user_id, privacy_tier, auto_join_hub_members) values ($1, $2, $3, $4, $5, $6, 'hidden', false)",
         [dmServerId, hubId, "Direct Messages", "dm", productUserIds[0], productUserIds[0]]
       );
     }
@@ -716,7 +766,7 @@ export async function getOrCreateDMChannel(hubId: string, productUserIds: string
        where ch.server_id = $1 and ch.type = 'dm'
        group by ch.id
        having count(cm.product_user_id) = $2
-          and array_agg(cm.product_user_id order by cm.product_user_id) = $3:: text[]`,
+          and array_agg(cm.product_user_id order by cm.product_user_id) = $3::text[]`,
       [dmServerId, sortedUserIds.length, sortedUserIds]
     );
 
@@ -734,7 +784,7 @@ export async function getOrCreateDMChannel(hubId: string, productUserIds: string
             (select preferred_username 
               from identity_mappings 
               where product_user_id = cm.product_user_id 
-              order by(preferred_username is not null) desc, updated_at desc, created_at asc 
+              order by (preferred_username is not null) desc, updated_at desc, created_at asc 
               limit 1),
           'user-' || substr(cm.product_user_id, 1, 8)
            ) as display_name
@@ -750,10 +800,10 @@ export async function getOrCreateDMChannel(hubId: string, productUserIds: string
       return channel;
     }
 
-    const channelId = `chn_${crypto.randomUUID().replaceAll("-", "")} `;
+    const channelId = `chn_${crypto.randomUUID().replaceAll("-", "")}`;
     const name = `DM: ${sortedUserIds.length} members`;
     await db.query(
-      "insert into channels (id, server_id, name, type, topic) values ($1, $2, $3, 'dm', null)",
+      "insert into channels (id, server_id, name, type, topic, privacy_tier) values ($1, $2, $3, 'dm', null, 'hidden')",
       [channelId, dmServerId, name]
     );
 
@@ -1058,6 +1108,11 @@ export async function renameServer(input: { serverId: string; name: string }): P
       matrix_space_id: string | null;
       icon_url: string | null;
       type: "default" | "dm";
+      hub_admin_access: string;
+      space_member_access: string;
+      hub_member_access: string;
+      visitor_access: string;
+      auto_join_hub_members: boolean;
       created_by_user_id: string;
       owner_user_id: string;
       created_at: string;
@@ -1081,6 +1136,11 @@ export async function renameServer(input: { serverId: string; name: string }): P
       type: value.type,
       matrixSpaceId: value.matrix_space_id,
       iconUrl: value.icon_url,
+      hubAdminAccess: value.hub_admin_access as any,
+      spaceMemberAccess: value.space_member_access as any,
+      hubMemberAccess: value.hub_member_access as any,
+      visitorAccess: value.visitor_access as any,
+      autoJoinHubMembers: value.auto_join_hub_members,
       createdByUserId: value.created_by_user_id,
       ownerUserId: value.owner_user_id,
       createdAt: value.created_at

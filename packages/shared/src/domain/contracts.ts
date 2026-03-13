@@ -1,6 +1,45 @@
-export type Role = "hub_admin" | "space_owner" | "space_moderator" | "user";
+export type AccessLevel = "hidden" | "locked" | "read" | "chat";
+
+export type Role = "hub_owner" | "hub_admin" | "space_owner" | "space_moderator" | "user" | "visitor";
 
 export type ChannelType = "text" | "voice" | "announcement" | "dm" | "forum";
+
+export type HubSuspension = {
+    isSuspended: boolean;
+    suspendedAt: string | null;
+    expiresAt: string | null;
+    unlockCodeHash?: string | null;
+};
+
+export interface Badge {
+    id: string;
+    hubId: string;
+    serverId: string;
+    name: string;
+    rank: number; // For precedence
+    description: string | null;
+    createdAt: string;
+}
+
+export interface UserBadge {
+    userId: string;
+    badgeId: string;
+    assignedAt: string;
+}
+
+export interface ChannelBadgeRule {
+    channelId: string;
+    badgeId: string;
+    accessLevel: AccessLevel | null;
+    createdAt: string;
+}
+
+export interface ServerBadgeRule {
+    serverId: string;
+    badgeId: string;
+    accessLevel: AccessLevel | null;
+    createdAt: string;
+}
 
 export type ModerationActionType =
     | "kick"
@@ -30,7 +69,13 @@ export type PrivilegedAction =
     | "channel.posting"
     | "voice.token.issue"
     | "reports.triage"
-    | "audit.read";
+    | "audit.read"
+    | "hub.suspend"
+    | "hub.delete"
+    | "badges.manage"
+    | "channel.message.read"
+    | "channel.message.send"
+    | "channel.voice.join";
 
 export interface ServerBlueprint {
     serverName: string;
@@ -58,6 +103,7 @@ export interface Hub {
     spaceCustomizationLimits?: Record<string, any>;
     oidcConfig?: Record<string, any>;
     allowSpaceDiscordBridge?: boolean;
+    suspension?: HubSuspension;
     createdAt: string;
 }
 
@@ -71,9 +117,13 @@ export interface Server {
     ownerUserId: string;
     startingChannelId?: string | null;
     iconUrl?: string | null;
-    visibility?: string;
-    visitorPrivacy?: string;
+    hubAdminAccess: AccessLevel;
+    spaceMemberAccess: AccessLevel;
+    hubMemberAccess: AccessLevel;
+    visitorAccess: AccessLevel;
+    autoJoinHubMembers: boolean;
     createdAt: string;
+    isMember?: boolean;
 }
 
 export interface Category {
@@ -98,7 +148,10 @@ export interface Channel {
     postingRestrictedToRoles: Role[];
     voiceMetadata: VoiceMetadata | null;
     restrictedVisibility?: boolean;
-    allowedRoleIds?: string[];
+    hubAdminAccess: AccessLevel;
+    spaceMemberAccess: AccessLevel;
+    hubMemberAccess: AccessLevel;
+    visitorAccess: AccessLevel;
     topic: string | null;
     participants?: { productUserId: string; displayName: string }[];
     createdAt: string;

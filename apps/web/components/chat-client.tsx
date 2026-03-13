@@ -13,6 +13,7 @@ import { useToast } from "./toast-provider";
 import { ContextMenu, ContextMenuItem } from "./context-menu";
 import { ProfileModal } from "./profile-modal";
 import { ModerationModal } from "./moderation-modal";
+import { PermissionsEditor } from "./permissions-editor";
 import type { Category, Channel, ChatMessage, MentionMarker, ModerationAction, ModerationReport, Server, VoicePresenceMember, VoiceTokenGrant } from "@skerry/shared";
 import { getChannelName } from "../lib/channel-utils";
 import { ThreadPanel } from "./thread-panel";
@@ -30,7 +31,7 @@ import {
   deleteChannel,
   deleteCategory, // Added deleteCategory
   deleteServer,
-  issueVoiceTokenWithVideo,
+  issueVoiceToken,
   fetchAllowedActions,
   fetchAuthProviders,
   fetchBootstrapStatus,
@@ -70,6 +71,7 @@ import {
   updateServerSettings,
   updateUserTheme,
   uploadMedia,
+  updateChannelSettings,
   updateVoicePresenceState,
   controlPlaneBaseUrl,
   createDMChannel,
@@ -101,6 +103,10 @@ import { useMembers } from "../hooks/use-members";
 function formatMessageTime(value: string): string {
   const date = new Date(value);
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+function cn(...classes: any[]) {
+  return classes.filter(Boolean).join(" ");
 }
 
 export function ChatClient() {
@@ -263,6 +269,8 @@ export function ChatClient() {
   const [roomType, setRoomType] = useState<"text" | "announcement" | "voice" | "forum">("text");
   const [selectedHubIdForCreate, setSelectedHubIdForCreate] = useState<string | null>(null);
   const [categoryName, setCategoryName] = useState("New Category");
+  const [spaceSettingsTab, setSpaceSettingsTab] = useState<"general" | "permissions">("general");
+  const [roomSettingsTab, setRoomSettingsTab] = useState<"general" | "permissions">("general");
 
   const messagesRef = useRef<HTMLOListElement>(null);
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
@@ -1900,69 +1908,103 @@ export function ChatClient() {
               )}
 
               {activeModal === "rename-space" && (
-                <form className="stack" onSubmit={(event: React.FormEvent<HTMLFormElement>) => {
-                  void handleRenameSpace(event);
-                  dispatch({ type: "SET_ACTIVE_MODAL", payload: null });
-                }}>
-                  <label htmlFor="rename-space-modal">New Space Name</label>
-                  <input
-                    id="rename-space-modal"
-                    autoFocus
-                    value={renameSpaceName}
-                    onChange={(e) => dispatch({ type: "SET_RENAME_SPACE", payload: { id: renameSpaceId, name: e.target.value } })}
-                    minLength={2}
-                    maxLength={80}
-                    required
-                  />
-
-                  <div className="form-section">
-                    <label>Space Icon</label>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.5rem' }}>
-                      <div className="server-icon-placeholder" style={{ width: '64px', height: '64px', fontSize: '1.5rem' }}>
-                        {iconFile ? (
-                          <img src={URL.createObjectURL(iconFile)} alt="" className="server-icon-image" />
-                        ) : renameSpaceIconUrl ? (
-                          <img src={renameSpaceIconUrl} alt="" className="server-icon-image" />
-                        ) : (
-                          renameSpaceName.charAt(0).toUpperCase() || '?'
-                        )}
-                      </div>
-                      <div className="stack" style={{ gap: '0.4rem' }}>
-                        <button
-                          type="button"
-                          className="ghost"
-                          onClick={() => iconInputRef.current?.click()}
-                        >
-                          {renameSpaceIconUrl || iconFile ? 'Change Icon' : 'Upload Icon'}
-                        </button>
-                        {(renameSpaceIconUrl || iconFile) && (
-                          <button
-                            type="button"
-                            className="ghost"
-                            style={{ color: 'var(--danger)' }}
-                            onClick={() => {
-                              setIconFile(null);
-                              dispatch({ type: "SET_RENAME_SPACE", payload: { id: renameSpaceId, name: renameSpaceName, iconUrl: null } });
-                            }}
-                          >
-                            Remove Icon
-                          </button>
-                        )}
-                      </div>
-                      <input
-                        type="file"
-                        ref={iconInputRef}
-                        style={{ display: 'none' }}
-                        accept="image/*"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) setIconFile(file);
-                        }}
-                      />
-                    </div>
+                <div className="stack">
+                  <div className="tabs">
+                    <button 
+                      className={cn("tab-button", spaceSettingsTab === "general" && "active")}
+                      onClick={() => setSpaceSettingsTab("general")}
+                    >
+                      General
+                    </button>
+                    <button 
+                      className={cn("tab-button", spaceSettingsTab === "permissions")}
+                      onClick={() => setSpaceSettingsTab("permissions")}
+                    >
+                      Permissions
+                    </button>
                   </div>
-                  <button type="submit" disabled={mutatingStructure}>Save Changes</button>
-                </form>
+
+                  {spaceSettingsTab === "general" ? (
+                    <form className="stack" onSubmit={(event: React.FormEvent<HTMLFormElement>) => {
+                      void handleRenameSpace(event);
+                      dispatch({ type: "SET_ACTIVE_MODAL", payload: null });
+                    }}>
+                      <label htmlFor="rename-space-modal">New Space Name</label>
+                      <input
+                        id="rename-space-modal"
+                        autoFocus
+                        value={renameSpaceName}
+                        onChange={(e) => dispatch({ type: "SET_RENAME_SPACE", payload: { id: renameSpaceId, name: e.target.value } })}
+                        minLength={2}
+                        maxLength={80}
+                        required
+                      />
+
+                      <div className="form-section">
+                        <label>Space Icon</label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.5rem' }}>
+                          <div className="server-icon-placeholder" style={{ width: '64px', height: '64px', fontSize: '1.5rem' }}>
+                            {iconFile ? (
+                              <img src={URL.createObjectURL(iconFile)} alt="" className="server-icon-image" />
+                            ) : renameSpaceIconUrl ? (
+                              <img src={renameSpaceIconUrl} alt="" className="server-icon-image" />
+                            ) : (
+                              renameSpaceName.charAt(0).toUpperCase() || '?'
+                            )}
+                          </div>
+                          <div className="stack" style={{ gap: '0.4rem' }}>
+                            <button
+                              type="button"
+                              className="ghost"
+                              onClick={() => iconInputRef.current?.click()}
+                            >
+                              {renameSpaceIconUrl || iconFile ? 'Change Icon' : 'Upload Icon'}
+                            </button>
+                            {(renameSpaceIconUrl || iconFile) && (
+                              <button
+                                type="button"
+                                className="ghost"
+                                style={{ color: 'var(--danger)' }}
+                                onClick={() => {
+                                  setIconFile(null);
+                                  dispatch({ type: "SET_RENAME_SPACE", payload: { id: renameSpaceId, name: renameSpaceName, iconUrl: null } });
+                                }}
+                              >
+                                Remove Icon
+                              </button>
+                            )}
+                          </div>
+                          <input
+                            type="file"
+                            ref={iconInputRef}
+                            style={{ display: 'none' }}
+                            accept="image/*"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) setIconFile(file);
+                            }}
+                          />
+                        </div>
+                      </div>
+                      <button type="submit" disabled={mutatingStructure}>Save Changes</button>
+                    </form>
+                  ) : (
+                    <PermissionsEditor 
+                      serverId={renameSpaceId}
+                      initialAccess={{
+                        hubAdminAccess: activeServer?.hubAdminAccess ?? 'chat',
+                        spaceMemberAccess: activeServer?.spaceMemberAccess ?? 'chat',
+                        hubMemberAccess: activeServer?.hubMemberAccess ?? 'chat',
+                        visitorAccess: activeServer?.visitorAccess ?? 'hidden'
+                      }}
+                      onSaveDefaults={async (access) => {
+                        await updateServerSettings(renameSpaceId, access);
+                        showToast("Permissions updated", "success");
+                        void refreshChatState();
+                      }}
+                    />
+                  )}
+                </div>
               )}
 
               {activeModal === "create-category" && (
@@ -2077,80 +2119,118 @@ export function ChatClient() {
 
               {activeModal === "rename-room" && (
                 <div className="stack">
-                  <form className="stack" onSubmit={(event: React.FormEvent<HTMLFormElement>) => {
-                    void handleRenameRoom(event);
-                    dispatch({ type: "SET_ACTIVE_MODAL", payload: null });
-                  }}>
-                    <p>Editing room: <strong>{channels.find(c => c.id === renameRoomId)?.name}</strong></p>
-                    <label htmlFor="rename-room-modal">Room Name</label>
-                    <input
-                      id="rename-room-modal"
-                      autoFocus
-                      value={renameRoomName}
-                      onChange={(e) => dispatch({ type: "SET_RENAME_ROOM", payload: { id: renameRoomId, name: e.target.value, type: renameRoomType, categoryId: renameRoomCategoryId } })}
-                      minLength={2}
-                      maxLength={80}
-                      required
-                    />
-
-                    <label htmlFor="rename-room-type">Type</label>
-                    <select
-                      id="rename-room-type"
-                      value={renameRoomType}
-                      onChange={(e) => dispatch({ type: "SET_RENAME_ROOM", payload: { id: renameRoomId, name: renameRoomName, type: e.target.value as any, categoryId: renameRoomCategoryId } })}
+                  <div className="tabs">
+                    <button 
+                      className={cn("tab-button", roomSettingsTab === "general" && "active")}
+                      onClick={() => setRoomSettingsTab("general")}
                     >
-                      <option value="text">Text Room</option>
-                      <option value="announcement">Announcement Room</option>
-                      <option value="forum">Forum Room</option>
-                      <option value="voice">Voice Room</option>
-                    </select>
-
-                    <label htmlFor="rename-room-category">Category</label>
-                    <select
-                      id="rename-room-category"
-                      value={renameRoomCategoryId ?? ""}
-                      onChange={(e) => dispatch({ type: "SET_RENAME_ROOM", payload: { id: renameRoomId, name: renameRoomName, type: renameRoomType, categoryId: e.target.value || null } })}
+                      General
+                    </button>
+                    <button 
+                      className={cn("tab-button", roomSettingsTab === "permissions")}
+                      onClick={() => setRoomSettingsTab("permissions")}
                     >
-                      <option value="">(None)</option>
-                      {categories.map(c => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
-                      ))}
-                    </select>
-
-                    <button type="submit" disabled={mutatingStructure}>Save Changes</button>
-                  </form>
-
-                  <div className="stack" style={{ borderTop: "1px solid var(--border)", paddingTop: "1rem" }}>
-                    <p>Reorder Room</p>
-                    <div style={{ display: "flex", gap: "0.5rem" }}>
-                      <button
-                        type="button"
-                        disabled={mutatingStructure || (() => {
-                          const channel = channels.find(c => c.id === renameRoomId);
-                          if (!channel) return true;
-                          const peers = channels.filter(c => c.categoryId === channel.categoryId)
-                            .sort((a, b) => a.position - b.position || a.createdAt.localeCompare(b.createdAt));
-                          return peers.findIndex(c => c.id === renameRoomId) === 0;
-                        })()}
-                        onClick={() => moveChannelPosition(renameRoomId, "up")}
-                      >
-                        Move Up
-                      </button>
-                      <button
-                        type="button"
-                        disabled={mutatingStructure || (() => {
-                          const channel = channels.find(c => c.id === renameRoomId);
-                          if (!channel) return true;
-                          const peers = channels.filter(c => c.categoryId === channel.categoryId)
-                            .sort((a, b) => a.position - b.position || a.createdAt.localeCompare(b.createdAt));
-                          return peers.findIndex(c => c.id === renameRoomId) === peers.length - 1;
-                        })()}
-                        onClick={() => moveChannelPosition(renameRoomId, "down")}
-                      >
-                        Move Down
-                      </button>
-                    </div>
+                      Permissions
+                    </button>
                   </div>
+
+                  {roomSettingsTab === "general" ? (
+                    <div className="stack">
+                      <form className="stack" onSubmit={(event: React.FormEvent<HTMLFormElement>) => {
+                        void handleRenameRoom(event);
+                        dispatch({ type: "SET_ACTIVE_MODAL", payload: null });
+                      }}>
+                        <p>Editing room: <strong>{channels.find(c => c.id === renameRoomId)?.name}</strong></p>
+                        <label htmlFor="rename-room-modal">Room Name</label>
+                        <input
+                          id="rename-room-modal"
+                          autoFocus
+                          value={renameRoomName}
+                          onChange={(e) => dispatch({ type: "SET_RENAME_ROOM", payload: { id: renameRoomId, name: e.target.value, type: renameRoomType, categoryId: renameRoomCategoryId } })}
+                          minLength={2}
+                          maxLength={80}
+                          required
+                        />
+
+                        <label htmlFor="rename-room-type">Type</label>
+                        <select
+                          id="rename-room-type"
+                          value={renameRoomType}
+                          onChange={(e) => dispatch({ type: "SET_RENAME_ROOM", payload: { id: renameRoomId, name: renameRoomName, type: e.target.value as any, categoryId: renameRoomCategoryId } })}
+                        >
+                          <option value="text">Text Room</option>
+                          <option value="announcement">Announcement Room</option>
+                          <option value="forum">Forum Room</option>
+                          <option value="voice">Voice Room</option>
+                        </select>
+
+                        <label htmlFor="rename-room-category">Category</label>
+                        <select
+                          id="rename-room-category"
+                          value={renameRoomCategoryId ?? ""}
+                          onChange={(e) => dispatch({ type: "SET_RENAME_ROOM", payload: { id: renameRoomId, name: renameRoomName, type: renameRoomType, categoryId: e.target.value || null } })}
+                        >
+                          <option value="">(None)</option>
+                          {categories.map(c => (
+                            <option key={c.id} value={c.id}>{c.name}</option>
+                          ))}
+                        </select>
+
+                        <button type="submit" disabled={mutatingStructure}>Save Changes</button>
+                      </form>
+
+                      <div className="stack" style={{ borderTop: "1px solid var(--border)", paddingTop: "1rem" }}>
+                        <p>Reorder Room</p>
+                        <div style={{ display: "flex", gap: "0.5rem" }}>
+                          <button
+                            type="button"
+                            disabled={mutatingStructure || (() => {
+                              const channel = channels.find(c => c.id === renameRoomId);
+                              if (!channel) return true;
+                              const peers = channels.filter(c => c.categoryId === channel.categoryId)
+                                .sort((a, b) => a.position - b.position || a.createdAt.localeCompare(b.createdAt));
+                              return peers.findIndex(c => c.id === renameRoomId) === 0;
+                            })()}
+                            onClick={() => moveChannelPosition(renameRoomId, "up")}
+                          >
+                            Move Up
+                          </button>
+                          <button
+                            type="button"
+                            disabled={mutatingStructure || (() => {
+                              const channel = channels.find(c => c.id === renameRoomId);
+                              if (!channel) return true;
+                              const peers = channels.filter(c => c.categoryId === channel.categoryId)
+                                .sort((a, b) => a.position - b.position || a.createdAt.localeCompare(b.createdAt));
+                              return peers.findIndex(c => c.id === renameRoomId) === peers.length - 1;
+                            })()}
+                            onClick={() => moveChannelPosition(renameRoomId, "down")}
+                          >
+                            Move Down
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <PermissionsEditor 
+                      serverId={activeChannel?.serverId ?? renameSpaceId}
+                      channelId={renameRoomId}
+                      initialAccess={{
+                        hubAdminAccess: activeChannel?.hubAdminAccess ?? 'chat',
+                        spaceMemberAccess: activeChannel?.spaceMemberAccess ?? 'chat',
+                        hubMemberAccess: activeChannel?.hubMemberAccess ?? 'chat',
+                        visitorAccess: activeChannel?.visitorAccess ?? 'hidden'
+                      }}
+                      onSaveDefaults={async (access) => {
+                        await updateChannelSettings(renameRoomId, {
+                          serverId: activeChannel?.serverId ?? selectedServerId ?? "",
+                          ...access
+                        });
+                        showToast("Permissions updated", "success");
+                        void refreshChatState();
+                      }}
+                    />
+                  )}
                 </div>
               )}
             </div>

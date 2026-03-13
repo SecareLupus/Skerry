@@ -43,6 +43,12 @@ export default function SettingsLayout({
       hidden: !canManageCurrentSpace || !selectedServerId 
     },
     { 
+      label: "Space Badges", 
+      href: `/settings/spaces/${selectedServerId}/badges`, 
+      icon: "🏅", 
+      hidden: !canManageCurrentSpace || !selectedServerId 
+    },
+    { 
       label: "Room Settings", 
       href: `/settings/rooms/${selectedChannelId}`, 
       icon: "💬", 

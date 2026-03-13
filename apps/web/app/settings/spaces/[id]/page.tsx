@@ -94,29 +94,32 @@ export default function SpaceSettingsPage() {
                 </section>
 
                 <section className="settings-row">
-                    <label>Visibility</label>
+                    <label>Privacy Tier</label>
                     <select
                         className="filter-input"
-                        value={settings?.visibility || "public"}
-                        onChange={(e) => setSettings({ ...settings, visibility: e.target.value })}
+                        value={settings?.privacyTier || "public"}
+                        onChange={(e) => setSettings({ ...settings, privacyTier: e.target.value })}
                     >
-                        <option value="public">Public (Visible to all hub members)</option>
-                        <option value="private">Private (Invite only)</option>
-                        <option value="hidden">Hidden (Not listed in hub browser)</option>
+                        <option value="public">Public (Full participation for all hub members)</option>
+                        <option value="viewable">Viewable (All members can see, new members default to no voice)</option>
+                        <option value="locked">Locked (Visible in list, but rooms require specific join permission)</option>
+                        <option value="hidden">Hidden (Entire space is invisible without invitation)</option>
                     </select>
+                    <p className="settings-description">Determines the default visibility and access level for this space and its rooms.</p>
                 </section>
 
-                <section className="settings-row">
-                    <label>Visitor Privacy</label>
-                    <select
-                        className="filter-input"
-                        value={settings?.visitorPrivacy || "public"}
-                        onChange={(e) => setSettings({ ...settings, visitorPrivacy: e.target.value })}
-                    >
-                        <option value="public">Public (Visitors can see content)</option>
-                        <option value="private">Private (Must be member to see content)</option>
-                    </select>
+                <section className="settings-row checkbox-row">
+                    <label className="checkbox-container">
+                        <input 
+                            type="checkbox" 
+                            checked={settings?.autoJoinHubMembers !== false}
+                            onChange={(e) => setSettings({ ...settings, autoJoinHubMembers: e.target.checked })}
+                        />
+                        <span className="checkbox-label">Auto-join new hub members</span>
+                    </label>
+                    <p className="settings-description">When enabled, any user who joins the hub will automatically be added as a member of this space.</p>
                 </section>
+
 
                 <button
                     onClick={handleSave}

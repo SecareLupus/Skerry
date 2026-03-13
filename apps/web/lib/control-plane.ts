@@ -110,10 +110,11 @@ export interface FederationPolicySnapshot {
 }
 
 export interface ViewerRoleBinding {
-  role: "hub_admin" | "space_owner" | "space_moderator" | "user";
+  role: Role;
   hubId: string | null;
   serverId: string | null;
   channelId: string | null;
+  isOwnerSuspended?: boolean;
 }
 
 export type PrivilegedAction =
@@ -130,7 +131,12 @@ export type PrivilegedAction =
   | "channel.posting"
   | "voice.token.issue"
   | "reports.triage"
-  | "audit.read";
+  | "audit.read"
+  | "hub.delete"
+  | "badges.manage"
+  | "channel.message.read"
+  | "channel.message.send"
+  | "channel.voice.join";
 
 export class ControlPlaneApiError extends Error {
   readonly statusCode: number;
@@ -787,15 +793,34 @@ export async function issueVoiceToken(input: { serverId: string; channelId: stri
   });
 }
 
-export async function issueVoiceTokenWithVideo(input: {
-  serverId: string;
-  channelId: string;
-  videoQuality?: "low" | "medium" | "high";
-}): Promise<VoiceTokenGrant> {
-  return apiFetch<VoiceTokenGrant>("/v1/voice/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input)
+export async function joinServer(serverId: string): Promise<void> {
+  await apiFetch(`/v1/servers/${encodeURIComponent(serverId)}/join`, {
+    method: "POST"
+  });
+}
+
+export async function leaveServer(serverId: string): Promise<void> {
+  await apiFetch(`/v1/servers/${encodeURIComponent(serverId)}/leave`, {
+    method: "DELETE"
+  });
+}
+
+export async function listBadges(serverId: string): Promise<any[]> {
+  const json = await apiFetch<{ items: any[] }>(`/v1/servers/${encodeURIComponent(serverId)}/badges`);
+  return json.items;
+}
+
+export async function setChannelBadgeRule(channelId: string, badgeId: string, accessLevel: string | null): Promise<void> {
+  await apiFetch(`/v1/channels/${encodeURIComponent(channelId)}/badge-rules`, {
+    method: "PUT",
+    body: JSON.stringify({ badgeId, accessLevel })
+  });
+}
+
+export async function setServerBadgeRule(serverId: string, badgeId: string, accessLevel: string | null): Promise<void> {
+  await apiFetch(`/v1/servers/${encodeURIComponent(serverId)}/badge-rules`, {
+    method: "PUT",
+    body: JSON.stringify({ badgeId, accessLevel })
   });
 }
 
@@ -1152,6 +1177,85 @@ export async function updateChannelSettings(channelId: string, settings: Partial
     body: JSON.stringify(settings)
   });
 }
+
+/**
+ * Hub Suspension
+ */
+
+export async function suspendHubOwner(hubId: string, payload: { durationSeconds?: number; unlockCodeHash?: string }): Promise<{ status: string; expiresAt?: string }> {
+  return apiFetch(`/v1/hubs/${encodeURIComponent(hubId)}/suspend`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function unsuspendHubOwner(hubId: string, payload: { unlockCode?: string }): Promise<{ status: string }> {
+  return apiFetch(`/v1/hubs/${encodeURIComponent(hubId)}/unsuspend`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+}
+
+/**
+ * Badge Management
+ */
+
+export async function createBadge(input: { hubId: string; serverId: string; name: string; rank: number; description?: string }): Promise<any> {
+    return apiFetch("/v1/badges", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input)
+    });
+}
+
+export async function listBadges(serverId: string): Promise<any[]> {
+    const res = await apiFetch<{ items: any[] }>(`/v1/servers/${encodeURIComponent(serverId)}/badges`);
+    return res.items;
+}
+
+export async function updateBadge(badgeId: string, input: { name?: string; rank?: number; description?: string }): Promise<any> {
+    return apiFetch(`/v1/badges/${encodeURIComponent(badgeId)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input)
+    });
+}
+
+export async function deleteBadge(badgeId: string): Promise<void> {
+    await apiFetch(`/v1/badges/${encodeURIComponent(badgeId)}`, {
+        method: "DELETE"
+    });
+}
+
+export async function assignBadge(badgeId: string, productUserId: string): Promise<void> {
+    await apiFetch(`/v1/badges/${encodeURIComponent(badgeId)}/assign`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productUserId })
+    });
+}
+
+export async function revokeBadge(badgeId: string, productUserId: string): Promise<void> {
+    await apiFetch(`/v1/badges/${encodeURIComponent(badgeId)}/assign/${encodeURIComponent(productUserId)}`, {
+        method: "DELETE"
+    });
+}
+
+export async function setChannelBadgeRule(channelId: string, input: { badgeId: string; accessType: "allow" | "deny" }): Promise<void> {
+    await apiFetch(`/v1/channels/${encodeURIComponent(channelId)}/badge-rules`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input)
+    });
+}
+
+export async function listChannelBadgeRules(channelId: string): Promise<any[]> {
+    const res = await apiFetch<{ items: any[] }>(`/v1/channels/${encodeURIComponent(channelId)}/badge-rules`);
+    return res.items;
+}
+
 
 export async function fetchUserSettings(): Promise<Record<string, any>> {
   return apiFetch<Record<string, any>>("/v1/me/settings");
