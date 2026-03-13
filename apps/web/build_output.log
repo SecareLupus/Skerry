@@ -1,58 +1,166 @@
+time="2026-03-12T21:43:56-04:00" level=warning msg="The \"BASE_DOMAIN\" variable is not set. Defaulting to a blank string."
+time="2026-03-12T21:43:56-04:00" level=warning msg="The \"BASE_DOMAIN\" variable is not set. Defaulting to a blank string."
+time="2026-03-12T21:43:56-04:00" level=warning msg="The \"BASE_DOMAIN\" variable is not set. Defaulting to a blank string."
+time="2026-03-12T21:43:56-04:00" level=warning msg="The \"BASE_DOMAIN\" variable is not set. Defaulting to a blank string."
+time="2026-03-12T21:43:56-04:00" level=warning msg="The \"BASE_DOMAIN\" variable is not set. Defaulting to a blank string."
+time="2026-03-12T21:43:56-04:00" level=warning msg="Docker Compose is configured to build using Bake, but buildx isn't installed"
+#0 building with "default" instance using docker driver
 
-> @escapehatch/web@0.1.0 build /home/desmond/Documents/EscapeHatch/EscapeHatch/apps/web
-> npx dotenv-cli -e ../../.env -- next build
+#1 [web internal] load build definition from Dockerfile
+#1 transferring dockerfile: 782B done
+#1 DONE 0.0s
 
-  ▲ Next.js 14.2.30
+#2 [web internal] load metadata for docker.io/library/node:20-slim
+#2 DONE 0.3s
 
-   Creating an optimized production build ...
- ✓ Compiled successfully
-   Linting and checking validity of types ...
+#3 [web internal] load .dockerignore
+#3 transferring context: 163B done
+#3 DONE 0.0s
 
-./app/settings/rooms/[id]/page.tsx
-34:8  Warning: React Hook useEffect has a missing dependency: 'channel'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+#4 [web base 1/4] FROM docker.io/library/node:20-slim@sha256:a82f40540f5959e0003fb7b3c0f80490def2927be8bdbee7e3e0ac65cce3be92
+#4 DONE 0.0s
 
-./components/admin-console.tsx
-179:6  Warning: React Hook useEffect has a missing dependency: 'loadHubState'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+#5 [web internal] load build context
+#5 transferring context: 35.49kB 0.0s done
+#5 DONE 0.0s
 
-./components/bridge-manager.tsx
-57:8  Warning: React Hook useEffect has a missing dependency: 'loadState'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+#6 [web base 2/4] RUN corepack enable
+#6 CACHED
 
-./components/chat-client.tsx
-517:6  Warning: React Hook useCallback has a missing dependency: 'showToast'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
-549:6  Warning: React Hook useEffect has missing dependencies: 'dispatch' and 'showToast'. Either include them or remove the dependency array.  react-hooks/exhaustive-deps
-612:6  Warning: React Hook useEffect has a missing dependency: 'state.deleteTargetSpaceId'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
-648:6  Warning: React Hook useEffect has a missing dependency: 'dispatch'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
-679:6  Warning: React Hook useEffect has a missing dependency: 'dispatch'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
-701:6  Warning: React Hook useEffect has missing dependencies: 'dispatch' and 'pendingNewMessageCount'. Either include them or remove the dependency array.  react-hooks/exhaustive-deps
-769:6  Warning: React Hook useEffect has a missing dependency: 'dispatch'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+#7 [web base 3/4] COPY . /app
+#7 DONE 2.3s
 
-./components/chat-window.tsx
-438:49  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+#8 [web base 4/4] WORKDIR /app
+#8 DONE 0.1s
 
-info  - Need to disable some ESLint rules? Learn more here: https://nextjs.org/docs/basic-features/eslint#disabling-rules
-   Collecting page data ...
-   Generating static pages (0/7) ...
-   Generating static pages (1/7) 
-   Generating static pages (3/7) 
-   Generating static pages (5/7) 
- ✓ Generating static pages (7/7)
-   Finalizing page optimization ...
-   Collecting build traces ...
-
-Route (app)                              Size     First Load JS
-┌ ƒ /                                    16.5 kB         115 kB
-├ ○ /_not-found                          872 B          88.1 kB
-├ ƒ /admin                               3.21 kB         104 kB
-├ ○ /settings                            989 B          90.8 kB
-├ ○ /settings/hub                        2.84 kB        92.7 kB
-├ ƒ /settings/rooms/[id]                 2.93 kB        92.7 kB
-└ ƒ /settings/spaces/[id]                2.7 kB           95 kB
-+ First Load JS shared by all            87.2 kB
-  ├ chunks/240-620be6ec8e5dde6d.js       31.6 kB
-  ├ chunks/9862b9c0-9a720fc27fea5ce9.js  53.7 kB
-  └ other shared chunks (total)          1.98 kB
-
-
-○  (Static)   prerendered as static content
-ƒ  (Dynamic)  server-rendered on demand
-
+#9 [web build 1/1] RUN echo "NEXT_PUBLIC_BASE_DOMAIN=localhost" > .env &&     pnpm install --frozen-lockfile &&     pnpm run build
+#9 0.396 ! Corepack is about to download https://registry.npmjs.org/pnpm/-/pnpm-9.12.2.tgz
+#9 2.952 Scope: all 4 workspace projects
+#9 3.083 Lockfile is up to date, resolution step is skipped
+#9 3.207 Progress: resolved 1, reused 0, downloaded 0, added 0
+#9 3.488 Packages: +677
+#9 3.488 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+#9 4.234 
+#9 4.234    ╭───────────────────────────────────────────────────────────────────╮
+#9 4.234    │                                                                   │
+#9 4.234    │                Update available! 9.12.2 → 10.32.1.                │
+#9 4.234    │   Changelog: https://github.com/pnpm/pnpm/releases/tag/v10.32.1   │
+#9 4.234    │         Run "corepack install -g pnpm@10.32.1" to update.         │
+#9 4.234    │                                                                   │
+#9 4.234    │         Follow @pnpmjs for updates: https://x.com/pnpmjs          │
+#9 4.234    │                                                                   │
+#9 4.234    ╰───────────────────────────────────────────────────────────────────╯
+#9 4.234 
+#9 4.234 Progress: resolved 677, reused 0, downloaded 18, added 7
+#9 5.235 Progress: resolved 677, reused 0, downloaded 132, added 128
+#9 6.231 Progress: resolved 677, reused 0, downloaded 254, added 253
+#9 7.232 Progress: resolved 677, reused 0, downloaded 294, added 293
+#9 8.232 Progress: resolved 677, reused 0, downloaded 393, added 393
+#9 9.232 Progress: resolved 677, reused 0, downloaded 516, added 516
+#9 10.23 Progress: resolved 677, reused 0, downloaded 587, added 587
+#9 11.24 Progress: resolved 677, reused 0, downloaded 649, added 646
+#9 12.27 Progress: resolved 677, reused 0, downloaded 674, added 674
+#9 13.27 Progress: resolved 677, reused 0, downloaded 675, added 674
+#9 14.20 Progress: resolved 677, reused 0, downloaded 677, added 677, done
+#9 14.60 .../node_modules/unrs-resolver postinstall$ napi-postinstall unrs-resolver 1.11.1 check
+#9 14.60 .../esbuild@0.27.3/node_modules/esbuild postinstall$ node install.js
+#9 14.77 .../node_modules/unrs-resolver postinstall: Done
+#9 14.78 .../esbuild@0.27.3/node_modules/esbuild postinstall: Done
+#9 15.05 
+#9 15.08 Done in 12.7s
+#9 15.74 
+#9 15.74 > skerry@0.1.0 build /app
+#9 15.74 > pnpm -r build
+#9 15.74 
+#9 16.37 Scope: 3 of 4 workspace projects
+#9 16.37 packages/shared build$ tsc --project tsconfig.json
+#9 18.30 packages/shared build: Done
+#9 18.30 apps/control-plane build$ tsc --project tsconfig.json
+#9 18.30 apps/web build$ next build
+#9 19.26 apps/web build: Attention: Next.js now collects completely anonymous telemetry regarding usage.
+#9 19.27 apps/web build: This information is used to shape Next.js' roadmap and prioritize features.
+#9 19.27 apps/web build: You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
+#9 19.27 apps/web build: https://nextjs.org/telemetry
+#9 19.47 apps/web build:   ▲ Next.js 14.2.30
+#9 19.68 apps/web build:    Creating an optimized production build ...
+#9 29.36 apps/control-plane build: Done
+#9 33.42 apps/web build:  ⚠ Compiled with warnings
+#9 33.42 apps/web build: ./hooks/use-voice.ts
+#9 33.43 apps/web build: Attempted import error: 'issueVoiceTokenWithVideo' is not exported from '../lib/control-plane' (imported as 'issueVoiceTokenWithVideo').
+#9 33.43 apps/web build: Import trace for requested module:
+#9 33.43 apps/web build: ./hooks/use-voice.ts
+#9 33.43 apps/web build: ./components/chat-client.tsx
+#9 46.67 apps/web build:  ⚠ Compiled with warnings
+#9 46.67 apps/web build: ./hooks/use-voice.ts
+#9 46.67 apps/web build: Attempted import error: 'issueVoiceTokenWithVideo' is not exported from '../lib/control-plane' (imported as 'issueVoiceTokenWithVideo').
+#9 46.67 apps/web build: Import trace for requested module:
+#9 46.67 apps/web build: ./hooks/use-voice.ts
+#9 46.67 apps/web build: ./components/chat-client.tsx
+#9 46.73 apps/web build:  ✓ Compiled successfully
+#9 46.73 apps/web build:    Linting and checking validity of types ...
+#9 51.97 apps/web build: Failed to compile.
+#9 51.97 apps/web build: ./app/settings/hub/members/page.tsx
+#9 51.97 apps/web build: 38:6  Warning: React Hook useEffect has a missing dependency: 'loadMembers'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+#9 51.97 apps/web build: ./app/settings/hub/page.tsx
+#9 51.97 apps/web build: 136:136  Error: `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`.  react/no-unescaped-entities
+#9 51.97 apps/web build: 136:143  Error: `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`.  react/no-unescaped-entities
+#9 51.97 apps/web build: 136:149  Error: `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`.  react/no-unescaped-entities
+#9 51.97 apps/web build: 136:157  Error: `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`.  react/no-unescaped-entities
+#9 51.97 apps/web build: ./app/settings/rooms/[id]/page.tsx
+#9 51.97 apps/web build: 36:8  Warning: React Hook useEffect has a missing dependency: 'channel'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+#9 51.97 apps/web build: ./components/bridge-manager.tsx
+#9 51.97 apps/web build: 60:8  Warning: React Hook useEffect has a missing dependency: 'loadState'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+#9 51.97 apps/web build: 66:8  Warning: React Hook useEffect has a missing dependency: 'loadDiscordChannels'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+#9 51.97 apps/web build: ./components/chat-client.tsx
+#9 51.97 apps/web build: 1948:31  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+#9 51.98 apps/web build: 1950:31  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+#9 51.98 apps/web build: ./components/chat-window.tsx
+#9 51.98 apps/web build: 240:8  Warning: React Hook useEffect has a missing dependency: 'messagesRef'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+#9 51.98 apps/web build: 504:8  Warning: React Hook useMemo has a missing dependency: 'dispatch'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+#9 51.98 apps/web build: 898:61  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+#9 51.98 apps/web build: 934:53  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+#9 51.98 apps/web build: 1107:37  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+#9 51.98 apps/web build: 1338:25  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+#9 51.98 apps/web build: ./components/dm-picker-modal.tsx
+#9 51.98 apps/web build: 96:41  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+#9 51.98 apps/web build: ./components/embed-card.tsx
+#9 51.98 apps/web build: 98:17  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+#9 51.98 apps/web build: ./components/member-table.tsx
+#9 51.98 apps/web build: 59:6  Warning: React Hook useEffect has a missing dependency: 'isModerator'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+#9 51.99 apps/web build: 192:21  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+#9 51.99 apps/web build: ./components/profile-modal.tsx
+#9 51.99 apps/web build: 100:33  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+#9 51.99 apps/web build: ./components/sidebar.tsx
+#9 51.99 apps/web build: 223:53  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+#9 51.99 apps/web build: 307:53  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+#9 51.99 apps/web build: ./components/space-delegation-manager.tsx
+#9 51.99 apps/web build: 51:8  Warning: React Hook useEffect has a missing dependency: 'loadAssignments'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+#9 51.99 apps/web build: ./components/thread-panel.tsx
+#9 51.99 apps/web build: 140:37  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+#9 51.99 apps/web build: 165:45  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+#9 51.99 apps/web build: 208:33  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+#9 51.99 apps/web build: ./components/user-select.tsx
+#9 51.99 apps/web build: 63:33  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+#9 51.99 apps/web build: ./components/voice-room.tsx
+#9 51.99 apps/web build: 198:25  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+#9 51.99 apps/web build: info  - Need to disable some ESLint rules? Learn more here: https://nextjs.org/docs/basic-features/eslint#disabling-rules
+#9 51.99 apps/web build: Failed
+#9 51.99 /app/apps/web:
+#9 51.99  ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @skerry/web@0.1.0 build: `next build`
+#9 51.99 Exit status 1
+#9 52.02  ELIFECYCLE  Command failed with exit code 1.
+#9 ERROR: process "/bin/sh -c echo \"NEXT_PUBLIC_BASE_DOMAIN=${NEXT_PUBLIC_BASE_DOMAIN:-localhost}\" > .env &&     pnpm install --frozen-lockfile &&     pnpm run build" did not complete successfully: exit code: 1
+------
+ > [web build 1/1] RUN echo "NEXT_PUBLIC_BASE_DOMAIN=localhost" > .env &&     pnpm install --frozen-lockfile &&     pnpm run build:
+51.99 apps/web build: ./components/user-select.tsx
+51.99 apps/web build: 63:33  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+51.99 apps/web build: ./components/voice-room.tsx
+51.99 apps/web build: 198:25  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+51.99 apps/web build: info  - Need to disable some ESLint rules? Learn more here: https://nextjs.org/docs/basic-features/eslint#disabling-rules
+51.99 apps/web build: Failed
+51.99 /app/apps/web:
+51.99  ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @skerry/web@0.1.0 build: `next build`
+51.99 Exit status 1
+52.02  ELIFECYCLE  Command failed with exit code 1.
+------
+failed to solve: process "/bin/sh -c echo \"NEXT_PUBLIC_BASE_DOMAIN=${NEXT_PUBLIC_BASE_DOMAIN:-localhost}\" > .env &&     pnpm install --frozen-lockfile &&     pnpm run build" did not complete successfully: exit code: 1

@@ -785,7 +785,12 @@ export async function listAuditLogs(serverId: string): Promise<ModerationAction[
   return json.items;
 }
 
-export async function issueVoiceToken(input: { serverId: string; channelId: string }): Promise<VoiceTokenGrant> {
+export async function issueVoiceToken(input: { 
+  serverId: string; 
+  channelId: string;
+  videoQuality?: "low" | "medium" | "high";
+  videoEnabled?: boolean;
+}): Promise<VoiceTokenGrant> {
   return apiFetch<VoiceTokenGrant>("/v1/voice/token", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -799,28 +804,10 @@ export async function joinServer(serverId: string): Promise<void> {
   });
 }
 
+
 export async function leaveServer(serverId: string): Promise<void> {
   await apiFetch(`/v1/servers/${encodeURIComponent(serverId)}/leave`, {
     method: "DELETE"
-  });
-}
-
-export async function listBadges(serverId: string): Promise<any[]> {
-  const json = await apiFetch<{ items: any[] }>(`/v1/servers/${encodeURIComponent(serverId)}/badges`);
-  return json.items;
-}
-
-export async function setChannelBadgeRule(channelId: string, badgeId: string, accessLevel: string | null): Promise<void> {
-  await apiFetch(`/v1/channels/${encodeURIComponent(channelId)}/badge-rules`, {
-    method: "PUT",
-    body: JSON.stringify({ badgeId, accessLevel })
-  });
-}
-
-export async function setServerBadgeRule(serverId: string, badgeId: string, accessLevel: string | null): Promise<void> {
-  await apiFetch(`/v1/servers/${encodeURIComponent(serverId)}/badge-rules`, {
-    method: "PUT",
-    body: JSON.stringify({ badgeId, accessLevel })
   });
 }
 
@@ -1243,16 +1230,29 @@ export async function revokeBadge(badgeId: string, productUserId: string): Promi
     });
 }
 
-export async function setChannelBadgeRule(channelId: string, input: { badgeId: string; accessType: "allow" | "deny" }): Promise<void> {
+export async function setChannelBadgeRule(channelId: string, badgeId: string, accessLevel: string | null): Promise<void> {
     await apiFetch(`/v1/channels/${encodeURIComponent(channelId)}/badge-rules`, {
-        method: "POST",
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(input)
+        body: JSON.stringify({ badgeId, accessLevel })
+    });
+}
+
+export async function setServerBadgeRule(serverId: string, badgeId: string, accessLevel: string | null): Promise<void> {
+    await apiFetch(`/v1/servers/${encodeURIComponent(serverId)}/badge-rules`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ badgeId, accessLevel })
     });
 }
 
 export async function listChannelBadgeRules(channelId: string): Promise<any[]> {
     const res = await apiFetch<{ items: any[] }>(`/v1/channels/${encodeURIComponent(channelId)}/badge-rules`);
+    return res.items;
+}
+
+export async function listServerBadgeRules(serverId: string): Promise<any[]> {
+    const res = await apiFetch<{ items: any[] }>(`/v1/servers/${encodeURIComponent(serverId)}/badge-rules`);
     return res.items;
 }
 

@@ -10,9 +10,9 @@ import {
     listServerMembers,
     assignBadge,
     revokeBadge
-} from "../../../../lib/control-plane";
-import { useChat } from "../../../../context/chat-context";
-import { useToast } from "../../../../components/toast-provider";
+} from "../../../../../lib/control-plane";
+import { useChat } from "../../../../../context/chat-context";
+import { useToast } from "../../../../../components/toast-provider";
 
 export default function SpaceBadgesPage() {
     const params = useParams();

@@ -41,8 +41,6 @@ export default function RoomSettingsPage() {
         try {
             // Update general settings
             await updateChannelSettings(channelId, {
-                restrictedVisibility: settings.restrictedVisibility,
-                allowedRoleIds: settings.allowedRoleIds,
                 serverId: channel.serverId
             });
 
@@ -97,35 +95,6 @@ export default function RoomSettingsPage() {
             <p className="settings-description">Configure access and visibility for this specific room.</p>
 
             <div className="settings-grid" style={{ marginTop: '2rem' }}>
-                <section className="settings-row">
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }}>
-                        <input
-                            type="checkbox"
-                            checked={settings?.restrictedVisibility || false}
-                            onChange={(e) => setSettings({ ...settings, restrictedVisibility: e.target.checked })}
-                            style={{ width: '1.2rem', height: '1.2rem' }}
-                        />
-                        <span>Restricted Visibility</span>
-                    </label>
-                    <p className="settings-description">Only specific roles will be able to see this room.</p>
-                </section>
-
-                {settings?.restrictedVisibility && (
-                    <section className="settings-row" style={{ marginTop: '0.5rem' }}>
-                        <label>Allowed Role IDs</label>
-                        <input
-                            className="filter-input"
-                            placeholder="e.g. role_admin, role_moderator"
-                            value={settings?.allowedRoleIds?.join(", ") || ""}
-                            onChange={(e) => setSettings({
-                                ...settings,
-                                allowedRoleIds: e.target.value.split(",").map(s => s.trim()).filter(Boolean)
-                            })}
-                        />
-                        <p className="settings-description">Enter role IDs separated by commas.</p>
-                    </section>
-                )}
-
                 <section className="settings-row" style={{ marginTop: '1.5rem' }}>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }}>
                         <input

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useChat } from "../context/chat-context";
 import {
-  issueVoiceTokenWithVideo,
+  issueVoiceToken,
   joinVoicePresence,
   leaveVoicePresence,
   listVoicePresence,
@@ -78,7 +78,7 @@ export function useVoice() {
 
     dispatch({ type: "SET_ERROR", payload: null });
     try {
-      const grant = await issueVoiceTokenWithVideo({
+      const grant = await issueVoiceToken({
         serverId: selectedServerId,
         channelId: selectedChannelId,
         videoQuality: voiceVideoQuality

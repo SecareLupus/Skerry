@@ -133,7 +133,7 @@ export default function HubSettingsPage() {
                     ) : (
                         <div>
                             <p className="settings-description" style={{ marginBottom: '1rem' }}>
-                                You can temporarily suspend your own owner permissions. During suspension, your effective role will be "Member" (or "Visitor" if configured), and you will not have administrative access.
+                                You can temporarily suspend your own owner permissions. During suspension, your effective role will be &quot;Member&quot; (or &quot;Visitor&quot; if configured), and you will not have administrative access.
                             </p>
                             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                                 <select className="filter-input" style={{ width: 'auto' }} id="suspend-duration">
