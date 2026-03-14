@@ -1327,3 +1327,79 @@ test("Discord bridge permissions respect Hub setting for Space Owners", async (t
     await app.close();
   }
 });
+
+test("hub admin can see all channels in a server even if they are not a server member", async () => {
+  await resetDb();
+  const app = await buildApp();
+  try {
+    // 1. Setup Hub Admin
+    const adminIdentity = await upsertIdentityMapping({
+      provider: "dev",
+      oidcSubject: "hub_admin_sub",
+      email: "admin@dev.local",
+      preferredUsername: "admin",
+      avatarUrl: null
+    });
+    const adminCookie = createAuthCookie({
+      productUserId: adminIdentity.productUserId,
+      provider: "dev",
+      oidcSubject: "hub_admin_sub"
+    });
+
+    // 2. Bootstrap Hub
+    const bootstrapResponse = await app.inject({
+      method: "POST",
+      url: "/auth/bootstrap-admin",
+      headers: { cookie: adminCookie },
+      payload: { setupToken: config.setupBootstrapToken, hubName: "Test Hub" }
+    });
+    const bootstrapBody = bootstrapResponse.json() as { defaultServerId: string };
+
+    // 3. Setup another user who creates another server
+    const otherIdentity = await upsertIdentityMapping({
+      provider: "dev",
+      oidcSubject: "other_sub",
+      email: "other@dev.local",
+      preferredUsername: "other",
+      avatarUrl: null
+    });
+    const otherCookie = createAuthCookie({
+      productUserId: otherIdentity.productUserId,
+      provider: "dev",
+      oidcSubject: "other_sub"
+    });
+
+    // Create a new server owned by "other"
+    const createServerResponse = await app.inject({
+      method: "POST",
+      url: "/v1/servers",
+      headers: { cookie: otherCookie },
+      payload: { name: "Other Server", visitorAccess: 'hidden' }
+    });
+    const otherServerId = createServerResponse.json().id;
+
+    // Create a private channel in that server
+    const createChannelResponse = await app.inject({
+      method: "POST",
+      url: `/v1/servers/${otherServerId}/channels`,
+      headers: { cookie: otherCookie },
+      payload: { name: "secret-channel", type: "text", visitorAccess: 'hidden' }
+    });
+    const secretChannelId = createChannelResponse.json().id;
+
+    // 4. Hub Admin (not a member of 'Other Server') should be able to list channels
+    const listChannelsResponse = await app.inject({
+      method: "GET",
+      url: `/v1/servers/${otherServerId}/channels`,
+      headers: { cookie: adminCookie }
+    });
+
+    assert.equal(listChannelsResponse.statusCode, 200);
+    const channels = listChannelsResponse.json() as { id: string }[];
+    const hasSecret = channels.some((c) => c.id === secretChannelId);
+    assert.ok(hasSecret, "Hub Admin should see the secret channel");
+
+  } finally {
+    await app.close();
+  }
+});

@@ -225,10 +225,12 @@ export async function listChannels(serverId: string, productUserId?: string): Pr
        join servers s on s.id = ch.server_id
        where ch.server_id = $1 
          and (
-           ch.privacy_tier != 'hidden'
+           ch.visitor_access != 'hidden'
            or s.owner_user_id = $2
-           or exists (select 1 from role_bindings where (server_id = $1 or hub_id = s.hub_id) and product_user_id = $2)
+           or exists (select 1 from role_bindings where (server_id = $1 or (hub_id = s.hub_id and hub_id is not null)) and product_user_id = $2 and role in ('hub_owner', 'hub_admin', 'space_owner'))
            or exists (select 1 from channel_members where channel_id = ch.id and product_user_id = $2)
+           or (ch.hub_member_access != 'hidden' and exists (select 1 from hub_members where hub_id = s.hub_id and product_user_id = $2))
+           or (ch.space_member_access != 'hidden' and exists (select 1 from server_members where server_id = s.id and product_user_id = $2))
          )
        order by ch.position asc, ch.created_at asc`,
       [serverId, productUserId ?? null]
@@ -749,11 +751,10 @@ export async function getOrCreateDMChannel(hubId: string, productUserIds: string
       [hubId]
     );
     let dmServerId = dmSrvRow.rows[0]?.id;
-
     if (!dmServerId) {
       dmServerId = `srv_${crypto.randomUUID().replaceAll("-", "")}`;
       await db.query(
-        "insert into servers (id, hub_id, name, type, created_by_user_id, owner_user_id, privacy_tier, auto_join_hub_members) values ($1, $2, $3, $4, $5, $6, 'hidden', false)",
+        "insert into servers (id, hub_id, name, type, created_by_user_id, owner_user_id, visitor_access, auto_join_hub_members) values ($1, $2, $3, $4, $5, $6, 'hidden', false)",
         [dmServerId, hubId, "Direct Messages", "dm", productUserIds[0], productUserIds[0]]
       );
     }
@@ -803,7 +804,7 @@ export async function getOrCreateDMChannel(hubId: string, productUserIds: string
     const channelId = `chn_${crypto.randomUUID().replaceAll("-", "")}`;
     const name = `DM: ${sortedUserIds.length} members`;
     await db.query(
-      "insert into channels (id, server_id, name, type, topic, privacy_tier) values ($1, $2, $3, 'dm', null, 'hidden')",
+      "insert into channels (id, server_id, name, type, topic, visitor_access) values ($1, $2, $3, 'dm', null, 'hidden')",
       [channelId, dmServerId, name]
     );
 
