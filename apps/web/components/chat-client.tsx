@@ -18,6 +18,7 @@ import type { Category, Channel, ChatMessage, MentionMarker, ModerationAction, M
 import { getChannelName } from "../lib/channel-utils";
 import { ThreadPanel } from "./thread-panel";
 import { DMPickerModal } from "./dm-picker-modal";
+import { RoleModal } from "./role-modal";
 import {
   bootstrapAdmin,
   createReport,
@@ -2253,6 +2254,7 @@ export function ChatClient() {
       {activeModal === "moderation" && <ModerationModal />}
       {activeModal === "dm-picker" && <DMPickerModal />}
       {activeModal === "search" && <SearchModal />}
+      {activeModal === "grant-role" && <RoleModal />}
 
       {/* Invite Modal */}
       {isInviting && (

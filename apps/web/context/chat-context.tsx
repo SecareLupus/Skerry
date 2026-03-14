@@ -48,6 +48,7 @@ export type ModalType =
     | "dm-picker"
     | "search"
     | "moderation"
+    | "grant-role"
     | null;
 
 export interface ChatState {

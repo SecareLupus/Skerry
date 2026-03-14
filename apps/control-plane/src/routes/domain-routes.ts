@@ -595,19 +595,30 @@ export async function registerDomainRoutes(app: FastifyInstance): Promise<void> 
 
   app.post("/v1/badges/:badgeId/assign", initializedAuthHandlers, async (request, reply) => {
     const params = z.object({ badgeId: z.string().min(1) }).parse(request.params);
-    const payload = z.object({ userId: z.string().min(1) }).parse(request.body);
+    const payload = z.object({ 
+      productUserId: z.string().min(1).optional(),
+      userId: z.string().min(1).optional()
+    }).parse(request.body);
+
+    const targetUserId = payload.productUserId ?? payload.userId;
+    if (!targetUserId) {
+      reply.code(400).send({ message: "productUserId or userId is required" });
+      return;
+    }
 
     // TODO: Permission check (can manage badges for this server)
-    await assignBadgeToUser(payload.userId, params.badgeId);
+    await assignBadgeToUser(targetUserId, params.badgeId);
     reply.code(204).send();
   });
 
-  app.delete("/v1/badges/:badgeId/assign", initializedAuthHandlers, async (request, reply) => {
-    const params = z.object({ badgeId: z.string().min(1) }).parse(request.params);
-    const payload = z.object({ userId: z.string().min(1) }).parse(request.body);
+  app.delete("/v1/badges/:badgeId/assign/:userId", initializedAuthHandlers, async (request, reply) => {
+    const params = z.object({ 
+      badgeId: z.string().min(1),
+      userId: z.string().min(1)
+    }).parse(request.params);
 
     // TODO: Permission check
-    await revokeBadgeFromUser(payload.userId, params.badgeId);
+    await revokeBadgeFromUser(params.userId, params.badgeId);
     reply.code(204).send();
   });
 

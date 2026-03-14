@@ -252,6 +252,20 @@ export default function MemberTable({ serverId, hubId, members, onRefresh }: Mem
                             type: "SET_MODERATION_TARGET", 
                             payload: { userId: member.productUserId, displayName: member.displayName } 
                           });
+                          dispatch({ type: "SET_ACTIVE_MODAL", payload: "grant-role" });
+                        }}
+                        disabled={modifying}
+                      >
+                        Role
+                      </button>
+                      <button
+                        className="ghost"
+                        style={{ padding: '0.3rem 0.6rem', fontSize: '0.8rem' }}
+                        onClick={() => {
+                          dispatch({ 
+                            type: "SET_MODERATION_TARGET", 
+                            payload: { userId: member.productUserId, displayName: member.displayName } 
+                          });
                           dispatch({ type: "SET_ACTIVE_MODAL", payload: "moderation" });
                         }}
                         disabled={modifying}
