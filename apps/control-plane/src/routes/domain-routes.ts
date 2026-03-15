@@ -620,7 +620,8 @@ export async function registerDomainRoutes(app: FastifyInstance): Promise<void> 
       userId: z.string().min(1)
     }).parse(request.params);
 
-    // TODO: Permission check
+    // TODO: Permission check (can manage badges for this server)
+    await revokeBadgeFromUser(params.userId, params.badgeId);
     reply.code(204).send();
   });
 
