@@ -1,5 +1,5 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
-import { getSession } from "./session.js";
+import { getSession, verifyMasqueradeToken } from "./session.js";
 import { hasInitializedPlatform } from "../services/bootstrap-service.js";
 import { ensureIdentityTokenValid } from "../services/identity-service.js";
 
@@ -10,6 +10,9 @@ export interface ScopedAuthContext {
   realProductUserId?: string;
   isMasquerading: boolean;
   readOnly: boolean;
+  masqueradeRole?: string;
+  masqueradeServerId?: string;
+  masqueradeBadgeIds?: string[];
 }
 
 declare module "fastify" {
@@ -31,15 +34,36 @@ export async function requireAuth(request: FastifyRequest, reply: FastifyReply):
     return;
   }
 
-  const isMasquerading = Boolean(session.realProductUserId);
+  const masqueradeToken = request.headers["x-masquerade-token"];
+  let activePayload = session;
+
+  if (typeof masqueradeToken === "string") {
+    const masqueradePayload = verifyMasqueradeToken(masqueradeToken);
+    if (masqueradePayload) {
+      // Security check: Ensure the masquerade token belongs to the same real user
+      const realUserId = session.realProductUserId || session.productUserId;
+      const tokenRealUserId = masqueradePayload.realProductUserId || masqueradePayload.productUserId;
+
+      if (realUserId === tokenRealUserId) {
+        activePayload = masqueradePayload;
+      } else {
+        console.warn(`[AUTH] Masquerade token user mismatch. Actor=${realUserId}, TokenRel=${tokenRealUserId}`);
+      }
+    }
+  }
+
+  const isMasquerading = Boolean(activePayload.realProductUserId);
 
   request.auth = {
-    productUserId: session.productUserId,
-    provider: session.provider,
-    oidcSubject: session.oidcSubject,
-    realProductUserId: session.realProductUserId,
+    productUserId: activePayload.productUserId,
+    provider: activePayload.provider,
+    oidcSubject: activePayload.oidcSubject,
+    realProductUserId: activePayload.realProductUserId,
     isMasquerading,
-    readOnly: isMasquerading
+    readOnly: isMasquerading,
+    masqueradeRole: activePayload.masqueradeRole,
+    masqueradeServerId: activePayload.masqueradeServerId,
+    masqueradeBadgeIds: activePayload.masqueradeBadgeIds,
   };
 
   // Block mutations if masquerading

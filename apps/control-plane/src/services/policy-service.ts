@@ -1,6 +1,7 @@
 import type { Role, PrivilegedAction, AccessLevel } from "@skerry/shared";
 import { withDb } from "../db/client.js";
 import { expireSpaceOwnerAssignments } from "./delegation-service.js";
+import type { ScopedAuthContext } from "../auth/middleware.js";
 
 export const permissionMatrix: Record<Role, PrivilegedAction[]> = {
   hub_owner: [
@@ -143,8 +144,36 @@ async function hasActiveSpaceOwnerAssignmentInDb(
 
 async function getEffectiveRoleBindings(
   db: Parameters<Parameters<typeof withDb>[0]>[0],
-  input: { productUserId: string; scope: Scope }
+  input: { productUserId: string; scope: Scope; authContext?: ScopedAuthContext }
 ): Promise<RoleBinding[]> {
+  // If we are simulating a specific role, that becomes the ONLY binding
+  if (input.authContext?.masqueradeRole) {
+    const role = input.authContext.masqueradeRole as Role;
+    const masqueradeServerId = input.authContext.masqueradeServerId;
+    
+    // Validate that the simulated role matches the requested scope if server-scoped
+    const isServerRole = ["space_owner", "space_admin", "space_moderator"].includes(role);
+    const scopeMatch = !isServerRole || !input.scope.serverId || input.scope.serverId === masqueradeServerId;
+
+    if (scopeMatch) {
+      return [{
+        role,
+        hub_id: input.scope.hubId || null,
+        server_id: masqueradeServerId || null,
+        channel_id: null
+      }];
+    }
+    
+    // If it doesn't match the scope (e.g. masquerading as moderator of Server A but looking at Server B),
+    // they fall back to visitor/user level within that other scope.
+    return [{
+      role: "visitor",
+      hub_id: null,
+      server_id: null,
+      channel_id: null
+    }];
+  }
+
   const rows = await db.query<RoleBinding>(
     `select role, hub_id, server_id, channel_id
      from role_bindings
@@ -448,12 +477,14 @@ export async function isActionAllowed(input: {
   productUserId: string;
   action: PrivilegedAction;
   scope: Scope;
+  authContext?: ScopedAuthContext;
 }): Promise<boolean> {
   return withDb(async (db) => {
     // 1. Get Effective Roles & Owner Suspension Status
     const roles = await getEffectiveRoleBindings(db, {
       productUserId: input.productUserId,
-      scope: input.scope
+      scope: input.scope,
+      authContext: input.authContext
     });
 
     const isOwner = roles.some(b => b.role === "hub_owner");
@@ -552,19 +583,41 @@ export async function isActionAllowed(input: {
     else if (relation === "hub_member") userMaxAccess = hubMemberAccess;
 
     // 6. Badge Overrides (Highest rank wins, Channel rules > Server rules)
+    let badgeIds = [] as string[];
+    if (input.authContext?.masqueradeRole) {
+        badgeIds = input.authContext.masqueradeBadgeIds || [];
+    }
+
+    const badgeRulesQuery = badgeIds.length > 0
+      ? `select br.access_level, b.rank, br.specificity
+         from (
+           select access_level, badge_id, 2 as specificity from channel_badge_rules where channel_id = $1
+           union all
+           select access_level, badge_id, 1 as specificity from server_badge_rules where server_id = $3
+         ) br
+         join badges b on b.id = br.badge_id
+         where b.id = any($4)
+           and br.access_level is not null
+         order by br.specificity desc, b.rank asc`
+      : `select br.access_level, b.rank, br.specificity
+         from (
+           select access_level, badge_id, 2 as specificity from channel_badge_rules where channel_id = $1
+           union all
+           select access_level, badge_id, 1 as specificity from server_badge_rules where server_id = $3
+         ) br
+         join badges b on b.id = br.badge_id
+         join user_badges ub on ub.badge_id = b.id
+         where ub.product_user_id = $2
+           and br.access_level is not null
+         order by br.specificity desc, b.rank asc`;
+
+    const badgeRulesParams = badgeIds.length > 0
+      ? [input.scope.channelId ?? null, input.productUserId, input.scope.serverId, badgeIds]
+      : [input.scope.channelId ?? null, input.productUserId, input.scope.serverId];
+
     const badgeRules = await db.query<{ access_level: string; rank: number; specificity: number }>(
-      `select br.access_level, b.rank, br.specificity
-       from (
-         select access_level, badge_id, 2 as specificity from channel_badge_rules where channel_id = $1
-         union all
-         select access_level, badge_id, 1 as specificity from server_badge_rules where server_id = $3
-       ) br
-       join badges b on b.id = br.badge_id
-       join user_badges ub on ub.badge_id = b.id
-       where ub.product_user_id = $2
-         and br.access_level is not null
-       order by br.specificity desc, b.rank asc`,
-      [input.scope.channelId ?? null, input.productUserId, input.scope.serverId]
+      badgeRulesQuery,
+      badgeRulesParams
     );
 
     if (badgeRules.rows.length > 0) {
@@ -598,6 +651,7 @@ export async function isActionAllowed(input: {
 export async function listAllowedActions(input: {
   productUserId: string;
   scope: Scope;
+  authContext?: ScopedAuthContext;
 }): Promise<PrivilegedAction[]> {
   await expireSpaceOwnerAssignments({
     serverId: input.scope.serverId,
@@ -606,7 +660,8 @@ export async function listAllowedActions(input: {
   return withDb(async (db) => {
     const rows = await getEffectiveRoleBindings(db, {
       productUserId: input.productUserId,
-      scope: input.scope
+      scope: input.scope,
+      authContext: input.authContext
     });
 
     const actions = new Set<PrivilegedAction>();

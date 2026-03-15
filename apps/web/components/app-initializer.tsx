@@ -41,6 +41,18 @@ export function AppInitializer({ children }: { children: React.ReactNode }) {
         if (initializedRef.current) return;
         initializedRef.current = true;
         
+        // Handle masquerade token from URL
+        if (typeof window !== "undefined") {
+            const params = new URLSearchParams(window.location.search);
+            const token = params.get("masqueradeToken");
+            if (token) {
+                window.sessionStorage.setItem("masquerade_token", token);
+                // Clean URL
+                const newUrl = window.location.pathname + window.location.hash;
+                window.history.replaceState({}, "", newUrl);
+            }
+        }
+
         async function init() {
             dispatch({ type: "SET_LOADING", payload: true });
             await refreshGlobalState();

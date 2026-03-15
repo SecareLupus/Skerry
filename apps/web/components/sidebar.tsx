@@ -184,16 +184,29 @@ export function Sidebar({
                 <nav className="servers" aria-label="Servers">
                     <div className="category-header">
                         <h2>Servers</h2>
-                        {canManageHub && (
-                            <button
-                                type="button"
-                                className="icon-button"
-                                aria-label="Create Space"
-                                onClick={() => dispatch({ type: "SET_ACTIVE_MODAL", payload: "create-space" })}
-                            >
-                                +
-                            </button>
-                        )}
+                        <div style={{ display: "flex", gap: "4px" }}>
+                            {canManageHub && (
+                                <>
+                                    <button
+                                        type="button"
+                                        className="icon-button"
+                                        aria-label="Masquerade"
+                                        title="Masquerade as Role"
+                                        onClick={() => dispatch({ type: "SET_ACTIVE_MODAL", payload: "masquerade" })}
+                                    >
+                                        🎭
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="icon-button"
+                                        aria-label="Create Space"
+                                        onClick={() => dispatch({ type: "SET_ACTIVE_MODAL", payload: "create-space" })}
+                                    >
+                                        +
+                                    </button>
+                                </>
+                            )}
+                        </div>
                     </div>
 
                     <ul>

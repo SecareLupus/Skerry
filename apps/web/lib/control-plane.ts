@@ -20,7 +20,10 @@ import type {
   IdentityMapping,
   VoicePresenceMember,
   VoiceTokenGrant,
-  HubInvite
+  HubInvite,
+  MasqueradeParams,
+  IdentityProvider,
+  Badge
 } from "@skerry/shared";
 export type { IdentityMapping, VoicePresenceMember };
 
@@ -68,6 +71,9 @@ export interface ViewerSession {
   needsOnboarding: boolean;
   isMasquerading?: boolean;
   realProductUserId?: string;
+  masqueradeRole?: string;
+  masqueradeServerId?: string;
+  masqueradeBadgeIds?: string[];
 }
 
 export interface BootstrapStatus {
@@ -158,7 +164,13 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${controlPlaneBaseUrl}${path}`, {
     credentials: "include",
     cache: "no-store",
-    ...init
+    ...init,
+    headers: {
+      ...init?.headers,
+      ...(typeof window !== "undefined" && window.sessionStorage.getItem("masquerade_token")
+        ? { "X-Masquerade-Token": window.sessionStorage.getItem("masquerade_token")! }
+        : {})
+    }
   });
 
   if (!response.ok) {
@@ -242,6 +254,14 @@ export async function bootstrapAdmin(input: {
 export async function logout(): Promise<void> {
   await apiFetch("/auth/logout", {
     method: "POST"
+  });
+}
+
+export async function getMasqueradeToken(params: MasqueradeParams): Promise<{ token: string }> {
+  return apiFetch("/auth/masquerade-token", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params)
   });
 }
 
@@ -1281,6 +1301,11 @@ export async function createDMChannel(hubId: string, userIds: string[]): Promise
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ userIds })
   });
+}
+
+export async function fetchBadges(serverId: string): Promise<Badge[]> {
+  const json = await apiFetch<{ items: Badge[] }>(`/v1/servers/${encodeURIComponent(serverId)}/badges`);
+  return json.items;
 }
 
 export async function blockUser(userId: string): Promise<void> {

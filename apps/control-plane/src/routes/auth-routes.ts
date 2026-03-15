@@ -28,7 +28,8 @@ import {
 import { withDb } from "../db/client.js";
 import { canManageHub, listRoleBindings } from "../services/policy-service.js";
 import { listHubsForUser } from "../services/hub-service.js";
-import { createSessionToken, type SessionPayload } from "../auth/session.js";
+import { createMasqueradeToken, createSessionToken, type SessionPayload } from "../auth/session.js";
+import { MasqueradeParamsSchema } from "@skerry/shared";
 
 const providerSchema = z.enum(["discord", "keycloak", "google", "github", "twitch", "dev"]);
 
@@ -450,69 +451,46 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
     reply.code(204).send();
   });
 
-  app.post("/auth/masquerade", { preHandler: requireAuth }, async (request, reply) => {
+  app.post("/auth/masquerade-token", { preHandler: requireAuth }, async (request, reply) => {
     const actor = request.auth!;
     if (actor.isMasquerading) {
       reply.code(400).send({ message: "Already masquerading." });
       return;
     }
 
-    const { targetProductUserId } = z.object({
-      targetProductUserId: z.string().min(1)
+    const { role, serverId, badgeIds } = z.object({
+      role: z.enum(["hub_owner", "hub_admin", "space_owner", "space_admin", "space_moderator", "user", "visitor"]),
+      serverId: z.string().optional(),
+      badgeIds: z.array(z.string()).optional()
     }).parse(request.body);
 
-    // 1. Authorization: Hub Admin/Owner can masquerade as ANYONE.
-    // Assuming single-hub for now, passing empty string to canManageHub as it might check session-local hub if needed.
-    // But we know if they have any hub-level managerial role.
-    const isHubManager = (await listRoleBindings({ productUserId: actor.productUserId }))
-      .some(rb => rb.role === "hub_owner" || rb.role === "hub_admin");
+    // 1. Authorization checks
+    const actorRoles = await listRoleBindings({ productUserId: actor.productUserId });
+    const isHubAdmin = actorRoles.some(rb => rb.role === "hub_owner" || rb.role === "hub_admin");
+    const isSpaceAdmin = actorRoles.some(rb => (rb.role === "space_owner" || rb.role === "space_admin") && rb.serverId === serverId);
 
-    if (!isHubManager) {
-      // 2. Scoping for Space Managers
-      const managedServerIds = (await listRoleBindings({ productUserId: actor.productUserId }))
-        .filter(rb => (rb.role === "space_owner" || rb.role === "space_admin") && rb.serverId)
-        .map(rb => rb.serverId!);
-
-      if (managedServerIds.length === 0) {
-        reply.code(403).send({ message: "You do not have permission to masquerade." });
-        return;
-      }
-
-      // Check if target is in any of the managed spaces
-      const isTargetInManagedScope = await withDb(async (db) => {
-        const res = await db.query(
-          "select 1 from server_members where server_id = any($1) and product_user_id = $2",
-          [managedServerIds, targetProductUserId]
-        );
-        return res.rows.length > 0 || targetProductUserId === actor.productUserId;
-      });
-
-      if (!isTargetInManagedScope) {
-        reply.code(403).send({ message: "Target user is outside your management scope." });
-        return;
-      }
-    }
-
-    // 3. Get target identity info to build new session
-    const targetIdentities = await listIdentitiesByProductUserId(targetProductUserId);
-    const targetIdentity = targetIdentities[0];
-
-    if (!targetIdentity) {
-      reply.code(404).send({ message: "Target user or identity not found." });
+    // Hub Admin+ can masquerade as anything
+    // Space Admin+ can masquerade as anything within their space
+    if (!isHubAdmin && (!serverId || !isSpaceAdmin)) {
+      reply.code(403).send({ message: "You do not have permission to masquerade with these parameters." });
       return;
     }
 
+    // 2. Prepare payload
     const payload: SessionPayload = {
-      productUserId: targetProductUserId,
-      provider: targetIdentity.provider,
-      oidcSubject: targetIdentity.oidcSubject,
-      expiresAt: Math.floor(Date.now() / 1000) + (60 * 60), // 1 hour for masquerade
-      realProductUserId: actor.productUserId
+      productUserId: actor.productUserId,
+      provider: actor.provider,
+      oidcSubject: actor.oidcSubject,
+      expiresAt: Math.floor(Date.now() / 1000) + (15 * 60), // 15 minutes for token
+      realProductUserId: actor.productUserId,
+      masqueradeRole: role,
+      masqueradeServerId: serverId,
+      masqueradeBadgeIds: badgeIds
     };
 
-    setSessionCookie(reply, payload);
+    const token = createMasqueradeToken(payload);
 
-    return { success: true, targetProductUserId };
+    return { token };
   });
 
   app.post("/auth/unmasquerade", { preHandler: requireAuth }, async (request, reply) => {

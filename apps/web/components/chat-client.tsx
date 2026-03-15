@@ -1417,6 +1417,13 @@ export function ChatClient() {
         categoryId: renameRoomCategoryId
       });
       dispatch({ type: "SET_RENAME_ROOM", payload: { id: renameRoomId, name: "", type: renameRoomType, categoryId: renameRoomCategoryId } });
+      
+      const isMasquerade = !!sessionStorage.getItem("masquerade_token");
+      if (isMasquerade) {
+        showToast("Masquerade: Room renamed locally.", "success");
+        return;
+      }
+      
       await refreshChatState(selectedServerId, renameRoomId);
     } catch (cause) {
       dispatch({ type: "SET_ERROR", payload: cause instanceof Error ? cause.message : "Failed to update room." });
@@ -1512,8 +1519,27 @@ export function ChatClient() {
 
     dispatch({ type: "SET_SENDING", payload: true });
     dispatch({ type: "SET_ERROR", payload: null });
+    
+    // Mock for Masquerade
+    const isMasquerade = !!sessionStorage.getItem("masquerade_token");
+    
     try {
-      const persisted = await sendMessage(selectedChannelId, content.trim(), attachments);
+      let persisted: ChatMessage;
+      if (isMasquerade) {
+        // Mock success for masquerade
+        await new Promise(resolve => setTimeout(resolve, 500));
+        persisted = {
+          id: `mock_${Date.now()}`,
+          authorUserId: optimisticMessage.authorUserId,
+          authorDisplayName: optimisticMessage.authorDisplayName,
+          content: optimisticMessage.content,
+          attachments: optimisticMessage.attachments,
+          createdAt: optimisticMessage.createdAt,
+          channelId: optimisticMessage.channelId
+        };
+      } else {
+        persisted = await sendMessage(selectedChannelId, content.trim(), attachments);
+      }
       dispatch({
         type: "UPDATE_MESSAGES",
         payload: (current: MessageItem[]) => {
@@ -2069,6 +2095,12 @@ export function ChatClient() {
                       className="danger"
                       disabled={mutatingStructure}
                       onClick={() => {
+                        const isMasquerade = !!sessionStorage.getItem("masquerade_token");
+                        if (isMasquerade) {
+                            showToast("Masquerade: Category deletion blocked.", "error");
+                            return;
+                        }
+
                         const cat = categories.find(c => c.id === renameCategoryId);
                         if (confirm(`Are you sure you want to delete the category "${cat?.name}"? Rooms inside will become uncategorized.`)) {
                           void handleDeleteCategory(renameCategoryId);

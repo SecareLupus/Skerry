@@ -50,6 +50,7 @@ export type ModalType =
     | "search"
     | "moderation"
     | "grant-role"
+    | "masquerade"
     | null;
 
 export interface ChatState {

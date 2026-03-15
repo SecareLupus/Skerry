@@ -1,6 +1,21 @@
+import { z } from "zod";
+
 export type AccessLevel = "hidden" | "locked" | "read" | "chat";
 
 export type Role = "hub_owner" | "hub_admin" | "space_owner" | "space_admin" | "space_moderator" | "user" | "visitor";
+
+
+export interface MasqueradeParams {
+    role: Role;
+    serverId?: string;
+    badgeIds?: string[];
+}
+
+export const MasqueradeParamsSchema = z.object({
+    role: z.enum(["hub_owner", "hub_admin", "space_owner", "space_admin", "space_moderator", "user", "visitor"]),
+    serverId: z.string().optional(),
+    badgeIds: z.array(z.string()).optional()
+});
 
 
 export type ChannelType = "text" | "voice" | "announcement" | "dm" | "forum";

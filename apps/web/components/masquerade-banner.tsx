@@ -16,6 +16,10 @@ export function MasqueradeBanner() {
 
     const handleStop = async () => {
         try {
+            // Remove token from session storage if present
+            if (typeof window !== "undefined") {
+                window.sessionStorage.removeItem("masquerade_token");
+            }
             await unmasquerade();
             showToast("Masquerade ended. Restoring session...", "success");
             window.location.reload();
@@ -29,9 +33,21 @@ export function MasqueradeBanner() {
             <div className="masquerade-content">
                 <span className="masquerade-icon">🎭</span>
                 <span>
-                    <strong>Masquerade Active:</strong> You are currently viewing Skerry as 
-                    <span className="masquerade-target"> {viewer.identity?.displayName || viewer.identity?.preferredUsername || viewer.productUserId}</span>.
-                    <span className="masquerade-note"> (Read-only mode enabled)</span>
+                    <strong>Masquerade Active:</strong> 
+                    {viewer.masqueradeRole ? (
+                        <>
+                            {" "}viewing as <span className="masquerade-target">{viewer.masqueradeRole.replace(/_/g, " ")}</span>
+                            {viewer.masqueradeServerId && <span> for Server {viewer.masqueradeServerId}</span>}
+                            {viewer.masqueradeBadgeIds && viewer.masqueradeBadgeIds.length > 0 && (
+                                <span> with {viewer.masqueradeBadgeIds.length} badge(s)</span>
+                            )}
+                        </>
+                    ) : (
+                        <>
+                            {" "}viewing as <span className="masquerade-target"> {viewer.identity?.displayName || viewer.identity?.preferredUsername || viewer.productUserId}</span>
+                        </>
+                    )}
+                    <span className="masquerade-note"> (Read-only mode)</span>
                 </span>
             </div>
             <button className="masquerade-stop-btn" onClick={handleStop}>

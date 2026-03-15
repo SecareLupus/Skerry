@@ -8,6 +8,9 @@ export interface SessionPayload {
   oidcSubject: string;
   expiresAt: number;
   realProductUserId?: string; // Original actor if masquerading
+  masqueradeRole?: string;
+  masqueradeServerId?: string;
+  masqueradeBadgeIds?: string[];
 }
 
 export function createSessionToken(payload: SessionPayload): string {
@@ -99,4 +102,15 @@ export function getSession(request: FastifyRequest): SessionPayload | null {
     console.log(`[AUTH DEBUG] Session token verification failed for ${request.method} ${request.url} id=${request.id}`);
   }
   return payload;
+}
+
+export function createMasqueradeToken(payload: SessionPayload): string {
+  return createSessionToken({
+    ...payload,
+    expiresAt: Date.now() + 15 * 60 * 1000 // 15 minutes for masquerade tokens
+  });
+}
+
+export function verifyMasqueradeToken(token: string): SessionPayload | null {
+  return verify(token);
 }
