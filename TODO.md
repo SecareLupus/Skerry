@@ -113,15 +113,15 @@ All Tier 1 blockers from the Feb 28 report are resolved. This roadmap covers the
 ## Phase 22 — Test Coverage Expansion
 
 **Goal:** Raise confidence before production traffic hits the system.
-**Status:** Planned
+**Status:** Complete
 
-- [ ] Integration tests for authenticated message send, edit, delete, and reaction flows
-- [ ] Integration tests for DM creation and messaging
-- [ ] Integration tests for voice token issuance
-- [ ] Moderation action tests (kick, ban, timeout — with Discord bridge mocked)
-- [ ] E2E tests: message send → receive via SSE, file upload, profile modal open
-- [ ] Presence service tests: online threshold logic, stale user handling
-- [ ] Load test: SSE connection scalability under concurrent channel subscribers
+- [x] Integration tests for authenticated message send, edit, delete, and reaction flows (`message-crud.test.ts`)
+- [x] Integration tests for DM creation and messaging (`dm-messaging.test.ts`)
+- [x] Integration tests for voice token issuance (covered in `integration-auth-chat-permissions.test.ts`)
+- [x] Moderation action tests (kick/ban permission gates, warn, strike, report flow — Discord bridge mocked) (`moderation-actions.test.ts`)
+- [x] E2E tests: message send → receive via SSE, edit, delete, profile modal open (`message-flow.spec.ts`, `profile-modal.spec.ts`)
+- [x] Presence service tests: online threshold logic, stale user handling, multi-user mixed state (`presence-service.test.ts`)
+- [ ] Load test: SSE connection scalability under concurrent channel subscribers (deferred — requires dedicated load-testing tooling)
 
 ---
 
@@ -143,5 +143,6 @@ All Tier 1 blockers from the Feb 28 report are resolved. This roadmap covers the
 
 ## Current Sprint Focus
 
-Current focus is **Phase 20** (Moderation Hardening).
+Current focus is **Phase 20** (Moderation Hardening) and **Phase 23** (Extensions & Ecosystem).
 - [x] Phase 19: Rich Media & Embeds (URL previews, image lightbox, video previews, GIF support)
+- [x] Phase 22: Test Coverage Expansion

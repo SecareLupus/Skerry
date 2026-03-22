@@ -18,7 +18,7 @@ export async function listUserPresence(productUserIds: string[]): Promise<Record
   return withDb(async (db) => {
     const rows = await db.query<{
       product_user_id: string;
-      last_seen_at: string;
+      last_seen_at: Date;
     }>(
       `select product_user_id, last_seen_at
        from user_presence
@@ -33,7 +33,7 @@ export async function listUserPresence(productUserIds: string[]): Promise<Record
     for (const row of rows.rows) {
       const lastSeenAt = new Date(row.last_seen_at).getTime();
       presence[row.product_user_id] = {
-        lastSeenAt: row.last_seen_at,
+        lastSeenAt: row.last_seen_at.toISOString(),
         isOnline: now - lastSeenAt < ONLINE_THRESHOLD_MS
       };
     }

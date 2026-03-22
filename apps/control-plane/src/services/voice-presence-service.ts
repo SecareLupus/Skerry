@@ -149,8 +149,8 @@ export async function listVoicePresence(input: { channelId: string; serverId: st
       deafened: row.deafened,
       videoEnabled: row.video_enabled,
       videoQuality: row.video_quality,
-      joinedAt: row.joined_at,
-      updatedAt: row.updated_at
+      joinedAt: new Date(row.joined_at).toISOString(),
+      updatedAt: new Date(row.updated_at).toISOString()
     }));
   });
 }

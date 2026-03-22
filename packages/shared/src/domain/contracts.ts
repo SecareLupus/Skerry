@@ -230,6 +230,7 @@ export interface ModerationReport {
 export interface VoiceTokenGrant {
     channelId: string;
     serverId: string;
+    sfuUrl: string;
     sfuRoomId: string;
     participantUserId: string;
     token: string;

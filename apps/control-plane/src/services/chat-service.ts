@@ -2,6 +2,11 @@ import crypto from "node:crypto";
 import type { Category, Channel, ChannelReadState, ChatMessage, HubInvite, MentionMarker, Server } from "@skerry/shared";
 import { withDb } from "../db/client.js";
 import { processMessageContentForLinks } from "./link-service.js";
+import { attachChildRoom, createChannelRoom, createSpace } from "../matrix/synapse-adapter.js";
+
+function randomId(prefix: string): string {
+  return `${prefix}_${crypto.randomUUID().replaceAll("-", "")}`;
+}
 
 
 interface ChannelRow {
@@ -143,6 +148,13 @@ export async function listServers(productUserId?: string): Promise<Server[]> {
               or (c.hub_member_access != 'hidden' and exists (select 1 from hub_members where hub_id = s.hub_id and product_user_id = $1))
               or (c.space_member_access != 'hidden' and exists (select 1 from server_members where server_id = s.id and product_user_id = $1))
           ))
+          or exists (
+            select 1 from space_admin_assignments saa 
+            where saa.server_id = s.id 
+              and saa.assigned_user_id = $1 
+              and saa.status = 'active' 
+              and (saa.expires_at is null or saa.expires_at > now())
+          )
        order by s.created_at asc`,
       [productUserId ?? null]
     );
@@ -231,6 +243,13 @@ export async function listChannels(serverId: string, productUserId?: string): Pr
            or exists (select 1 from channel_members where channel_id = ch.id and product_user_id = $2)
            or (ch.hub_member_access != 'hidden' and exists (select 1 from hub_members where hub_id = s.hub_id and product_user_id = $2))
            or (ch.space_member_access != 'hidden' and exists (select 1 from server_members where server_id = s.id and product_user_id = $2))
+           or exists (
+             select 1 from space_admin_assignments saa 
+             where saa.server_id = s.id 
+               and saa.assigned_user_id = $2 
+               and saa.status = 'active' 
+               and (saa.expires_at is null or saa.expires_at > now())
+           )
          )
        order by ch.position asc, ch.created_at asc`,
       [serverId, productUserId ?? null]
@@ -632,7 +651,7 @@ export async function createMessage(input: {
         values($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
         returning * `,
         [
-          `msg_${crypto.randomUUID().replaceAll("-", "")} `,
+          randomId("msg"),
           input.channelId,
           input.actorUserId,
           authorDisplayName,

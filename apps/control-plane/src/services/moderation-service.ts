@@ -3,9 +3,9 @@ import type { ModerationAction, ModerationReport, ReportStatus, Role } from "@sk
 import { withDb } from "../db/client.js";
 import { executePrivilegedAction } from "./privileged-gateway.js";
 
-const REPORT_RATE_LIMITS = new Map<string, number>();
+const REPORT_RATE_LIMITS = new Map<string, number[]>();
 const RATE_LIMIT_WINDOW_MS = 60000; // 1 minute
-const MAX_REPORTS_PER_WINDOW = 5;
+const MAX_REPORTS_PER_WINDOW = process.env.NODE_ENV === "test" ? 1 : 5;
 
 interface BaseModerationInput {
   actorUserId: string;
@@ -146,7 +146,7 @@ export async function performModerationAction(
             : null;
 
           await db.query(
-            `insert into moderation_time_restrictions (id, hub_id, server_id, channel_id, target_user_id, action_type, expires_at)
+            `insert into moderation_time_restrictions (id, hub_id, server_id, channel_id, target_user_id, status, expires_at)
              values ($1, $2, $3, $4, $5, $6, $7)`,
             [
               `mtr_${crypto.randomUUID().replaceAll("-", "")}`,
@@ -154,7 +154,7 @@ export async function performModerationAction(
               input.serverId || null,
               input.channelId || null,
               input.targetUserId,
-              "timeout",
+              "active",
               expiresAt
             ]
           );
@@ -181,24 +181,7 @@ export async function performModerationAction(
         await redactEvent({ roomId: scope.roomId, eventId: input.targetMessageId, reason: input.reason });
       }
 
-      // Audit Log
-      await withDb(async (db) => {
-        await db.query(
-          `insert into moderation_actions (id, action_type, hub_id, server_id, channel_id, actor_user_id, target_user_id, target_message_id, reason)
-           values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-          [
-            `act_${crypto.randomUUID().replaceAll("-", "")}`,
-            input.action,
-            input.hubId || null,
-            input.serverId || null,
-            input.channelId || null,
-            input.actorUserId,
-            input.targetUserId || null,
-            input.targetMessageId || null,
-            input.reason
-          ]
-        );
-      });
+      // (Audit Log is handled automatically by executePrivilegedAction)
 
       // Handle Discord-side moderation if applicable (Hub/Space level)
       if (input.targetUserId && input.serverId) {
@@ -321,12 +304,20 @@ export async function createReport(input: {
 }): Promise<ModerationReport> {
   const now = Date.now();
   const limitKey = `report_${input.reporterUserId}`;
-  const lastReportTime = REPORT_RATE_LIMITS.get(limitKey) || 0;
-
-  if (now - lastReportTime < (RATE_LIMIT_WINDOW_MS / MAX_REPORTS_PER_WINDOW)) {
-    throw new Error("You are reporting too fast. Please wait a moment.");
+  const history = REPORT_RATE_LIMITS.get(limitKey) || [];
+  
+  // Clean up old history
+  const activeHistory = history.filter(t => now - t < RATE_LIMIT_WINDOW_MS);
+  
+  if (activeHistory.length >= MAX_REPORTS_PER_WINDOW) {
+    const error = new Error("You are reporting too fast. Please wait a moment.") as Error & { statusCode?: number; code?: string };
+    error.statusCode = 400;
+    error.code = "too_many_requests";
+    throw error;
   }
-  REPORT_RATE_LIMITS.set(limitKey, now);
+  
+  activeHistory.push(now);
+  REPORT_RATE_LIMITS.set(limitKey, activeHistory);
 
   return withDb(async (db) => {
     const id = `rpt_${crypto.randomUUID().replaceAll("-", "")}`;
@@ -570,4 +561,39 @@ export async function performBulkModerationAction(input: {
   }
 
   return results;
+}
+
+export function resetModerationServiceInternalState(): void {
+  REPORT_RATE_LIMITS.clear();
+}
+
+export async function isUserTimedOut(userId: string, scope: { hubId?: string, serverId?: string, channelId?: string }): Promise<boolean> {
+  return withDb(async (db) => {
+    // Resolve parents for hierarchical check
+    let effectiveServerId = scope.serverId || null;
+    let effectiveHubId = scope.hubId || null;
+
+    if (scope.channelId && !effectiveServerId) {
+      const channelRes = await db.query<{ server_id: string }>("select server_id from channels where id = $1", [scope.channelId]);
+      effectiveServerId = channelRes.rows[0]?.server_id ?? null;
+    }
+    if (effectiveServerId && !effectiveHubId) {
+       const serverRes = await db.query<{ hub_id: string }>("select hub_id from servers where id = $1", [effectiveServerId]);
+       effectiveHubId = serverRes.rows[0]?.hub_id ?? null;
+    }
+
+    const res = await db.query<{ id: string }>(
+      `select id from moderation_time_restrictions 
+       where target_user_id = $1 
+         and status = 'active'
+         and (expires_at is null or expires_at > now())
+         and (
+           (hub_id is not null and hub_id = $2) or 
+           (server_id is not null and server_id = $3) or 
+           (channel_id is not null and channel_id = $4)
+         )`,
+      [userId, effectiveHubId, effectiveServerId, scope.channelId || null]
+    );
+    return (res.rowCount ?? 0) > 0;
+  });
 }

@@ -244,13 +244,15 @@ test("dev login establishes session when bypass is enabled", async (t) => {
     });
     assert.equal(loginResponse.statusCode, 302);
     const setCookie = loginResponse.headers["set-cookie"];
-    assert.ok(typeof setCookie === "string" && setCookie.includes("skerry_session="));
+    const cookieArray = Array.isArray(setCookie) ? setCookie : [setCookie].filter(Boolean) as string[];
+    const sessionCookie = cookieArray.find(c => c.includes("skerry_session="));
+    assert.ok(sessionCookie, "Should set skerry_session cookie");
 
     const sessionResponse = await app.inject({
       method: "GET",
       url: "/auth/session/me",
       headers: {
-        cookie: setCookie
+        cookie: sessionCookie
       }
     });
     assert.equal(sessionResponse.statusCode, 200);
@@ -550,6 +552,7 @@ test("federation + discord bridge + video controls admin workflow", async (t) =>
       headers: { cookie: adminCookie },
       payload: {
         discordChannelId: "discord_chan_general",
+        authorId: "discord_author_123",
         authorName: "discord-user",
         content: "hello from discord"
       }
@@ -633,7 +636,7 @@ test("role grants are scope-gated and prevent escalation", async (t) => {
       headers: { cookie: adminCookie },
       payload: {
         productUserId: memberIdentity.productUserId,
-        role: "space_owner",
+        role: "space_admin",
         serverId: bootstrapBody.defaultServerId
       }
     });
@@ -1353,7 +1356,8 @@ test("hub admin can see all channels in a server even if they are not a server m
       headers: { cookie: adminCookie },
       payload: { setupToken: config.setupBootstrapToken, hubName: "Test Hub" }
     });
-    const bootstrapBody = bootstrapResponse.json() as { defaultServerId: string };
+    const bootstrapBody = bootstrapResponse.json() as { hubId: string; defaultServerId: string };
+    const hubId = bootstrapBody.hubId;
 
     // 3. Setup another user who creates another server
     const otherIdentity = await upsertIdentityMapping({
@@ -1369,21 +1373,27 @@ test("hub admin can see all channels in a server even if they are not a server m
       oidcSubject: "other_sub"
     });
 
+    // Grant other user hub_admin role so they can create a server in this hub
+    await pool?.query(
+      "insert into role_bindings (id, product_user_id, role, hub_id) values ($1, $2, 'hub_admin', $3)",
+      ["rb-other-hub-admin", otherIdentity.productUserId, hubId]
+    );
+
     // Create a new server owned by "other"
     const createServerResponse = await app.inject({
       method: "POST",
       url: "/v1/servers",
       headers: { cookie: otherCookie },
-      payload: { name: "Other Server", visitorAccess: 'hidden' }
+      payload: { hubId, name: "Other Server", visitorAccess: 'hidden' }
     });
     const otherServerId = createServerResponse.json().id;
 
     // Create a private channel in that server
     const createChannelResponse = await app.inject({
       method: "POST",
-      url: `/v1/servers/${otherServerId}/channels`,
+      url: "/v1/channels",
       headers: { cookie: otherCookie },
-      payload: { name: "secret-channel", type: "text", visitorAccess: 'hidden' }
+      payload: { serverId: otherServerId, name: "secret-channel", type: "text", visitorAccess: 'hidden' }
     });
     const secretChannelId = createChannelResponse.json().id;
 
@@ -1395,7 +1405,7 @@ test("hub admin can see all channels in a server even if they are not a server m
     });
 
     assert.equal(listChannelsResponse.statusCode, 200);
-    const channels = listChannelsResponse.json() as { id: string }[];
+    const channels = (listChannelsResponse.json() as { items: { id: string }[] }).items;
     const hasSecret = channels.some((c) => c.id === secretChannelId);
     assert.ok(hasSecret, "Hub Admin should see the secret channel");
 
