@@ -500,3 +500,29 @@ export interface DiscordEmojiMapping {
     createdAt: string;
 }
 
+export interface TrustedHub {
+    hubUrl: string;
+    sharedSecret: string;
+    trustLevel: "guest" | "member" | "partner";
+    metadata: Record<string, any>;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface FederatedUser {
+    federatedId: string;
+    localProxyUserId: string;
+    hubUrl: string;
+    displayName?: string | null;
+    avatarUrl?: string | null;
+    lastSeenAt: string;
+    createdAt: string;
+}
+
+export interface FollowedAnnouncement {
+    id: string;
+    productUserId: string;
+    sourceSpaceId: string;
+    createdAt: string;
+}
+

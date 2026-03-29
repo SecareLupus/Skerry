@@ -149,13 +149,101 @@ export async function processLLMInteraction(serverId: string, channelId: string,
   return null; 
 }
 
-// --- Live Notifications ---
-export async function checkLiveStatus(serverId: string) {
-    const settings = await getHouseBotSettings(serverId);
-    if (!settings || !settings.enabled || !settings.liveNotificationsEnabled || !settings.liveNotificationsChannelId) return;
+// --- Live Notifications & Stream Tracking ---
 
-    // Placeholder: This would integrate with Twitch/YouTube API
-    // For now, it's a hook to be called by a cron job or webhook
-    console.log(`[Live Status] Checking streams for server ${serverId}`);
+export interface TrackedStream {
+  id: string;
+  serverId: string;
+  platform: "twitch" | "youtube" | "custom";
+  channelId: string;
+  displayName: string;
+  isLive: boolean;
+  lastLiveAt: string | null;
+  currentTitle: string | null;
+  currentGame: string | null;
+  metadata: any;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function addTrackedStream(input: {
+  serverId: string;
+  platform: "twitch" | "youtube" | "custom";
+  channelId: string;
+  displayName: string;
+}): Promise<TrackedStream> {
+  const id = `str_${crypto.randomUUID().replaceAll("-", "")}`;
+  return withDb(async (db) => {
+    const row = await db.query(
+      `insert into tracked_streams (id, server_id, platform, channel_id, display_name)
+       values ($1, $2, $3, $4, $5)
+       returning *`,
+      [id, input.serverId, input.platform, input.channelId, input.displayName]
+    );
+    return mapTrackedStream(row.rows[0]);
+  });
+}
+
+function mapTrackedStream(row: any): TrackedStream {
+  return {
+    id: row.id,
+    serverId: row.server_id,
+    platform: row.platform,
+    channelId: row.channel_id,
+    displayName: row.display_name,
+    isLive: row.is_live,
+    lastLiveAt: row.last_live_at,
+    currentTitle: row.current_title,
+    currentGame: row.current_game,
+    metadata: row.metadata,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
+export async function listTrackedStreams(serverId: string): Promise<TrackedStream[]> {
+  return withDb(async (db) => {
+    const rows = await db.query("select * from tracked_streams where server_id = $1 order by is_live desc, updated_at desc", [serverId]);
+    return rows.rows.map(mapTrackedStream);
+  });
+}
+
+export async function updateStreamStatus(id: string, isLive: boolean, title?: string, game?: string) {
+  return withDb(async (db) => {
+    const row = await db.query(
+      `update tracked_streams set
+         is_live = $1,
+         current_title = coalesce($2, current_title),
+         current_game = coalesce($3, current_game),
+         last_live_at = case when $1 = true then now() else last_live_at end,
+         updated_at = now()
+       where id = $4
+       returning *`,
+      [isLive, title || null, game || null, id]
+    );
+
+    const stream = row.rows[0];
+    if (stream && isLive && !stream.was_live_reported) {
+        // Send notification if enabled
+        const settings = await getHouseBotSettings(stream.server_id);
+        if (settings && settings.enabled && settings.liveNotificationsEnabled && settings.liveNotificationsChannelId) {
+            await createMessage({
+                channelId: settings.liveNotificationsChannelId,
+                actorUserId: "house_bot",
+                content: `🔴 **${stream.display_name}** is now LIVE on ${stream.platform}!\n**Title:** ${title ?? stream.current_title ?? "Live Stream"}\n**URL:** https://${stream.platform}.tv/${stream.channel_id}`,
+                isRelay: true,
+                externalProvider: "house_bot",
+                externalAuthorName: "House Bot"
+            });
+        }
+    }
+  });
+}
+
+export async function checkLiveStatus(serverId: string) {
+  const streams = await listTrackedStreams(serverId);
+  // This is where we would trigger actual API polls.
+  // For Phase 23, we provide the logic skeleton and a mock trigger.
+  console.log(`[Live Status] Checking ${streams.length} tracked streams for server ${serverId}`);
 }
 

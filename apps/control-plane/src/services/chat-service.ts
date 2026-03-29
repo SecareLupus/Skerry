@@ -1868,3 +1868,20 @@ export async function useHubInvite(input: { inviteId: string; productUserId: str
     return { hubId: invite.hubId };
   });
 }
+
+export async function getAnnouncementFeed(productUserId: string, limit = 50): Promise<ChatMessage[]> {
+  return withDb(async (db) => {
+    const row = await db.query<ChatMessageRow>(
+      `select m.*
+       from chat_messages m
+       join channels c on c.id = m.channel_id
+       join followed_announcements fa on fa.source_space_id = c.server_id
+       where fa.product_user_id = $1
+         and c.type = 'announcement'
+       order by m.created_at desc
+       limit $2`,
+      [productUserId, limit]
+    );
+    return row.rows.map(r => mapChatMessage(r, {}, {}, productUserId));
+  });
+}

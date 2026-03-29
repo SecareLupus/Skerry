@@ -133,12 +133,13 @@ All Tier 1 blockers from the Feb 28 report are resolved. This roadmap covers the
 - [x] **Custom emoji / stickers** — per-server emoji upload and picker
 - [x] **Webhooks** — inbound webhooks to post to channels (for CI/CD alerts, etc.)
 - [x] **Bot framework** — first-party bot scaffolding using the existing chat API (House Bot)
-- [ ] **Federation enhancements** — cross-hub channel bridging, shared member identity
-- [ ] **Mobile app** — PWA or native shell wrapping the web client
-- [ ] **Multi-hub orchestration** — K8s manifests, helm chart, per-hub resource isolation (is this necessary?)
-- [x] **Stream Contextual Threads** — (Scaffolding for Live Status in House Bot)
-- [x] **Twitch Integration** — (Scaffolding for Live Status in House Bot)
-- [ ] **Announcement Channel Rework** — Announcements are an ephemeral stream. Perhaps we should reconsider whether Announcements are a channel at all, or if they're a feature of the Space, allowing direct posting to a custom UI location dedicated for followed Announcements.
+- [x] **Federation enhancements** — Web-of-Trust trust model, guest identity resolution
+- [ ] **Mobile app** — (Separate repository)
+- [x] **Multi-hub orchestration** — Docker Compose standard, bootstrap-hub.sh script
+- [x] **Stream Contextual Threads** — Scaffolding for Live Status in House Bot
+- [x] **Twitch Integration** — Scaffolding for Live Status in House Bot
+- [x] **Announcement Channel Rework** — Followable space-level feed, global aggregation
+
 ---
 
 ## Current Sprint Focus

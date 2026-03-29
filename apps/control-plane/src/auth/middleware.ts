@@ -2,6 +2,7 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 import { getSession, verifyMasqueradeToken } from "./session.js";
 import { hasInitializedPlatform } from "../services/bootstrap-service.js";
 import { ensureIdentityTokenValid } from "../services/identity-service.js";
+import { verifyFederatedToken, resolveFederatedUser } from "../services/federation-service.js";
 
 export interface ScopedAuthContext {
   productUserId: string;
@@ -23,6 +24,26 @@ declare module "fastify" {
 
 export async function requireAuth(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   const session = getSession(request);
+  
+  // Federated trust check
+  const federatedToken = request.headers["x-skerry-federated-token"];
+  const federatedHub = request.headers["x-skerry-federated-hub"];
+
+  if (typeof federatedToken === "string" && typeof federatedHub === "string") {
+    const fedInfo = await verifyFederatedToken(federatedToken, federatedHub);
+    if (fedInfo) {
+      const fedUser = await resolveFederatedUser({ ...fedInfo, hubUrl: federatedHub });
+      request.auth = {
+        productUserId: fedUser.localProxyUserId,
+        provider: "federated",
+        oidcSubject: fedUser.federatedId,
+        isMasquerading: false,
+        readOnly: true, // Guest users from other hubs are read-only for now
+      };
+      return;
+    }
+  }
+
   if (!session) {
     reply.code(401).send({
       statusCode: 401,

@@ -60,6 +60,18 @@ docker compose up -d
 - **Web UI**: `http://localhost` (or your configured `BASE_DOMAIN`)
 - **API Health**: `http://localhost/health`
 
+### One-Click Bootstrap (Recommended)
+
+For a production-ready deployment on a fresh Linux instance:
+
+```bash
+chmod +x bootstrap-hub.sh
+./bootstrap-hub.sh
+```
+
+This script generates unique secrets, pulls images, runs migrations, and starts the entire stack.
+
+
 ## Development
 
 For local development where you want to run services individually:
@@ -81,6 +93,21 @@ For local development where you want to run services individually:
 ### Voice & Video Setup
 
 Powered by **LiveKit**. The `docker-compose.yml` includes a LiveKit server and a `coturn` instance for TURN/STUN support. Ensure `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET` are configured.
+
+## Federation (Web-of-Trust)
+
+Skerry Hubs can trust each other to allow cross-hub browsing and interaction without secondary logins.
+
+1. **Exchange Secrets**: Hub admins must exchange a 32+ character shared secret.
+2. **Add Trust**: Use the Admin API or Dashboard to add the remote hub:
+   ```bash
+   # Add a trusted hub
+   curl -X POST http://localhost:4000/v1/admin/federation/trust \
+     -H "Authorization: Bearer <admin_token>" \
+     -d '{"hubUrl": "https://remote-hub.com", "sharedSecret": "...", "trustLevel": "member"}'
+   ```
+3. **Identity Resolution**: Remote users are assigned a local `fed_` proxy ID and can view public spaces as authenticated guests.
+
 
 ## Validation Commands
 

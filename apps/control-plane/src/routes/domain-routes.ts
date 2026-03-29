@@ -45,6 +45,33 @@ import {
   listRoleBindings
 } from "../services/policy-service.js";
 import {
+  addTrustedHub,
+  listTrustedHubs,
+  removeTrustedHub,
+  getHubFederationPolicy,
+  listFederationPolicyEvents,
+  listFederationPolicyStatuses,
+  reconcileHubFederationPolicy,
+  upsertHubFederationPolicy
+} from "../services/federation-service.js";
+import {
+  followAnnouncement,
+  unfollowAnnouncement,
+  listFollowedAnnouncements,
+  createServerEmoji,
+  listServerEmojis,
+  deleteServerEmoji,
+  createServerSticker,
+  listServerStickers,
+  deleteServerSticker,
+  createWebhook,
+  listWebhooks,
+  deleteWebhook,
+  getWebhookByToken
+} from "../services/extension-service.js";
+
+
+import {
   createCategory,
   createMessage,
   deleteChannel,
@@ -55,6 +82,7 @@ import {
   listChannels,
   listMessages,
   fetchMessage,
+  getAnnouncementFeed,
   listMentionMarkers,
   listChannelReadStates,
   listServers,
@@ -82,6 +110,7 @@ import {
   listMessagesAround,
   getFirstUnreadMessageId
 } from "../services/chat-service.js";
+
 import { getBootstrapStatus } from "../services/bootstrap-service.js";
 import {
   publishChannelMessage,
@@ -107,13 +136,7 @@ import {
   setPreferredUsernameForProductUser,
   upsertIdentityMapping
 } from "../services/identity-service.js";
-import {
-  getHubFederationPolicy,
-  listFederationPolicyEvents,
-  listFederationPolicyStatuses,
-  reconcileHubFederationPolicy,
-  upsertHubFederationPolicy
-} from "../services/federation-service.js";
+
 import {
   createDiscordConnectUrl,
   deleteDiscordChannelMapping,
@@ -151,18 +174,7 @@ import {
 } from "../services/settings-service.js";
 import { uploadMedia } from "../services/media-service.js";
 import { updateUserPresence } from "../services/presence-service.js";
-import {
-  createServerEmoji,
-  listServerEmojis,
-  deleteServerEmoji,
-  createServerSticker,
-  listServerStickers,
-  deleteServerSticker,
-  createWebhook,
-  listWebhooks,
-  deleteWebhook,
-  getWebhookByToken
-} from "../services/extension-service.js";
+
 
 export async function registerDomainRoutes(app: FastifyInstance): Promise<void> {
   const initializedAuthHandlers = { preHandler: [requireAuth, requireInitialized] };
@@ -1097,6 +1109,85 @@ export async function registerDomainRoutes(app: FastifyInstance): Promise<void> 
 
     reply.code(204).send();
   });
+
+  // --- Announcements ---
+  app.get("/v1/announcements/feed", initializedAuthHandlers, async (request) => {
+    const limit = z.coerce.number().int().min(1).max(100).default(50).parse((request.query as any).limit);
+    const productUserId = request.auth!.productUserId;
+    const items = await getAnnouncementFeed(productUserId, limit);
+    return { items };
+  });
+
+  app.post("/v1/announcements/follow/:serverId", initializedAuthHandlers, async (request, reply) => {
+    const params = z.object({ serverId: z.string().min(1) }).parse(request.params);
+    await followAnnouncement(request.auth!.productUserId, params.serverId);
+    reply.code(204).send();
+  });
+
+  app.delete("/v1/announcements/follow/:serverId", initializedAuthHandlers, async (request, reply) => {
+    const params = z.object({ serverId: z.string().min(1) }).parse(request.params);
+    await unfollowAnnouncement(request.auth!.productUserId, params.serverId);
+    reply.code(204).send();
+  });
+
+  app.get("/v1/announcements/followed", initializedAuthHandlers, async (request) => {
+    const items = await listFollowedAnnouncements(request.auth!.productUserId);
+    return { items };
+  });
+
+  // --- Federation Trust (Admin Only) ---
+  app.get("/v1/admin/federation/trust", initializedAuthHandlers, async (request, reply) => {
+    const isAdmin = await isActionAllowed({
+      productUserId: request.auth!.productUserId,
+      action: "hub.suspend",
+      scope: { hubId: "*" } // Match any hub for global admin check
+    });
+    if (!isAdmin) {
+      reply.code(403).send({ message: "Forbidden: hub admin access required." });
+      return;
+    }
+    const items = await listTrustedHubs();
+    return { items };
+  });
+
+  app.post("/v1/admin/federation/trust", initializedAuthHandlers, async (request, reply) => {
+    const isAdmin = await isActionAllowed({
+      productUserId: request.auth!.productUserId,
+      action: "hub.suspend",
+      scope: { hubId: "*" }
+    });
+    if (!isAdmin) {
+      reply.code(403).send({ message: "Forbidden: hub admin access required." });
+      return;
+    }
+    const payload = z.object({
+      hubUrl: z.string().url(),
+      sharedSecret: z.string().min(16),
+      trustLevel: z.enum(["guest", "member", "partner"]).optional(),
+      metadata: z.record(z.any()).optional()
+    }).parse(request.body);
+
+    const hub = await addTrustedHub(payload);
+    reply.code(201);
+    return hub;
+  });
+
+  app.delete("/v1/admin/federation/trust/:hubUrl", initializedAuthHandlers, async (request, reply) => {
+    const isAdmin = await isActionAllowed({
+      productUserId: request.auth!.productUserId,
+      action: "hub.suspend",
+      scope: { hubId: "*" }
+    });
+    if (!isAdmin) {
+      reply.code(403).send({ message: "Forbidden: hub admin access required." });
+      return;
+    }
+    const params = z.object({ hubUrl: z.string() }).parse(request.params);
+    await removeTrustedHub(decodeURIComponent(params.hubUrl));
+    reply.code(204).send();
+  });
+
+
 
   app.patch("/v1/channels/:channelId/messages/:messageId", initializedAuthHandlers, async (request, reply) => {
     const params = z.object({

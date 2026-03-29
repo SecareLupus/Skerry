@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { withDb } from "../db/client.js";
-import type { ServerEmoji, ServerSticker, Webhook } from "@skerry/shared";
+import type { ServerEmoji, ServerSticker, Webhook, FollowedAnnouncement } from "@skerry/shared";
 
 function randomId(prefix: string): string {
   return `${prefix}_${crypto.randomUUID().replaceAll("-", "")}`;
@@ -176,5 +176,37 @@ export async function getWebhookByToken(id: string, token: string): Promise<Webh
     );
     const first = row.rows[0];
     return first ? mapWebhook(first) : null;
+  });
+}
+
+// --- Announcements ---
+
+export async function followAnnouncement(productUserId: string, sourceSpaceId: string): Promise<void> {
+  await withDb(async (db) => {
+    await db.query(
+      `insert into followed_announcements (product_user_id, source_space_id)
+       values ($1, $2)
+       on conflict do nothing`,
+      [productUserId, sourceSpaceId]
+    );
+  });
+}
+
+export async function unfollowAnnouncement(productUserId: string, sourceSpaceId: string): Promise<void> {
+  await withDb(async (db) => {
+    await db.query(
+      "delete from followed_announcements where product_user_id = $1 and source_space_id = $2",
+      [productUserId, sourceSpaceId]
+    );
+  });
+}
+
+export async function listFollowedAnnouncements(productUserId: string): Promise<string[]> {
+  return withDb(async (db) => {
+    const row = await db.query<{ source_space_id: string }>(
+      "select source_space_id from followed_announcements where product_user_id = $1",
+      [productUserId]
+    );
+    return row.rows.map(r => r.source_space_id);
   });
 }

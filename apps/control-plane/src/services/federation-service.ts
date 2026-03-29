@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import type { FederationPolicyEvent, FederationPolicyStatus, HubFederationPolicy } from "@skerry/shared";
+import type { FederationPolicyEvent, FederationPolicyStatus, HubFederationPolicy, TrustedHub, FederatedUser } from "@skerry/shared";
 import { config } from "../config.js";
 import { setRoomServerAcl } from "../matrix/synapse-adapter.js";
 import { withDb } from "../db/client.js";
@@ -322,5 +322,148 @@ export async function reconcileHubFederationPolicy(input: {
     );
 
     return { checkedRooms, appliedRooms, failedRooms };
+  });
+}
+
+// --- Web of Trust: Trusted Hubs ---
+export async function addTrustedHub(input: {
+  hubUrl: string;
+  sharedSecret: string;
+  trustLevel?: "guest" | "member" | "partner";
+  metadata?: Record<string, any>;
+}): Promise<TrustedHub> {
+  const normalizedUrl = input.hubUrl.trim().toLowerCase().replace(/\/+$/, "");
+  return withDb(async (db) => {
+    const row = await db.query(
+      `insert into trusted_hubs (hub_url, shared_secret, trust_level, metadata, updated_at)
+       values ($1, $2, $3, $4, now())
+       on conflict (hub_url) do update set
+         shared_secret = excluded.shared_secret,
+         trust_level = excluded.trust_level,
+         metadata = excluded.metadata,
+         updated_at = now()
+       returning *`,
+      [normalizedUrl, input.sharedSecret, input.trustLevel ?? "guest", JSON.stringify(input.metadata ?? {})]
+    );
+
+    const saved = row.rows[0];
+    return {
+      hubUrl: saved.hub_url,
+      sharedSecret: saved.shared_secret,
+      trustLevel: saved.trust_level as any,
+      metadata: saved.metadata,
+      createdAt: saved.created_at,
+      updatedAt: saved.updated_at
+    };
+  });
+}
+
+export async function listTrustedHubs(): Promise<TrustedHub[]> {
+  return withDb(async (db) => {
+    const rows = await db.query("select * from trusted_hubs order by hub_url asc");
+    return rows.rows.map(r => ({
+      hubUrl: r.hub_url,
+      sharedSecret: r.shared_secret,
+      trustLevel: r.trust_level as any,
+      metadata: r.metadata,
+      createdAt: r.created_at,
+      updatedAt: r.updated_at
+    }));
+  });
+}
+
+export async function getTrustedHub(hubUrl: string): Promise<TrustedHub | null> {
+  const normalizedUrl = hubUrl.trim().toLowerCase().replace(/\/+$/, "");
+  return withDb(async (db) => {
+    const row = await db.query("select * from trusted_hubs where hub_url = $1", [normalizedUrl]);
+    const r = row.rows[0];
+    if (!r) return null;
+    return {
+      hubUrl: r.hub_url,
+      sharedSecret: r.shared_secret,
+      trustLevel: r.trust_level as any,
+      metadata: r.metadata,
+      createdAt: r.created_at,
+      updatedAt: r.updated_at
+    };
+  });
+}
+
+export async function removeTrustedHub(hubUrl: string): Promise<void> {
+  const normalizedUrl = hubUrl.trim().toLowerCase().replace(/\/+$/, "");
+  await withDb(async (db) => {
+    await db.query("delete from trusted_hubs where hub_url = $1", [normalizedUrl]);
+  });
+}
+
+// --- Federated Identity Resolution ---
+export async function verifyFederatedToken(token: string, hubUrl: string): Promise<{ federatedId: string; displayName?: string; avatarUrl?: string } | null> {
+  const hub = await getTrustedHub(hubUrl);
+  if (!hub) return null;
+
+  try {
+    const [headerB64, payloadB64, signature] = token.split(".");
+    if (!headerB64 || !payloadB64 || !signature) return null;
+
+    const data = `${headerB64}.${payloadB64}`;
+    const expectedSignature = crypto
+      .createHmac("sha256", hub.sharedSecret)
+      .update(data)
+      .digest("base64url");
+
+    if (signature !== expectedSignature) return null;
+
+    const payload = JSON.parse(Buffer.from(payloadB64, "base64url").toString());
+    if (!payload.sub || !payload.sub.includes(":")) return null;
+
+    return {
+      federatedId: payload.sub,
+      displayName: payload.name,
+      avatarUrl: payload.picture
+    };
+  } catch (err) {
+    console.error(`Federated token verification failed for hub ${hubUrl}:`, err);
+    return null;
+  }
+}
+
+export async function resolveFederatedUser(info: { federatedId: string; hubUrl: string; displayName?: string; avatarUrl?: string }): Promise<FederatedUser> {
+  return withDb(async (db) => {
+    const existing = await db.query("select * from federated_user_cache where federated_id = $1", [info.federatedId]);
+    if (existing.rows[0]) {
+      const r = existing.rows[0];
+      await db.query(
+        "update federated_user_cache set last_seen_at = now(), display_name = $1, avatar_url = $2 where federated_id = $3",
+        [info.displayName ?? r.display_name, info.avatarUrl ?? r.avatar_url, info.federatedId]
+      );
+      return {
+        federatedId: r.federated_id,
+        localProxyUserId: r.local_proxy_user_id,
+        hubUrl: r.hub_url,
+        displayName: info.displayName ?? r.display_name,
+        avatarUrl: info.avatarUrl ?? r.avatar_url,
+        lastSeenAt: new Date().toISOString(),
+        createdAt: r.created_at
+      };
+    }
+
+    const localProxyUserId = `fed_${crypto.randomUUID().replaceAll("-", "")}`;
+    const row = await db.query(
+      `insert into federated_user_cache (federated_id, local_proxy_user_id, hub_url, display_name, avatar_url)
+       values ($1, $2, $3, $4, $5)
+       returning *`,
+      [info.federatedId, localProxyUserId, info.hubUrl, info.displayName, info.avatarUrl]
+    );
+
+    const saved = row.rows[0];
+    return {
+      federatedId: saved.federated_id,
+      localProxyUserId: saved.local_proxy_user_id,
+      hubUrl: saved.hub_url,
+      displayName: saved.display_name,
+      avatarUrl: saved.avatar_url,
+      lastSeenAt: saved.last_seen_at,
+      createdAt: saved.created_at
+    };
   });
 }
