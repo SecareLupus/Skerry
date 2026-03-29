@@ -1,6 +1,9 @@
 import crypto from "node:crypto";
 import type { Category, Channel, ChannelReadState, ChatMessage, HubInvite, MentionMarker, Server } from "@skerry/shared";
 import { withDb } from "../db/client.js";
+import { listUserPresence } from "./presence-service.js";
+import { sendMentionNotification } from "./email-service.js";
+import { config } from "../config.js";
 import { processMessageContentForLinks } from "./link-service.js";
 import { attachChildRoom, createChannelRoom, createSpace } from "../matrix/synapse-adapter.js";
 
@@ -694,30 +697,61 @@ export async function createMessage(input: {
       };
 
 
+      // Fetch channel and server details for notifications
+      const channelAndServer = await db.query<{ name: string, server_id: string }>(
+        "select name, server_id from channels where id = $1 limit 1",
+        [input.channelId]
+      );
+      const channelName = channelAndServer.rows[0]?.name || "unknown";
+      const serverId = channelAndServer.rows[0]?.server_id;
+
       const mentionHandles = [...new Set((input.content.match(/@([a-zA-Z0-9._-]{3,40})/g) ?? []).map((token) => token.slice(1).toLowerCase()))];
       if (mentionHandles.length > 0) {
-        const mentionRows = await db.query<{ product_user_id: string }>(
-          `select distinct product_user_id
+        const mentionRows = await db.query<{ product_user_id: string, preferred_username: string | null, email: string | null }>(
+          `select distinct product_user_id, preferred_username, email
          from identity_mappings
          where lower(preferred_username) = any($1:: text[])`,
           [mentionHandles]
         );
 
-        for (const mentioned of mentionRows.rows) {
-          if (!mentioned.product_user_id || mentioned.product_user_id === input.actorUserId) {
-            continue;
-          }
+        const mentionedUserIds = mentionRows.rows.map(r => r.product_user_id).filter(id => id && id !== input.actorUserId);
+        
+        if (mentionedUserIds.length > 0) {
+          // Check presence for offline notifications
+          const presence = await listUserPresence(mentionedUserIds);
 
-          await db.query(
-            `insert into mention_markers(id, channel_id, message_id, mentioned_user_id)
-        values($1, $2, $3, $4)`,
-            [
-              `mm_${crypto.randomUUID().replaceAll("-", "")} `,
-              input.channelId,
-              message.id,
-              mentioned.product_user_id
-            ]
-          );
+          for (const mentioned of mentionRows.rows) {
+            if (!mentioned.product_user_id || mentioned.product_user_id === input.actorUserId) {
+              continue;
+            }
+
+            await db.query(
+              `insert into mention_markers(id, channel_id, message_id, mentioned_user_id)
+          values($1, $2, $3, $4)`,
+              [
+                `mm_${crypto.randomUUID().replaceAll("-", "")} `,
+                input.channelId,
+                message.id,
+                mentioned.product_user_id
+              ]
+            );
+
+            // Trigger email if user is offline and has an email address
+            const userPresence = presence[mentioned.product_user_id];
+            if ((!userPresence || !userPresence.isOnline) && mentioned.email && serverId) {
+              const jumpUrl = `${config.webBaseUrl}/channels/${serverId}/${input.channelId}/${message.id}`;
+              const preview = input.content.length > 200 ? input.content.slice(0, 197) + "..." : input.content;
+              
+              // Fire and forget email notification
+              sendMentionNotification(
+                mentioned.email,
+                authorDisplayName,
+                channelName,
+                preview,
+                jumpUrl
+              ).catch(err => console.error(`Failed to send mention notification to ${mentioned.email}:`, err));
+            }
+          }
         }
       }
       // Outbound Discord Relay Logic
@@ -725,13 +759,6 @@ export async function createMessage(input: {
         try {
           const { listDiscordChannelMappings } = await import("./discord-bridge-service.js");
           const { relayMatrixMessageToDiscord } = await import("./discord-bot-client.js");
-
-          // We need to find which server this channel belongs to
-          const channelRow = await db.query<{ server_id: string }>(
-            "select server_id from channels where id = $1 limit 1",
-            [input.channelId]
-          );
-          const serverId = channelRow.rows[0]?.server_id;
 
           if (serverId) {
             const { handleUserMessageForEngagement, processLLMInteraction } = await import("./house-bot-service.js");
