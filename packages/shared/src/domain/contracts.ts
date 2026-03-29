@@ -199,6 +199,7 @@ export interface CreateChannelRequest {
     categoryId?: string;
     name: string;
     type: ChannelType;
+    topic?: string;
     idempotencyKey?: string;
 }
 

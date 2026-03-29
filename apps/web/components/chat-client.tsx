@@ -101,6 +101,25 @@ function formatMessageTime(value: string): string {
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
+const DEFAULT_LANDING_HTML = `
+<div class="landing-page" style="min-height: 100vh; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle at top right, rgba(88, 101, 242, 0.1), transparent), radial-gradient(circle at bottom left, rgba(235, 69, 158, 0.05), transparent); padding: 40px 20px; font-family: 'Inter', system-ui, -apple-system, sans-serif; color: #fff;">
+  <div class="card" style="background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 32px; padding: 60px 40px; max-width: 540px; width: 100%; text-align: center; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);">
+    <div class="server-badge" style="display: inline-block; padding: 8px 16px; background: rgba(88, 101, 242, 0.1); border: 1px solid rgba(88, 101, 242, 0.2); border-radius: 100px; color: #5865F2; font-size: 13px; font-weight: 700; margin-bottom: 32px; text-transform: uppercase; letter-spacing: 1.5px;">
+      Welcome to Skerry
+    </div>
+    <h1 style="color: #fff; font-size: 48px; font-weight: 800; margin: 0 0 20px 0; line-height: 1.1; letter-spacing: -1.5px;">
+      {{SERVER_NAME}}
+    </h1>
+    <p style="color: rgba(255, 255, 255, 0.5); font-size: 18px; line-height: 1.6; margin: 0 0 48px 0; font-weight: 400;">
+      A private sanctuary for creators and their communities. Join us to start collaborating in a secure, decentralized environment.
+    </p>
+    <div style="display: flex; justify-content: center;">
+      <skerry-join-button></skerry-join-button>
+    </div>
+  </div>
+</div>
+`;
+
 function cn(...classes: any[]) {
   return classes.filter(Boolean).join(" ");
 }
@@ -1210,11 +1229,18 @@ export function ChatClient() {
     dispatch({ type: "SET_CREATING_ROOM", payload: true });
     dispatch({ type: "SET_ERROR", payload: null });
     try {
+      let topic: string | undefined;
+      if (roomType === "landing") {
+        const server = servers.find(s => s.id === selectedServerId);
+        topic = DEFAULT_LANDING_HTML.replace("{{SERVER_NAME}}", server?.name || "This Space");
+      }
+
       const created = await createChannel({
         serverId: selectedServerId,
         name: roomName.trim(),
         type: roomType,
-        categoryId: selectedCategoryIdForCreate || undefined
+        categoryId: selectedCategoryIdForCreate || undefined,
+        topic
       });
       setRoomName("new-room");
       await refreshChatState(selectedServerId, created.id);

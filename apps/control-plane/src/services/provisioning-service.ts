@@ -133,6 +133,7 @@ export async function createChannelWorkflow(input: {
   categoryId?: string;
   name: string;
   type: ChannelType;
+  topic?: string;
   idempotencyKey?: string;
 }): Promise<Channel> {
   const cached = await checkIdempotency<Channel>(input.idempotencyKey, input);
@@ -187,8 +188,8 @@ export async function createChannelWorkflow(input: {
       created_at: string;
     }>(
       `insert into channels
-       (id, server_id, category_id, name, type, matrix_room_id, position, voice_sfu_room_id, voice_max_participants, video_enabled, video_max_participants, hub_admin_access, space_member_access, hub_member_access, visitor_access)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'chat', 'chat', 'chat', 'hidden')
+       (id, server_id, category_id, name, type, matrix_room_id, position, topic, voice_sfu_room_id, voice_max_participants, video_enabled, video_max_participants, hub_admin_access, space_member_access, hub_member_access, visitor_access)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'chat', 'chat', 'chat', 'hidden')
        returning *`,
       [
         id,
@@ -198,6 +199,7 @@ export async function createChannelWorkflow(input: {
         input.type,
         matrixRoomId,
         position,
+        input.topic ?? null,
         voiceRoomId,
         input.type === "voice" ? 25 : null,
         false,

@@ -488,6 +488,7 @@ export async function createChannel(input: {
   name: string;
   type: ChannelType;
   categoryId?: string;
+  topic?: string;
 }): Promise<Channel> {
   return apiFetch<Channel>("/v1/channels", {
     method: "POST",
