@@ -1925,7 +1925,11 @@ export function ChatClient() {
       {
         activeModal && (
           <div className="modal-backdrop" onClick={() => dispatch({ type: "SET_ACTIVE_MODAL", payload: null })}>
-            <div className={cn("modal-panel", activeModal === "rename-room" && renameRoomType === "landing" && "modal-wide")} onClick={(e) => e.stopPropagation()}>
+            <div 
+              className={cn("modal-panel", activeModal === "rename-room" && renameRoomType === "landing" && "modal-wide")} 
+              style={activeModal === "rename-room" && renameRoomType === "landing" ? { maxWidth: "800px", width: "100%" } : undefined}
+              onClick={(e) => e.stopPropagation()}
+            >
               <header className="modal-header">
                 <h2>
                   {activeModal === "create-space" && "Create New Space"}
@@ -1933,7 +1937,7 @@ export function ChatClient() {
                   {activeModal === "create-room" && "Create New Room"}
                   {activeModal === "rename-space" && "Space Settings"}
                   {activeModal === "rename-category" && "Rename Category"}
-                  {activeModal === "rename-room" && "Rename Room"}
+                  {activeModal === "rename-room" && "Edit Room"}
                 </h2>
                 <button type="button" className="ghost" onClick={() => dispatch({ type: "SET_ACTIVE_MODAL", payload: null })}>×</button>
               </header>
@@ -2193,12 +2197,12 @@ export function ChatClient() {
                   </div>
 
                   {roomSettingsTab === "general" ? (
-                    <div className={cn("stack", renameRoomType === "landing" && "wide-stack")}>
-                      <form className={cn("stack", renameRoomType === "landing" && "wide-stack")} onSubmit={(event: React.FormEvent<HTMLFormElement>) => {
+                    <div className={cn("stack", renameRoomType === "landing" && "wide-stack")} style={renameRoomType === "landing" ? { maxWidth: "800px", width: "100%" } : undefined}>
+                      <form className={cn("stack", renameRoomType === "landing" && "wide-stack")} style={renameRoomType === "landing" ? { maxWidth: "800px", width: "100%" } : undefined} onSubmit={(event: React.FormEvent<HTMLFormElement>) => {
                         void handleRenameRoom(event);
                         dispatch({ type: "SET_ACTIVE_MODAL", payload: null });
                       }}>
-                        <p>Editing room: <strong>{channels.find(c => c.id === renameRoomId)?.name}</strong></p>
+                        <p>Editing Room: <strong>{channels.find(c => c.id === renameRoomId)?.name}</strong></p>
                         <label htmlFor="rename-room-modal">Room Name</label>
                         <input
                           id="rename-room-modal"
