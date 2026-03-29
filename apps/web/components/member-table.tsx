@@ -84,57 +84,79 @@ export default function MemberTable({ serverId, hubId, members, onRefresh }: Mem
     }
   };
 
-  const handleBulkAction = async (action: "kick" | "ban" | "unban" | "timeout") => {
+  const handleBulkAction = (action: "kick" | "ban" | "unban" | "timeout") => {
     if (!serverId) return;
     if (selectedIds.size === 0) return;
 
-    const reason = window.prompt(`Reason for bulk ${action}:`, `Bulk ${action} by administrator`);
-    if (reason === null) return;
+    dispatch({
+      type: "SET_CONFIRMATION",
+      payload: {
+        title: `Bulk ${action.charAt(0).toUpperCase() + action.slice(1)}`,
+        message: `Are you sure you want to perform a bulk ${action} on ${selectedIds.size} selected users?`,
+        confirmLabel: action.toUpperCase(),
+        danger: action !== "unban",
+        requiresReason: true,
+        reasonPlaceholder: `Optional reason for bulk ${action}...`,
+        onConfirm: async (reason) => {
+          setModifying(true);
+          try {
+            const result = await performBulkModerationAction({
+              serverId,
+              targetUserIds: Array.from(selectedIds),
+              action,
+              reason: reason || `Bulk ${action} by administrator`
+            });
 
-    setModifying(true);
-    try {
-      const result = await performBulkModerationAction({
-        serverId,
-        targetUserIds: Array.from(selectedIds),
-        action,
-        reason
-      });
-
-      if (result.failures.length > 0) {
-        showToast(`Bulk ${action} completed with ${result.failures.length} failures`, "error");
-      } else {
-        showToast(`Successfully performed bulk ${action} on ${result.successes.length} users`, "success");
+            if (result.failures.length > 0) {
+              showToast(`Bulk ${action} completed with ${result.failures.length} failures`, "error");
+            } else {
+              showToast(`Successfully performed bulk ${action} on ${result.successes.length} users`, "success");
+            }
+            setSelectedIds(new Set());
+            onRefresh?.();
+          } catch (err) {
+            showToast(`Failed to perform bulk ${action}: ${err instanceof Error ? err.message : 'Unknown error'}`, "error");
+          } finally {
+            setModifying(false);
+          }
+        }
       }
-      setSelectedIds(new Set());
-      onRefresh?.();
-    } catch (err) {
-      showToast(`Failed to perform bulk ${action}`, "error");
-    } finally {
-      setModifying(false);
-    }
+    });
+    dispatch({ type: "SET_ACTIVE_MODAL", payload: "confirmation" });
   };
 
-  const handleIndividualAction = async (userId: string, action: "kick" | "ban" | "unban" | "timeout") => {
+  const handleIndividualAction = (userId: string, action: "kick" | "ban" | "unban" | "timeout") => {
     if (!serverId) return;
 
-    const reason = window.prompt(`Reason for ${action}:`, `Moderation action by administrator`);
-    if (reason === null) return;
-
-    setModifying(true);
-    try {
-      await performModerationAction({
-        serverId,
-        targetUserId: userId,
-        action,
-        reason
-      });
-      showToast(`User ${userId} ${action}ed`, "success");
-      onRefresh?.();
-    } catch (err) {
-      showToast(`Failed to perform ${action}`, "error");
-    } finally {
-      setModifying(false);
-    }
+    dispatch({
+      type: "SET_CONFIRMATION",
+      payload: {
+        title: `${action.charAt(0).toUpperCase() + action.slice(1)} User`,
+        message: `Are you sure you want to ${action} user ${userId}?`,
+        confirmLabel: action.toUpperCase(),
+        danger: action !== "unban",
+        requiresReason: true,
+        reasonPlaceholder: `Optional reason for ${action}...`,
+        onConfirm: async (reason) => {
+          setModifying(true);
+          try {
+            await performModerationAction({
+              serverId,
+              targetUserId: userId,
+              action,
+              reason: reason || `Moderation action by administrator`
+            });
+            showToast(`User ${userId} ${action}ed`, "success");
+            onRefresh?.();
+          } catch (err) {
+            showToast(`Failed to perform ${action}: ${err instanceof Error ? err.message : 'Unknown error'}`, "error");
+          } finally {
+            setModifying(false);
+          }
+        }
+      }
+    });
+    dispatch({ type: "SET_ACTIVE_MODAL", payload: "confirmation" });
   };
 
   return (

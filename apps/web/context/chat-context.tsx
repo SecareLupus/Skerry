@@ -51,7 +51,20 @@ export type ModalType =
     | "moderation"
     | "grant-role"
     | "masquerade"
+    | "confirmation"
     | null;
+
+export interface ConfirmationContext {
+    title: string;
+    message: string;
+    confirmLabel?: string;
+    cancelLabel?: string;
+    danger?: boolean;
+    requiresReason?: boolean;
+    reasonPlaceholder?: string;
+    onConfirm: (reason?: string) => void;
+    onCancel?: () => void;
+}
 
 export interface ChatState {
     viewer: ViewerSession | null;
@@ -136,6 +149,8 @@ export interface ChatState {
     moderationTargetUserId: string | null;
     moderationTargetDisplayName: string | null;
     moderationTargetMessageId: string | null;
+    confirmationContext: ConfirmationContext | null;
+    pendingActionIds: Set<string>;
     roleContext: {
         targetUserId: string;
         targetDisplayName?: string;
@@ -219,6 +234,8 @@ type ChatAction =
     | { type: "SET_HIGHLIGHTED_MESSAGE_ID", payload: string | null }
     | { type: "SET_MODERATION_TARGET", payload: { userId: string | null; displayName: string | null; messageId?: string | null } }
     | { type: "SET_NOTIFICATION_PREFERENCE", payload: { channelId: string; preference: 'all' | 'mentions' | 'none'; isMuted?: boolean } }
+    | { type: "SET_CONFIRMATION", payload: ConfirmationContext | null }
+    | { type: "SET_PENDING_ACTION_ID", payload: { id: string; active: boolean } }
     | { type: "SET_ROLE_CONTEXT", payload: ChatState["roleContext"] };
 
 
@@ -300,6 +317,8 @@ const initialState: ChatState = {
     moderationTargetUserId: null,
     moderationTargetDisplayName: null,
     moderationTargetMessageId: null,
+    confirmationContext: null,
+    pendingActionIds: new Set(),
     roleContext: null
 };
 
@@ -550,6 +569,20 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
                 moderationTargetDisplayName: action.payload.displayName,
                 moderationTargetMessageId: action.payload.messageId ?? null
             };
+        case "SET_CONFIRMATION":
+            return {
+                ...state,
+                confirmationContext: action.payload
+            };
+        case "SET_PENDING_ACTION_ID": {
+            const next = new Set(state.pendingActionIds);
+            if (action.payload.active) next.add(action.payload.id);
+            else next.delete(action.payload.id);
+            return {
+                ...state,
+                pendingActionIds: next
+            };
+        }
         case "SET_ROLE_CONTEXT":
             return { ...state, roleContext: action.payload };
         default:

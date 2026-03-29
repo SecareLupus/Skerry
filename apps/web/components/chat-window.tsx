@@ -275,7 +275,7 @@ export function ChatWindow({
         }> = [];
 
         // Only show root messages in the main window
-        const rootMessages = messages.filter(m => !m.parentId);
+        const rootMessages = messages.filter(m => !m.parentId && !state.pendingActionIds.has(m.id));
 
         for (let index = 0; index < rootMessages.length; index += 1) {
             const message = rootMessages[index]!
@@ -424,9 +424,42 @@ export function ChatWindow({
                 icon: "🗑️",
                 danger: true,
                 onClick: () => {
-                    if (confirm("Are you sure you want to delete this message?")) {
-                        void deleteMessage(contextMenu.message?.channelId || "", contextMenu.message?.id || "");
-                    }
+                    dispatch({
+                        type: "SET_CONFIRMATION",
+                        payload: {
+                            title: "Delete Message",
+                            message: "Are you sure you want to delete this message? This action is permanent, but you have 5 seconds to undo it.",
+                            confirmLabel: "Delete",
+                            danger: true,
+                            onConfirm: () => {
+                                const messageId = contextMenu.message?.id;
+                                const channelId = contextMenu.message?.channelId;
+                                if (!messageId || !channelId) return;
+
+                                // Optimistic hide
+                                dispatch({ type: "SET_PENDING_ACTION_ID", payload: { id: messageId, active: true } });
+
+                                const timeoutId = setTimeout(async () => {
+                                    try {
+                                        await deleteMessage(channelId, messageId);
+                                    } catch (err) {
+                                        showToast("Failed to delete message", "error");
+                                        dispatch({ type: "SET_PENDING_ACTION_ID", payload: { id: messageId, active: false } });
+                                    }
+                                }, 5000);
+
+                                showToast("Message deleted", "info", {
+                                    label: "Undo",
+                                    onClick: () => {
+                                        clearTimeout(timeoutId);
+                                        dispatch({ type: "SET_PENDING_ACTION_ID", payload: { id: messageId, active: false } });
+                                        showToast("Deletion cancelled", "success");
+                                    }
+                                }, 5500); // Pulse slightly longer than the delay
+                            }
+                        }
+                    });
+                    dispatch({ type: "SET_ACTIVE_MODAL", payload: "confirmation" });
                 }
             });
         }

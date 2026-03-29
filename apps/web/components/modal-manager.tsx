@@ -8,6 +8,7 @@ import { DMPickerModal } from "./dm-picker-modal";
 import { SearchModal } from "./search-modal";
 import { RoleModal } from "./role-modal";
 import { MasqueradeDrawer } from "./masquerade-drawer";
+import { ConfirmationModal } from "./confirmation-modal";
 
 export function ModalManager() {
   const { state } = useChat();
