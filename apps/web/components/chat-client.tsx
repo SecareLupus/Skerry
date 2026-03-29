@@ -1925,7 +1925,7 @@ export function ChatClient() {
       {
         activeModal && (
           <div className="modal-backdrop" onClick={() => dispatch({ type: "SET_ACTIVE_MODAL", payload: null })}>
-            <div className="modal-panel" onClick={(e) => e.stopPropagation()}>
+            <div className={cn("modal-panel", activeModal === "rename-room" && renameRoomType === "landing" && "modal-wide")} onClick={(e) => e.stopPropagation()}>
               <header className="modal-header">
                 <h2>
                   {activeModal === "create-space" && "Create New Space"}

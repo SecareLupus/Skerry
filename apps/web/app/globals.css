@@ -106,6 +106,10 @@ body {
   padding: 1.5rem;
 }
 
+.modal-wide {
+  max-width: 800px;
+}
+
 .modal-header {
   display: flex;
   align-items: center;
