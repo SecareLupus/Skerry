@@ -83,9 +83,11 @@ export async function createServerWorkflow(input: {
       created_by_user_id: string;
       owner_user_id: string;
       created_at: string;
+      join_policy: string;
+      icon_url: string | null;
     }>(
-      `insert into servers (id, hub_id, name, type, matrix_space_id, created_by_user_id, owner_user_id, auto_join_hub_members, hub_admin_access, space_member_access, hub_member_access, visitor_access)
-       values ($1, $2, $3, 'default', $4, $5, $6, true, 'chat', 'chat', 'chat', 'hidden')
+      `insert into servers (id, hub_id, name, type, matrix_space_id, created_by_user_id, owner_user_id, auto_join_hub_members, hub_admin_access, space_member_access, hub_member_access, visitor_access, join_policy)
+       values ($1, $2, $3, 'default', $4, $5, $6, true, 'chat', 'chat', 'chat', 'hidden', 'open')
        returning *`,
       [id, input.hubId, input.name, matrixSpaceId, input.productUserId, input.productUserId]
     );
@@ -101,6 +103,7 @@ export async function createServerWorkflow(input: {
       name: value.name,
       type: value.type,
       matrixSpaceId: value.matrix_space_id,
+      iconUrl: value.icon_url,
       hubAdminAccess: value.hub_admin_access as any,
       spaceMemberAccess: value.space_member_access as any,
       hubMemberAccess: value.hub_member_access as any,
@@ -108,7 +111,8 @@ export async function createServerWorkflow(input: {
       autoJoinHubMembers: value.auto_join_hub_members,
       createdByUserId: value.created_by_user_id,
       ownerUserId: value.owner_user_id,
-      createdAt: value.created_at
+      createdAt: value.created_at,
+      joinPolicy: value.join_policy as any
     };
   });
 

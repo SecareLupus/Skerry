@@ -136,6 +136,7 @@ export async function listServers(productUserId?: string): Promise<Server[]> {
       owner_user_id: string;
       created_at: string;
       is_member: boolean;
+      join_policy: string;
     }>(
       `select s.*, 
               (exists (select 1 from server_members where server_id = s.id and product_user_id = $1)) as is_member
@@ -177,7 +178,8 @@ export async function listServers(productUserId?: string): Promise<Server[]> {
       createdByUserId: row.created_by_user_id,
       ownerUserId: row.owner_user_id,
       createdAt: row.created_at,
-      isMember: row.is_member
+      isMember: row.is_member,
+      joinPolicy: row.join_policy as any
     }));
   });
 }
@@ -1183,6 +1185,7 @@ export async function renameServer(input: { serverId: string; name: string }): P
       created_by_user_id: string;
       owner_user_id: string;
       created_at: string;
+      join_policy: string;
     }>(
       `update servers
        set name = $1
@@ -1210,7 +1213,8 @@ export async function renameServer(input: { serverId: string; name: string }): P
       autoJoinHubMembers: value.auto_join_hub_members,
       createdByUserId: value.created_by_user_id,
       ownerUserId: value.owner_user_id,
-      createdAt: value.created_at
+      createdAt: value.created_at,
+      joinPolicy: value.join_policy as any
     };
   });
 }
