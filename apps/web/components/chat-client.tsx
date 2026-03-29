@@ -2176,7 +2176,7 @@ export function ChatClient() {
               )}
 
               {activeModal === "rename-room" && (
-                <div className="stack">
+                <div className={cn("stack", renameRoomType === "landing" && "wide-stack")}>
                   <div className="tabs">
                     <button 
                       className={cn("tab-button", roomSettingsTab === "general" && "active")}

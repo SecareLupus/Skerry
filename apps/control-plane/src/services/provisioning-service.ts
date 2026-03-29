@@ -165,6 +165,8 @@ export async function createChannelWorkflow(input: {
     );
     const position = (posRow.rows[0]?.max_pos ?? -1) + 1;
 
+    const defaultVisitorAccess = input.type === "landing" ? "read" : "hidden";
+
     const created = await db.query<{
       id: string;
       server_id: string;
@@ -189,7 +191,7 @@ export async function createChannelWorkflow(input: {
     }>(
       `insert into channels
        (id, server_id, category_id, name, type, matrix_room_id, position, topic, voice_sfu_room_id, voice_max_participants, video_enabled, video_max_participants, hub_admin_access, space_member_access, hub_member_access, visitor_access)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'chat', 'chat', 'chat', 'hidden')
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'chat', 'chat', 'chat', $13)
        returning *`,
       [
         id,
@@ -203,7 +205,8 @@ export async function createChannelWorkflow(input: {
         voiceRoomId,
         input.type === "voice" ? 25 : null,
         false,
-        input.type === "voice" ? 4 : null
+        input.type === "voice" ? 4 : null,
+        defaultVisitorAccess
       ]
     );
 

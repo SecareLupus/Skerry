@@ -1582,7 +1582,7 @@ export async function registerDomainRoutes(app: FastifyInstance): Promise<void> 
       return;
     }
 
-    const channels = await listChannels(query.serverId);
+    const channels = await listChannels(query.serverId, request.auth!.productUserId);
     const existing = channels.find((channel) => channel.id === params.channelId);
     if (!existing) {
       reply.code(404).send({ message: "Channel not found." });

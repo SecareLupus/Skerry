@@ -473,7 +473,7 @@ export function Sidebar({
                                                                     title="Edit Room"
                                                                     onClick={(e) => {
                                                                         e.stopPropagation();
-                                                                        dispatch({ type: "SET_RENAME_ROOM", payload: { id: channel.id, name: channel.name, type: channel.type, categoryId: channel.categoryId } });
+                                                                        dispatch({ type: "SET_RENAME_ROOM", payload: { id: channel.id, name: channel.name, type: channel.type, categoryId: channel.categoryId, topic: channel.topic } });
                                                                         dispatch({ type: "SET_ACTIVE_MODAL", payload: "rename-room" });
                                                                     }}
                                                                 >

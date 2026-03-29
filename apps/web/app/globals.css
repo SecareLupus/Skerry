@@ -395,6 +395,10 @@ body {
   max-width: 480px;
 }
 
+.wide-stack {
+  max-width: 800px;
+}
+
 label {
   font-weight: 600;
 }
