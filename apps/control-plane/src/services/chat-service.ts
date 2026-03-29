@@ -734,6 +734,26 @@ export async function createMessage(input: {
           const serverId = channelRow.rows[0]?.server_id;
 
           if (serverId) {
+            const { handleUserMessageForEngagement, processLLMInteraction } = await import("./house-bot-service.js");
+            
+            // Engagement Hook
+            await handleUserMessageForEngagement(serverId, input.actorUserId).catch(err => console.error("House Bot Engagement Failed:", err));
+
+            // LLM Hook (Trigger if mentioning House Bot)
+            if (input.content.toLowerCase().includes("@house bot") || input.content.toLowerCase().startsWith("!hb")) {
+               const response = await processLLMInteraction(serverId, input.channelId, input.content);
+               if (response) {
+                 await createMessage({
+                   channelId: input.channelId,
+                   actorUserId: "house_bot",
+                   content: response,
+                   isRelay: true,
+                   externalProvider: "house_bot",
+                   externalAuthorName: "House Bot"
+                 });
+               }
+            }
+
             const mappings = await listDiscordChannelMappings(serverId);
             const mappedChannels = mappings.filter(m => m.matrixChannelId === input.channelId && m.enabled);
             for (const m of mappedChannels) {

@@ -1,11 +1,21 @@
 import { withDb } from "../db/client.js";
+import { handleUserJoinedServer } from "./house-bot-service.js";
+import { getIdentityByProductUserId } from "./identity-service.js";
 
 export async function joinServer(serverId: string, productUserId: string): Promise<void> {
     await withDb(async (db) => {
-        await db.query(
-            "insert into server_members (server_id, product_user_id) values ($1, $2) on conflict do nothing",
+        const row = await db.query(
+            "insert into server_members (server_id, product_user_id) values ($1, $2) on conflict do nothing returning 1",
             [serverId, productUserId]
         );
+        
+        // If it was a new join (not a duplicate)
+        if (row.rowCount && row.rowCount > 0) {
+            const identity = await getIdentityByProductUserId(productUserId);
+            if (identity) {
+                await handleUserJoinedServer(serverId, productUserId, identity.displayName || `user-${productUserId.slice(0, 8)}`);
+            }
+        }
     });
 }
 

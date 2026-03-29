@@ -151,6 +151,18 @@ import {
 } from "../services/settings-service.js";
 import { uploadMedia } from "../services/media-service.js";
 import { updateUserPresence } from "../services/presence-service.js";
+import {
+  createServerEmoji,
+  listServerEmojis,
+  deleteServerEmoji,
+  createServerSticker,
+  listServerStickers,
+  deleteServerSticker,
+  createWebhook,
+  listWebhooks,
+  deleteWebhook,
+  getWebhookByToken
+} from "../services/extension-service.js";
 
 export async function registerDomainRoutes(app: FastifyInstance): Promise<void> {
   const initializedAuthHandlers = { preHandler: [requireAuth, requireInitialized] };
@@ -190,17 +202,26 @@ export async function registerDomainRoutes(app: FastifyInstance): Promise<void> 
   }
 
   app.get("/health", async () => {
-    const dbOk = await withDb(async (db) => {
-      const res = await db.query("SELECT 1");
-      return res.rowCount === 1;
-    }).catch(() => false);
+    const dbOk = config.databaseUrl 
+      ? await withDb(async (db) => {
+          const res = await db.query("SELECT 1");
+          return res.rowCount === 1;
+        }).catch(() => false) 
+      : true;
 
-    const synapseOk = await checkSynapseHealth().catch(() => false);
+    const synapseOk = (config.synapse.baseUrl && config.synapse.asToken)
+      ? await checkSynapseHealth().catch(() => false)
+      : true;
 
-    const status = (dbOk && synapseOk) ? "ok" : "degraded";
+    if (dbOk && synapseOk) {
+      return { 
+        status: "ok", 
+        service: "control-plane"
+      };
+    }
 
     return { 
-      status, 
+      status: "degraded", 
       service: "control-plane",
       checks: {
         database: dbOk ? "up" : "down",
@@ -877,7 +898,8 @@ export async function registerDomainRoutes(app: FastifyInstance): Promise<void> 
           id: z.string(),
           url: z.string().url(),
           contentType: z.string(),
-          filename: z.string()
+          filename: z.string(),
+          metadata: z.record(z.any()).optional()
         })).optional(),
         parentId: z.string().optional()
       })
@@ -901,6 +923,179 @@ export async function registerDomainRoutes(app: FastifyInstance): Promise<void> 
 
     reply.code(201);
     return message;
+  });
+
+  // --- Emojis ---
+  app.get("/v1/servers/:serverId/emojis", initializedAuthHandlers, async (request) => {
+    const params = z.object({ serverId: z.string().min(1) }).parse(request.params);
+    return { items: await listServerEmojis(params.serverId) };
+  });
+
+  app.post("/v1/servers/:serverId/emojis", initializedAuthHandlers, async (request, reply) => {
+    const params = z.object({ serverId: z.string().min(1) }).parse(request.params);
+    const payload = z.object({
+      name: z.string().min(1).max(32).regex(/^[a-z0-9_]+$/i),
+      url: z.string().url()
+    }).parse(request.body);
+
+    const allowed = await canManageServer({
+      productUserId: request.auth!.productUserId,
+      serverId: params.serverId
+    });
+    if (!allowed) {
+      reply.code(403).send({ message: "Forbidden" });
+      return;
+    }
+
+    const emoji = await createServerEmoji({ ...payload, serverId: params.serverId });
+    reply.code(201);
+    return emoji;
+  });
+
+  app.delete("/v1/servers/:serverId/emojis/:emojiId", initializedAuthHandlers, async (request, reply) => {
+    const params = z.object({ serverId: z.string().min(1), emojiId: z.string().min(1) }).parse(request.params);
+    const allowed = await canManageServer({
+      productUserId: request.auth!.productUserId,
+      serverId: params.serverId
+    });
+    if (!allowed) {
+      reply.code(403).send({ message: "Forbidden" });
+      return;
+    }
+
+    await deleteServerEmoji(params.serverId, params.emojiId);
+    reply.code(204).send();
+  });
+
+  // --- Stickers ---
+  app.get("/v1/servers/:serverId/stickers", initializedAuthHandlers, async (request) => {
+    const params = z.object({ serverId: z.string().min(1) }).parse(request.params);
+    return { items: await listServerStickers(params.serverId) };
+  });
+
+  app.post("/v1/servers/:serverId/stickers", initializedAuthHandlers, async (request, reply) => {
+    const params = z.object({ serverId: z.string().min(1) }).parse(request.params);
+    const payload = z.object({
+      name: z.string().min(1).max(32),
+      url: z.string().url()
+    }).parse(request.body);
+
+    const allowed = await canManageServer({
+      productUserId: request.auth!.productUserId,
+      serverId: params.serverId
+    });
+    if (!allowed) {
+      reply.code(403).send({ message: "Forbidden" });
+      return;
+    }
+
+    const sticker = await createServerSticker({ ...payload, serverId: params.serverId });
+    reply.code(201);
+    return sticker;
+  });
+
+  app.delete("/v1/servers/:serverId/stickers/:stickerId", initializedAuthHandlers, async (request, reply) => {
+    const params = z.object({ serverId: z.string().min(1), stickerId: z.string().min(1) }).parse(request.params);
+    const allowed = await canManageServer({
+      productUserId: request.auth!.productUserId,
+      serverId: params.serverId
+    });
+    if (!allowed) {
+      reply.code(403).send({ message: "Forbidden" });
+      return;
+    }
+
+    await deleteServerSticker(params.serverId, params.stickerId);
+    reply.code(204).send();
+  });
+
+  // --- Webhooks ---
+  app.get("/v1/servers/:serverId/webhooks", initializedAuthHandlers, async (request) => {
+    const params = z.object({ serverId: z.string().min(1) }).parse(request.params);
+    const allowed = await canManageServer({
+      productUserId: request.auth!.productUserId,
+      serverId: params.serverId
+    });
+    if (!allowed) {
+      throw new Error("Forbidden");
+    }
+    return { items: await listWebhooks(params.serverId) };
+  });
+
+  app.post("/v1/channels/:channelId/webhooks", initializedAuthHandlers, async (request, reply) => {
+    const params = z.object({ channelId: z.string().min(1) }).parse(request.params);
+    const payload = z.object({
+      name: z.string().min(1).max(80),
+      avatarUrl: z.string().url().optional()
+    }).parse(request.body);
+
+    // Get serverId for permissions
+    const channelRow = await withDb(async (db) => {
+      const row = await db.query<{ server_id: string }>("select server_id from channels where id = $1", [params.channelId]);
+      return row.rows[0];
+    });
+    if (!channelRow) {
+      reply.code(404).send({ message: "Channel not found" });
+      return;
+    }
+
+    const allowed = await canManageServer({
+      productUserId: request.auth!.productUserId,
+      serverId: channelRow.server_id
+    });
+    if (!allowed) {
+      reply.code(403).send({ message: "Forbidden" });
+      return;
+    }
+
+    const webhook = await createWebhook({ ...payload, channelId: params.channelId, serverId: channelRow.server_id });
+    reply.code(201);
+    return webhook;
+  });
+
+  app.delete("/v1/servers/:serverId/webhooks/:webhookId", initializedAuthHandlers, async (request, reply) => {
+    const params = z.object({ serverId: z.string().min(1), webhookId: z.string().min(1) }).parse(request.params);
+    const allowed = await canManageServer({
+      productUserId: request.auth!.productUserId,
+      serverId: params.serverId
+    });
+    if (!allowed) {
+      reply.code(403).send({ message: "Forbidden" });
+      return;
+    }
+
+    await deleteWebhook(params.serverId, params.webhookId);
+    reply.code(204).send();
+  });
+
+  // Unauthenticated trigger endpoint
+  app.post("/v1/webhooks/:id/:token", async (request, reply) => {
+    const params = z.object({ id: z.string().min(1), token: z.string().min(1) }).parse(request.params);
+    const payload = z.object({
+      content: z.string().min(1).max(2000),
+      username: z.string().optional(),
+      avatar_url: z.string().url().optional()
+    }).parse(request.body);
+
+    const webhook = await getWebhookByToken(params.id, params.token);
+    if (!webhook) {
+      reply.code(404).send({ message: "Webhook not found" });
+      return;
+    }
+
+    const message = await createMessage({
+      channelId: webhook.channelId,
+      actorUserId: "system_webhook", // Special actor
+      content: payload.content,
+      isRelay: true,
+      externalProvider: "webhook",
+      externalAuthorName: payload.username ?? webhook.name,
+      externalAuthorAvatarUrl: payload.avatar_url ?? webhook.avatarUrl ?? undefined
+    });
+
+    publishChannelMessage(message);
+
+    reply.code(204).send();
   });
 
   app.patch("/v1/channels/:channelId/messages/:messageId", initializedAuthHandlers, async (request, reply) => {

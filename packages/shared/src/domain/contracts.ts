@@ -437,3 +437,66 @@ export const DEFAULT_SERVER_BLUEPRINT: ServerBlueprint = {
         { name: "voice-lounge", type: "voice" }
     ]
 };
+
+export interface ServerEmoji {
+    id: string;
+    serverId: string;
+    name: string;
+    url: string;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface ServerSticker {
+    id: string;
+    serverId: string;
+    name: string;
+    url: string;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface Webhook {
+    id: string;
+    channelId: string;
+    serverId: string;
+    name: string;
+    avatarUrl?: string | null;
+    secretToken: string;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface UserStats {
+    productUserId: string;
+    serverId: string;
+    points: number;
+    level: number;
+    lastActiveAt: string;
+    updatedAt: string;
+}
+
+export interface HouseBotSettings {
+    serverId: string;
+    enabled: boolean;
+    greetingEnabled: boolean;
+    greetingMessage?: string | null;
+    greetingChannelId?: string | null;
+    engagementEnabled: boolean;
+    liveNotificationsEnabled: boolean;
+    liveNotificationsChannelId?: string | null;
+    llmEnabled: boolean;
+    llmConfig: Record<string, any>;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface DiscordEmojiMapping {
+    id: string;
+    serverId: string;
+    skerryEmojiId: string;
+    discordEmojiId: string;
+    discordEmojiName: string;
+    createdAt: string;
+}
+

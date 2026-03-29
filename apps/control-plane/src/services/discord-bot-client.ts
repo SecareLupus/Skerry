@@ -57,6 +57,7 @@ export async function startDiscordBot() {
                 try {
                     const media = [
                         ...message.attachments.map(a => ({ url: a.url, sourceUrl: a.url })),
+                        ...message.stickers.map(s => ({ url: s.url, sourceUrl: s.url, filename: s.name, isSticker: true })),
                         ...message.embeds.map((e: any) => {
                             let url = e.video?.url || e.image?.url || e.thumbnail?.url;
 
@@ -274,6 +275,21 @@ export async function relayMatrixMessageToDiscord(input: {
         const skerryEmoji = emojis.find((e: any) => e.name === "skerry");
 
         let content = input.content;
+
+        // --- Emoji Mirroring ---
+        if (guild) {
+            const skerryEmojiMatches = content.match(/:emo_[a-zA-Z0-9_-]+:/g);
+            if (skerryEmojiMatches) {
+                for (const match of skerryEmojiMatches) {
+                    const skerryEmojiId = match.slice(1, -1); // remove colons
+                    const discordEmojiFound = await getOrMirrorEmoji(input.serverId, guild.id, skerryEmojiId);
+                    if (discordEmojiFound) {
+                        content = content.replace(match, `<:${discordEmojiFound.name}:${discordEmojiFound.id}>`);
+                    }
+                }
+            }
+        }
+
         if (skerryEmoji) {
             content = `${skerryEmoji} ${content}`;
         }
@@ -537,3 +553,67 @@ export async function fetchDiscordUserProfile(discordUserId: string) {
         return null;
     }
 }
+
+async function getOrMirrorEmoji(serverId: string, guildId: string, skerryEmojiId: string): Promise<{ id: string, name: string } | null> {
+    if (!client || !client.isReady()) return null;
+
+    return withDb(async (db) => {
+        // 1. Check mapping cache
+        const mappingRow = await db.query<{ discord_emoji_id: string, discord_emoji_name: string }>(
+            "select discord_emoji_id, discord_emoji_name from discord_emoji_mappings where server_id = $1 and skerry_emoji_id = $2",
+            [serverId, skerryEmojiId]
+        );
+        if (mappingRow.rows[0]) {
+            return {
+                id: mappingRow.rows[0].discord_emoji_id,
+                name: mappingRow.rows[0].discord_emoji_name
+            };
+        }
+
+        // 2. Fetch Skerry emoji info
+        const emojiRow = await db.query<{ name: string, url: string }>(
+            "select name, url from server_emojis where id = $1",
+            [skerryEmojiId]
+        );
+        if (!emojiRow.rows[0]) return null;
+
+        const { name, url } = emojiRow.rows[0];
+
+        try {
+            const guild = await client!.guilds.fetch(guildId);
+            const emojis = await guild.emojis.fetch();
+
+            // Check if it's already there but not in our mapping
+            const existing = emojis.find(e => e.name === name);
+            if (existing) {
+                await db.query(
+                    "insert into discord_emoji_mappings (id, server_id, skerry_emoji_id, discord_emoji_id, discord_emoji_name) values ($1, $2, $3, $4, $5)",
+                    [`dem_${crypto.randomUUID().replaceAll("-", "")}`, serverId, skerryEmojiId, existing.id, existing.name]
+                );
+                return { id: existing.id, name: existing.name };
+            }
+
+            // Check guild limits (simple check, 50 is base)
+            if (emojis.size >= 50) return null;
+
+            // 3. Upload to Discord
+            const discordEmoji = await guild.emojis.create({
+                attachment: url,
+                name: name,
+                reason: "Mirrored from Skerry"
+            });
+
+            // 4. Save mapping
+            await db.query(
+                "insert into discord_emoji_mappings (id, server_id, skerry_emoji_id, discord_emoji_id, discord_emoji_name) values ($1, $2, $3, $4, $5)",
+                [`dem_${crypto.randomUUID().replaceAll("-", "")}`, serverId, skerryEmojiId, discordEmoji.id, discordEmoji.name]
+            );
+
+            return { id: discordEmoji.id, name: discordEmoji.name };
+        } catch (error) {
+            console.error("[Discord Bridge] Failed to mirror emoji:", error);
+            return null;
+        }
+    });
+}
+

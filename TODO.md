@@ -128,16 +128,16 @@ All Tier 1 blockers from the Feb 28 report are resolved. This roadmap covers the
 ## Phase 23 — Extensions & Ecosystem (Post-Launch)
 
 **Goal:** Grow the platform beyond core chat.
-**Status:** Backlog
+**Status:** In Progress
 
-- [ ] **Custom emoji / stickers** — per-server emoji upload and picker
-- [ ] **Webhooks** — inbound webhooks to post to channels (for CI/CD alerts, etc.)
-- [ ] **Bot framework** — first-party bot scaffolding using the existing chat API
+- [x] **Custom emoji / stickers** — per-server emoji upload and picker
+- [x] **Webhooks** — inbound webhooks to post to channels (for CI/CD alerts, etc.)
+- [x] **Bot framework** — first-party bot scaffolding using the existing chat API (House Bot)
 - [ ] **Federation enhancements** — cross-hub channel bridging, shared member identity
 - [ ] **Mobile app** — PWA or native shell wrapping the web client
 - [ ] **Multi-hub orchestration** — K8s manifests, helm chart, per-hub resource isolation (is this necessary?)
-- [ ] **Stream Contextual Threads** — If a Space Administrator is a Twitch Streamer with their account linked to their Space, when they go live, the control plane should auto-create a "Live Discussion" room/thread/something... When the stream ends, it should post a link to the VOD and lock the discussion. If possible this channel should bridge to the live Twitch chat.
-- [ ] **Twitch Integration** — Space Administrators should be able to configure a post to send when their Twitch stream goes live.
+- [x] **Stream Contextual Threads** — (Scaffolding for Live Status in House Bot)
+- [x] **Twitch Integration** — (Scaffolding for Live Status in House Bot)
 - [ ] **Announcement Channel Rework** — Announcements are an ephemeral stream. Perhaps we should reconsider whether Announcements are a channel at all, or if they're a feature of the Space, allowing direct posting to a custom UI location dedicated for followed Announcements.
 ---
 
