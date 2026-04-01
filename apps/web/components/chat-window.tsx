@@ -16,8 +16,8 @@ import type { EmojiClickData } from "emoji-picker-react";
 import { VoiceRoom } from "./voice-room";
 import { EmbedCard } from "./embed-card";
 import DOMPurify from "dompurify";
-import ReactDOM from "react-dom";
 import { LandingJoinButton } from "./landing-join-button";
+import { LandingPageView } from "./landing-page-view";
 import type { Channel } from "@skerry/shared";
 
 
@@ -47,45 +47,7 @@ interface ChatWindowProps {
     refreshChatState: (serverId?: string, channelId?: string, messageId?: string) => Promise<void>;
 }
 
-function JoinButtonPortal({ target, serverId }: { target: HTMLElement, serverId: string }) {
-    return ReactDOM.createPortal(
-        <LandingJoinButton serverId={serverId} />,
-        target
-    );
-}
-
-function LandingPageView({ channel }: { channel: Channel }) {
-    const html = useMemo(() => {
-        if (!channel.topic) return "<div style='display:flex; align-items:center; justify-content:center; height:100%; opacity:0.6;'>No content configured for this landing page. Use 'Edit Room' to add HTML/CSS.</div>";
-        return DOMPurify.sanitize(channel.topic, {
-            ALLOWED_TAGS: ['div', 'span', 'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'a', 'b', 'i', 'strong', 'em', 'img', 'style', 'section', 'article', 'skerry-join-button'],
-            ALLOWED_ATTR: ['class', 'id', 'style', 'src', 'href', 'target'],
-            ADD_TAGS: ['skerry-join-button']
-        });
-    }, [channel.topic]);
-
-    const containerRef = useRef<HTMLDivElement>(null);
-    const [portalTargets, setPortalTargets] = useState<HTMLElement[]>([]);
-
-    useEffect(() => {
-        if (containerRef.current) {
-            const targets = Array.from(containerRef.current.querySelectorAll('skerry-join-button')) as HTMLElement[];
-            setPortalTargets(targets);
-        }
-    }, [html]);
-
-    return (
-        <div className="landing-page-container" ref={containerRef}>
-            <div 
-                className="landing-html-renderer"
-                dangerouslySetInnerHTML={{ __html: html }} 
-            />
-            {portalTargets.map((target, idx) => (
-                <JoinButtonPortal key={idx} target={target} serverId={channel.serverId} />
-            ))}
-        </div>
-    );
-}
+// LandingPageView is now imported from ./landing-page-view
 
 function MessageContent({ message }: { message: MessageItem }) {
     const content = message.content;
