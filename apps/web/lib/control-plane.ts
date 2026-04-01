@@ -489,6 +489,7 @@ export async function createChannel(input: {
   type: ChannelType;
   categoryId?: string;
   topic?: string;
+  styleContent?: string;
 }): Promise<Channel> {
   return apiFetch<Channel>("/v1/channels", {
     method: "POST",
@@ -567,6 +568,7 @@ export async function renameChannel(input: {
   type?: ChannelType;
   categoryId?: string | null;
   topic?: string | null;
+  styleContent?: string | null;
   position?: number;
 }): Promise<Channel> {
   return updateChannel(input.channelId, {
@@ -575,6 +577,7 @@ export async function renameChannel(input: {
     type: input.type,
     categoryId: input.categoryId,
     topic: input.topic,
+    styleContent: input.styleContent,
     position: input.position
   });
 }
@@ -587,6 +590,7 @@ export async function updateChannel(
     type?: ChannelType;
     categoryId?: string | null;
     topic?: string | null;
+    styleContent?: string | null;
     position?: number;
   }
 ): Promise<Channel> {

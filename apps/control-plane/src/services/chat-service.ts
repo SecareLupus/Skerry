@@ -11,6 +11,22 @@ function randomId(prefix: string): string {
   return `${prefix}_${crypto.randomUUID().replaceAll("-", "")}`;
 }
 
+export function validateChannelStyle(style: string | null | undefined): void {
+  if (!style) return;
+
+  if (style.toLowerCase().includes("@import")) {
+    throw new Error("CSS Safety: @import is not allowed.");
+  }
+
+  // Find all url(...) patterns and ensure they only use data: URIs
+  const urlMatches = style.matchAll(/url\s*\(\s*(['"]?)(.*?)\1\s*\)/gi);
+  for (const match of urlMatches) {
+    const urlContent = (match[2] || "").trim();
+    if (urlContent && !urlContent.startsWith("data:")) {
+      throw new Error("CSS Safety: External url() resources are not allowed. Only data: URIs are permitted.");
+    }
+  }
+}
 
 interface ChannelRow {
   id: string;
@@ -32,6 +48,7 @@ interface ChannelRow {
   video_max_participants: number | null;
   position: number;
   topic: string | null;
+  style_content: string | null;
   created_at: string;
 }
 
@@ -100,6 +117,7 @@ function mapChannel(row: ChannelRow): Channel {
     hubMemberAccess: row.hub_member_access as any,
     visitorAccess: row.visitor_access as any,
     topic: row.topic,
+    styleContent: row.style_content,
     createdAt: row.created_at
   };
 }
@@ -1116,8 +1134,11 @@ export async function updateChannel(input: {
   type?: Channel["type"];
   categoryId?: string | null;
   topic?: string | null;
+  styleContent?: string | null;
   position?: number;
 }): Promise<Channel> {
+  validateChannelStyle(input.styleContent);
+
   return withDb(async (db) => {
     if (input.categoryId) {
       const category = await db.query<{ id: string }>(
@@ -1135,7 +1156,8 @@ export async function updateChannel(input: {
     type = coalesce($2, type),
     category_id = case when $3 = 'REMOVED_VAL' then null else coalesce($4, category_id) end,
       position = coalesce($5, position),
-      topic = case when $8 = 'REMOVED_VAL' then null else coalesce($9, topic) end
+      topic = case when $8 = 'REMOVED_VAL' then null else coalesce($9, topic) end,
+      style_content = case when $10 = 'REMOVED_VAL' then null else coalesce($11, style_content) end
        where id = $6 and server_id = $7
   returning * `,
       [
@@ -1147,7 +1169,9 @@ export async function updateChannel(input: {
         input.channelId,
         input.serverId,
         input.topic === null ? "REMOVED_VAL" : "NORMAL",
-        input.topic ?? null
+        input.topic ?? null,
+        input.styleContent === null ? "REMOVED_VAL" : "NORMAL",
+        input.styleContent ?? null
       ]
     );
 

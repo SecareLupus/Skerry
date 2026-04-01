@@ -172,6 +172,7 @@ export interface Channel {
     hubMemberAccess: AccessLevel;
     visitorAccess: AccessLevel;
     topic: string | null;
+    styleContent?: string | null;
     participants?: { productUserId: string; displayName: string }[];
     createdAt: string;
 }

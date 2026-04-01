@@ -557,7 +557,8 @@ export async function registerDomainRoutes(app: FastifyInstance): Promise<void> 
         categoryId: z.string().optional(),
         name: z.string().min(2).max(80),
         type: z.enum(["text", "voice", "announcement", "forum", "landing"]),
-        topic: z.string().optional()
+        topic: z.string().optional(),
+        styleContent: z.string().optional()
       })
       .parse(request.body);
 
@@ -1486,6 +1487,7 @@ export async function registerDomainRoutes(app: FastifyInstance): Promise<void> 
         type: z.enum(["text", "voice", "announcement", "forum", "landing"]).optional(),
         categoryId: z.string().min(1).nullable().optional(),
         topic: z.string().nullable().optional(),
+        styleContent: z.string().nullable().optional(),
         position: z.number().int().min(0).optional()
       })
       .parse(request.body);
@@ -1513,6 +1515,7 @@ export async function registerDomainRoutes(app: FastifyInstance): Promise<void> 
       type: payload.type,
       categoryId: payload.categoryId,
       topic: payload.topic,
+      styleContent: payload.styleContent,
       position: payload.position
     });
   });
