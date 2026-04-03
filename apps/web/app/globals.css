@@ -107,6 +107,31 @@
   background: var(--bg-strong);
 }
 
+.guide-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.5rem 1rem;
+  align-items: center;
+}
+
+.guide-grid code {
+  background: var(--surface);
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  color: var(--accent);
+  font-weight: 600;
+  font-family: monospace;
+  white-space: nowrap;
+}
+
+.guide-grid span {
+  opacity: 0.8;
+}
+
+.guide-toggle:hover {
+  border-color: var(--accent) !important;
+}
+
 * {
   box-sizing: border-box;
 }

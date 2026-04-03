@@ -202,6 +202,7 @@ export function ChatClient() {
   const { state, dispatch: originalDispatch } = useChat();
   const [previewWidth, setPreviewWidth] = useState<number>(600);
   const [isPreviewCollapsed, setIsPreviewCollapsed] = useState<boolean>(false);
+  const [isGuideOpen, setIsGuideOpen] = useState<boolean>(false);
   const isResizingRef = useRef(false);
 
   useEffect(() => {
@@ -2344,6 +2345,53 @@ export function ChatClient() {
                                   <option key={t.id} value={t.id}>{t.name}</option>
                                 ))}
                               </select>
+                            </div>
+                            <div className="creator-guide" style={{ marginBottom: '1.5rem' }}>
+                              <button 
+                                type="button" 
+                                className="ghost guide-toggle" 
+                                onClick={() => setIsGuideOpen(!isGuideOpen)}
+                                style={{ width: '100%', justifyContent: 'space-between', padding: '0.6rem 1rem', borderRadius: isGuideOpen ? '12px 12px 0 0' : '12px' }}
+                              >
+                                <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                  <span style={{ fontSize: '1.1rem' }}>📖</span> 
+                                  <strong>Style & Variable Guide</strong>
+                                </span>
+                                <span>{isGuideOpen ? '▼' : '▶'}</span>
+                              </button>
+                              
+                              {isGuideOpen && (
+                                <div className="guide-content stack" style={{ gap: '1rem', padding: '1.25rem', background: 'var(--surface-alt)', borderRadius: '0 0 12px 12px', border: '1px solid var(--border)', borderTop: 'none', fontSize: '0.85rem' }}>
+                                  <div className="stack" style={{ gap: '0.6rem' }}>
+                                    <h4 style={{ margin: 0, fontSize: '0.9rem', color: 'var(--accent)' }}>Interpolation Tokens</h4>
+                                    <p style={{ margin: 0, opacity: 0.8 }}>Use these in your HTML to display dynamic content:</p>
+                                    <div className="guide-grid">
+                                      <code>{"{{hubName}}"}</code> <span>Site/Hub name</span>
+                                      <code>{"{{serverName}}"}</code> <span>Room/Space name</span>
+                                      <code>{"{{viewerName}}"}</code> <span>Visitor name</span>
+                                      <code>{"{{memberCount}}"}</code> <span>Total members</span>
+                                    </div>
+                                  </div>
+
+                                  <div className="stack" style={{ gap: '0.6rem' }}>
+                                    <h4 style={{ margin: 0, fontSize: '0.9rem', color: 'var(--accent)' }}>Design Tokens (CSS)</h4>
+                                    <p style={{ margin: 0, opacity: 0.8 }}>Use these for theme-aware styling:</p>
+                                    <div className="guide-grid">
+                                      <code>var(--sk-accent)</code> <span>Primary accent</span>
+                                      <code>var(--sk-text)</code> <span>Primary text</span>
+                                      <code>var(--sk-bg)</code> <span>App background</span>
+                                      <code>var(--sk-surface)</code> <span>Surface layer</span>
+                                    </div>
+                                  </div>
+
+                                  <div className="stack" style={{ gap: '0.6rem' }}>
+                                    <h4 style={{ margin: 0, fontSize: '0.9rem', color: 'var(--accent)' }}>Custom Components</h4>
+                                    <div className="guide-grid">
+                                      <code>&lt;skerry-join-button&gt;</code> <span>Interactive join button</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
                             </div>
 
                             <label>Landing Page HTML</label>
