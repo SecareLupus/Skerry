@@ -93,13 +93,17 @@ export function CodeEditor({ value, onChange, language, placeholder, style, onUp
                 />
             </div>
             <style jsx global>{`
-                .skerry-code-editor textarea {
-                    outline: none !important;
-                    white-space: pre !important; /* Ensure textarea doesn't wrap */
-                    overflow-wrap: normal !important;
+                .skerry-code-editor {
+                    min-width: 100%;
+                    width: max-content;
                 }
+                .skerry-code-editor textarea,
                 .skerry-code-editor pre {
+                    outline: none !important;
                     white-space: pre !important; 
+                    overflow-wrap: normal !important;
+                    min-width: 100% !important;
+                    width: max-content !important;
                 }
                 
                 /* Simple Prism Theme Overrides to match Skerry */
