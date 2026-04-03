@@ -2291,7 +2291,7 @@ export function ChatClient() {
                   {renameRoomType === "landing" ? (
                     <div style={{ display: 'flex', gap: '2rem', height: '100%', overflow: 'hidden' }}>
                       {/* Left Side: Editor */}
-                      <div className="stack scroll-container" style={{ flex: '1', minWidth: '350px' }}>
+                      <div className="stack scroll-container scrollable-pane" style={{ flex: '1', minWidth: '350px', overflowY: 'auto' }}>
                         <div className="stack" style={{ gap: '1.5rem', padding: '1.5rem' }}>
                           <form className="stack" onSubmit={(event: React.FormEvent<HTMLFormElement>) => {
                             void handleRenameRoom(event);
