@@ -1763,7 +1763,6 @@ export function ChatClient() {
           >
             {theme === "light" ? "🌙" : "☀️"}
           </button>
-
           <button
             type="button"
             className="icon-button"
@@ -2028,10 +2027,10 @@ export function ChatClient() {
         activeModal && (
           <div className="modal-backdrop" style={{ display: 'flex' }} onClick={() => dispatch({ type: "SET_ACTIVE_MODAL", payload: null })}>
             <div 
-              className={cn("modal-panel", (activeModal === "rename-room" && renameRoomType === "landing") && "wide-layout")} 
+              className={cn("modal-panel", ((activeModal === "rename-room" && renameRoomType === "landing") || (activeModal === "create-room" && roomType === "landing")) && "wide-layout")} 
               onClick={(e) => e.stopPropagation()}
             >
-              <header className="modal-header">
+              <header className="modal-header" style={(activeModal === "rename-room" && renameRoomType === "landing") ? { padding: '1.5rem 1.5rem 0.75rem' } : {}}>
                 <h2>
                   {activeModal === "create-space" && "Create New Space"}
                   {activeModal === "create-category" && "Create New Category"}
@@ -2040,7 +2039,14 @@ export function ChatClient() {
                   {activeModal === "rename-category" && "Rename Category"}
                   {activeModal === "rename-room" && "Edit Room"}
                 </h2>
-                <button type="button" className="ghost" onClick={() => dispatch({ type: "SET_ACTIVE_MODAL", payload: null })}>×</button>
+                <button 
+                  type="button" 
+                  className="ghost" 
+                  onClick={() => dispatch({ type: "SET_ACTIVE_MODAL", payload: null })}
+                  style={{ borderRadius: '50%', padding: '0.5rem', width: '32px', height: '32px', minWidth: '32px' }}
+                >
+                  &times;
+                </button>
               </header>
 
               {activeModal === "create-space" && (
@@ -2072,7 +2078,7 @@ export function ChatClient() {
                       General
                     </button>
                     <button 
-                      className={cn("tab-button", spaceSettingsTab === "permissions")}
+                      className={cn("tab-button", spaceSettingsTab === "permissions" && "active")}
                       onClick={() => setSpaceSettingsTab("permissions")}
                     >
                       Permissions
@@ -2080,7 +2086,7 @@ export function ChatClient() {
                   </div>
 
                   {spaceSettingsTab === "general" ? (
-                    <form className="stack" onSubmit={(event: React.FormEvent<HTMLFormElement>) => {
+                    <form className="constrained-stack" onSubmit={(event: React.FormEvent<HTMLFormElement>) => {
                       void handleRenameSpace(event);
                       dispatch({ type: "SET_ACTIVE_MODAL", payload: null });
                     }}>
@@ -2107,7 +2113,7 @@ export function ChatClient() {
                               renameSpaceName.charAt(0).toUpperCase() || '?'
                             )}
                           </div>
-                          <div className="stack" style={{ gap: '0.4rem' }}>
+                          <div className="constrained-stack" style={{ gap: '0.4rem' }}>
                             <button
                               type="button"
                               className="ghost"
@@ -2164,7 +2170,7 @@ export function ChatClient() {
               )}
 
               {activeModal === "create-category" && (
-                <form className="stack" onSubmit={(event: React.FormEvent<HTMLFormElement>) => {
+                <form className="constrained-stack" onSubmit={(event: React.FormEvent<HTMLFormElement>) => {
                   void handleCreateCategory(event);
                   dispatch({ type: "SET_ACTIVE_MODAL", payload: null });
                 }}>
@@ -2183,8 +2189,8 @@ export function ChatClient() {
               )}
 
               {activeModal === "rename-category" && (
-                <div className="stack">
-                  <form className="stack" onSubmit={(event: React.FormEvent<HTMLFormElement>) => {
+                <div className="constrained-stack">
+                  <form className="constrained-stack" onSubmit={(event: React.FormEvent<HTMLFormElement>) => {
                     void handleRenameCategory(event);
                     dispatch({ type: "SET_ACTIVE_MODAL", payload: null });
                   }}>
@@ -2202,7 +2208,7 @@ export function ChatClient() {
                     <button type="submit" disabled={mutatingStructure}>Save Name</button>
                   </form>
 
-                  <div className="stack" style={{ borderTop: "1px solid var(--border)", paddingTop: "1rem" }}>
+                  <div className="constrained-stack" style={{ borderTop: "1px solid var(--border)", paddingTop: "1rem" }}>
                     <p>Reorder Category</p>
                     <div style={{ display: "flex", gap: "0.5rem" }}>
                       <button
@@ -2222,7 +2228,7 @@ export function ChatClient() {
                     </div>
                   </div>
 
-                  <div className="stack" style={{ borderTop: "1px solid var(--border)", paddingTop: "1rem" }}>
+                  <div className="constrained-stack" style={{ borderTop: "1px solid var(--border)", paddingTop: "1rem" }}>
                     <p>Danger Zone</p>
                     <button
                       type="button"
@@ -2249,7 +2255,7 @@ export function ChatClient() {
               )}
 
               {activeModal === "create-room" && (
-                <form className="stack" onSubmit={(event: React.FormEvent<HTMLFormElement>) => {
+                <form className="constrained-stack" onSubmit={(event: React.FormEvent<HTMLFormElement>) => {
                   void handleCreateRoom(event);
                   dispatch({ type: "SET_ACTIVE_MODAL", payload: null });
                 }}>
@@ -2285,7 +2291,7 @@ export function ChatClient() {
                   {renameRoomType === "landing" ? (
                     <div style={{ display: 'flex', gap: '2rem', height: '100%', overflow: 'hidden' }}>
                       {/* Left Side: Editor */}
-                      <div className="stack scroll-container" style={{ flex: '1', minWidth: '350px', overflowY: 'auto' }}>
+                      <div className="stack scroll-container" style={{ flex: '1', minWidth: '350px' }}>
                         <div className="stack" style={{ gap: '1.5rem', padding: '1.5rem' }}>
                           <form className="stack" onSubmit={(event: React.FormEvent<HTMLFormElement>) => {
                             void handleRenameRoom(event);
@@ -2388,7 +2394,7 @@ export function ChatClient() {
                             <button type="submit" disabled={mutatingStructure} style={{ padding: '1rem', fontSize: '1.1rem' }}>Save Changes</button>
                           </form>
 
-                          <div className="stack" style={{ borderTop: "1px solid var(--border)", paddingTop: "1rem" }}>
+                          <div className="constrained-stack" style={{ borderTop: "1px solid var(--border)", paddingTop: "1rem" }}>
                             <p>Room Organization</p>
                             <div style={{ display: "flex", gap: "0.5rem" }}>
                               <button
@@ -2408,7 +2414,7 @@ export function ChatClient() {
                             </div>
                           </div>
 
-                          <div className="stack" style={{ borderTop: "1px solid var(--border)", paddingTop: "1rem" }}>
+                          <div className="constrained-stack" style={{ borderTop: "1px solid var(--border)", paddingTop: "1rem" }}>
                             <p>Danger Zone</p>
                             <button
                               type="button"
@@ -2490,8 +2496,8 @@ export function ChatClient() {
                       </div>
 
                       {roomSettingsTab === "general" && (
-                        <>
-                          <form className="stack" style={{ width: '100%' }} onSubmit={(event: React.FormEvent<HTMLFormElement>) => {
+                        <div className="constrained-stack">
+                          <form className="constrained-stack" style={{ width: '100%' }} onSubmit={(event: React.FormEvent<HTMLFormElement>) => {
                             void handleRenameRoom(event);
                           }}>
                             <p>Editing Room: <strong>{channels.find(c => c.id === renameRoomId)?.name}</strong></p>
@@ -2545,7 +2551,7 @@ export function ChatClient() {
                             <button type="submit" disabled={mutatingStructure}>Save Changes</button>
                           </form>
 
-                          <div className="stack" style={{ borderTop: "1px solid var(--border)", paddingTop: "1rem", width: '100%' }}>
+                          <div className="constrained-stack" style={{ borderTop: "1px solid var(--border)", paddingTop: "1rem", width: '100%' }}>
                             <p>Reorder Room</p>
                             <div style={{ display: "flex", gap: "0.5rem" }}>
                               <button
@@ -2565,7 +2571,7 @@ export function ChatClient() {
                             </div>
                           </div>
 
-                          <div className="stack" style={{ borderTop: "1px solid var(--border)", paddingTop: "1rem", width: '100%' }}>
+                          <div className="constrained-stack" style={{ borderTop: "1px solid var(--border)", paddingTop: "1rem", width: '100%' }}>
                             <p>Danger Zone</p>
                             <button
                               type="button"
@@ -2581,7 +2587,7 @@ export function ChatClient() {
                               Delete Room
                             </button>
                           </div>
-                        </>
+                        </div>
                       )}
 
                       {roomSettingsTab === "permissions" && (

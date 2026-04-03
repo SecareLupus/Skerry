@@ -44,21 +44,21 @@
 }
 
 .modal-panel.wide-layout {
-  max-width: 1400px;
-  width: 98vw;
-  display: flex;
-  flex-direction: column;
-  padding: 0; /* Remove padding for edge-to-edge creator layout */
-  gap: 0;
-  overflow: hidden;
+  max-width: 1400px !important;
+  width: 98vw !important;
+  display: flex !important;
+  flex-direction: column !important;
+  padding: 0 !important; /* Remove padding for edge-to-edge creator layout */
+  gap: 0 !important;
+  overflow: hidden !important;
 }
 
 .creator-layout {
   display: flex !important;
   flex-direction: row !important;
-  height: calc(100vh - 150px);
-  min-height: 600px;
-  width: 100%;
+  height: calc(100vh - 120px) !important;
+  min-height: 600px !important;
+  width: 100% !important;
 }
 
 .creator-resizer {
@@ -448,7 +448,14 @@ body {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 0.5rem;
+}
+
+.constrained-stack {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.5rem;
   max-width: 480px;
+  width: 100%;
 }
 
 .wide-stack {
