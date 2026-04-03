@@ -15,6 +15,8 @@
   --sk-surface: var(--surface);
   --sk-text: var(--text);
   --sk-text-muted: var(--text-muted);
+  --sk-surface-alt: var(--surface-alt);
+  --sk-surface-strong: var(--strong);
   --sk-border: var(--border);
   --sk-accent: var(--accent);
   --sk-danger: var(--danger);
@@ -38,6 +40,8 @@
   --sk-surface: var(--surface);
   --sk-text: var(--text);
   --sk-text-muted: var(--text-muted);
+  --sk-surface-alt: var(--surface-alt);
+  --sk-surface-strong: var(--bg-strong);
   --sk-border: var(--border);
   --sk-accent: var(--accent);
   --sk-danger: var(--danger);
@@ -468,21 +472,21 @@ label {
 }
 
 input {
-  border: 1px solid var(--border);
+  border: 1px solid var(--sk-border);
   border-radius: 0.6rem;
   padding: 0.65rem 0.8rem;
   font: inherit;
-  color: inherit;
-  background: var(--surface-alt);
+  color: var(--sk-text);
+  background: var(--sk-surface-alt);
 }
 
 select {
-  border: 1px solid var(--border);
+  border: 1px solid var(--sk-border);
   border-radius: 0.6rem;
   padding: 0.55rem 0.7rem;
   font: inherit;
-  color: inherit;
-  background: var(--surface-alt);
+  color: var(--sk-text);
+  background: var(--sk-surface-alt);
 }
 
 button,

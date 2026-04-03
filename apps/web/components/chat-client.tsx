@@ -2467,8 +2467,8 @@ export function ChatClient() {
                             ×
                           </button>
                         </div>
-                        <div className="preview-content">
-                          <ThemeEngine key={`theme-engine-${selectedServerId}`} />
+                        <div className="preview-content preview-theme-root">
+                          <ThemeEngine key={`theme-engine-${selectedServerId}`} scopeSelector=".preview-theme-root" />
                           <LandingPageView 
                             key={`preview-${renameRoomTopic.length}-${renameRoomStyleContent?.length}`}
                             topic={renameRoomTopic} 

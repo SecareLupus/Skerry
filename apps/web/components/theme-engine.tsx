@@ -7,13 +7,14 @@ import type { Hub, Server } from "@skerry/shared";
 interface ThemeEngineProps {
     hub?: Hub;
     server?: Server;
+    scopeSelector?: string;
 }
 
 /**
  * ThemeEngine handles the hierarchical CSS variable injection.
  * Priority: Default (globals.css) < Hub < Server
  */
-export function ThemeEngine({ hub, server }: ThemeEngineProps) {
+export function ThemeEngine({ hub, server, scopeSelector }: ThemeEngineProps) {
     const { state } = useChat();
     const activeHub = hub || state.hubs.find(h => h.id === server?.hubId) || state.hubs[0];
     const activeServer = server || state.servers.find(s => s.id === state.selectedServerId);
@@ -52,12 +53,14 @@ export function ThemeEngine({ hub, server }: ThemeEngineProps) {
             .map(([k, v]) => `  ${k}: ${v} !important;`)
             .join("\n");
 
+        const selector = scopeSelector || ':root, [data-theme="dark"]';
+
         return `
-            :root, [data-theme="dark"] {
+            ${selector} {
             ${decls}
             }
         `;
-    }, [cssVariables]);
+    }, [cssVariables, scopeSelector]);
 
     if (!styleContent) return null;
 
