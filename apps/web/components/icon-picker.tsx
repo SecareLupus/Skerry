@@ -10,9 +10,10 @@ const EmojiPicker = dynamic(() => import("emoji-picker-react"), { ssr: false }) 
 interface IconPickerProps {
   value: string;
   onChange: (value: string) => void;
+  defaultIcon?: string;
 }
 
-export function IconPicker({ value, onChange }: IconPickerProps) {
+export function IconPicker({ value, onChange, defaultIcon = "💬" }: IconPickerProps) {
   const isUrl = value.startsWith("http") || value.startsWith("/");
   const [mode, setMode] = useState<"emoji" | "url">(isUrl ? "url" : "emoji");
   const [isPickerOpen, setIsPickerOpen] = useState(false);
@@ -51,7 +52,7 @@ export function IconPicker({ value, onChange }: IconPickerProps) {
           {isUrl ? (
             <img src={value} alt="icon" onError={(e) => (e.currentTarget.style.display = "none")} />
           ) : (
-            <span className="emoji-display">{value || "💬"}</span>
+            <span className="emoji-display">{value || defaultIcon}</span>
           )}
         </div>
 
@@ -62,7 +63,7 @@ export function IconPicker({ value, onChange }: IconPickerProps) {
             onClick={() => handleModeSwitch("emoji")}
             title="Emoji"
           >
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10" />
               <path d="M8 14s1.5 2 4 2 4-2 4-2" />
               <line x1="9" y1="9" x2="9.01" y2="9" />
@@ -75,7 +76,7 @@ export function IconPicker({ value, onChange }: IconPickerProps) {
             onClick={() => handleModeSwitch("url")}
             title="Image URL"
           >
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10" />
               <line x1="2" y1="12" x2="22" y2="12" />
               <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
@@ -132,43 +133,48 @@ export function IconPicker({ value, onChange }: IconPickerProps) {
           flex-shrink: 0;
           font-size: 1.5rem;
           border: 1px solid rgba(255, 255, 255, 0.1);
+          color: white;
         }
         .icon-preview-circle img {
           width: 100%;
           height: 100%;
           object-fit: cover;
         }
+        .emoji-display {
+          font-weight: 600;
+        }
         .icon-mode-toggles {
           display: flex;
           gap: 0.5rem;
           padding: 4px;
-          background: rgba(0, 0, 0, 0.2);
+          background: rgba(0, 0, 0, 0.3);
           border-radius: 10px;
         }
         .mode-toggle-btn {
-          width: 32px;
-          height: 32px;
+          width: 36px;
+          height: 36px;
           display: flex;
           align-items: center;
           justify-content: center;
           border-radius: 8px;
           border: none;
           background: transparent;
-          color: var(--text-muted);
+          color: white;
           cursor: pointer;
           transition: all 0.2s ease;
         }
         .mode-toggle-btn.active {
-          background: var(--surface);
+          background: rgba(255, 255, 255, 0.15);
           color: var(--primary);
           box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
           opacity: 1;
         }
         .mode-toggle-btn.inactive {
-          opacity: 0.4;
+          opacity: 0.6;
         }
         .mode-toggle-btn.inactive:hover {
-          opacity: 0.7;
+          opacity: 1;
+          background: rgba(255, 255, 255, 0.05);
         }
         .url-input-wrapper {
           flex: 1;

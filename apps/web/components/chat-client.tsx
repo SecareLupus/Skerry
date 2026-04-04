@@ -14,7 +14,7 @@ import { ContextMenu, ContextMenuItem } from "./context-menu";
 import { PermissionsEditor } from "./permissions-editor";
 import { IconPicker } from "./icon-picker";
 import type { Category, Channel, ChannelType, ChatMessage, MentionMarker, ModerationAction, ModerationReport, Server, VoicePresenceMember, VoiceTokenGrant } from "@skerry/shared";
-import { getChannelName } from "../lib/channel-utils";
+import { getChannelName, getChannelIcon } from "../lib/channel-utils";
 import { ThreadPanel } from "./thread-panel";
 import {
   bootstrapAdmin,
@@ -2291,7 +2291,11 @@ export function ChatClient() {
                     </select>
 
                   <label>Room Icon</label>
-                  <IconPicker value={roomIcon} onChange={setRoomIcon} />
+                  <IconPicker 
+                    value={roomIcon} 
+                    onChange={setRoomIcon} 
+                    defaultIcon={getChannelIcon({ type: roomType } as Channel)}
+                  />
 
                   <button type="submit" disabled={creatingRoom}>Create Room</button>
                 </form>
@@ -2332,7 +2336,8 @@ export function ChatClient() {
                               <label>Room Icon</label>
                               <IconPicker 
                                 value={renameRoomIconUrl || ""} 
-                                onChange={(val) => dispatch({ type: "SET_RENAME_ROOM", payload: { id: renameRoomId, name: renameRoomName, type: renameRoomType, categoryId: renameRoomCategoryId, topic: renameRoomTopic, iconUrl: val, styleContent: renameRoomStyleContent } })} 
+                                onChange={(val) => dispatch({ type: "SET_RENAME_ROOM", payload: { id: renameRoomId, iconUrl: val } })} 
+                                defaultIcon={getChannelIcon({ type: renameRoomType } as Channel)}
                               />
 
                               <label htmlFor="rename-room-template">Start from Template</label>
@@ -2581,6 +2586,7 @@ export function ChatClient() {
                             <IconPicker 
                               value={renameRoomIconUrl || ""} 
                               onChange={(val) => dispatch({ type: "SET_RENAME_ROOM", payload: { id: renameRoomId, name: renameRoomName, type: renameRoomType, iconUrl: val } })} 
+                              defaultIcon={getChannelIcon({ type: renameRoomType } as Channel)}
                             />
 
                             <label htmlFor="rename-room-topic">Room Topic</label>
