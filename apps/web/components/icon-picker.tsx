@@ -63,7 +63,7 @@ export function IconPicker({ value, onChange, defaultIcon = "💬" }: IconPicker
             onClick={() => handleModeSwitch("emoji")}
             title="Emoji"
           >
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10" />
               <path d="M8 14s1.5 2 4 2 4-2 4-2" />
               <line x1="9" y1="9" x2="9.01" y2="9" />
@@ -76,12 +76,26 @@ export function IconPicker({ value, onChange, defaultIcon = "💬" }: IconPicker
             onClick={() => handleModeSwitch("url")}
             title="Image URL"
           >
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10" />
               <line x1="2" y1="12" x2="22" y2="12" />
               <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
             </svg>
           </button>
+          {value && (
+            <button
+              type="button"
+              className="mode-toggle-btn reset-btn"
+              onClick={() => onChange("")}
+              title="Reset to Default"
+            >
+              <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 6h18" />
+                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+              </svg>
+            </button>
+          )}
         </div>
 
         {mode === "url" && (
@@ -115,25 +129,26 @@ export function IconPicker({ value, onChange, defaultIcon = "💬" }: IconPicker
         .icon-picker-header {
           display: flex;
           align-items: center;
-          gap: 1rem;
+          gap: 1.15rem;
           background: var(--surface-alt);
-          padding: 0.75rem;
-          border-radius: 16px;
+          padding: 1rem;
+          border-radius: 18px;
           border: 1px solid rgba(255, 255, 255, 0.05);
         }
         .icon-preview-circle {
-          width: 48px;
-          height: 48px;
-          border-radius: 14px;
+          width: 56px;
+          height: 56px;
+          border-radius: 16px;
           background: rgba(255, 255, 255, 0.03);
           display: flex;
           align-items: center;
           justify-content: center;
           overflow: hidden;
           flex-shrink: 0;
-          font-size: 1.5rem;
+          font-size: 1.85rem;
           border: 1px solid rgba(255, 255, 255, 0.1);
           color: white;
+          box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
         }
         .icon-preview-circle img {
           width: 100%;
@@ -146,28 +161,28 @@ export function IconPicker({ value, onChange, defaultIcon = "💬" }: IconPicker
         .icon-mode-toggles {
           display: flex;
           gap: 0.5rem;
-          padding: 4px;
+          padding: 6px;
           background: rgba(0, 0, 0, 0.3);
-          border-radius: 10px;
+          border-radius: 14px;
         }
         .mode-toggle-btn {
-          width: 36px;
-          height: 36px;
+          width: 50px;
+          height: 50px;
           display: flex;
           align-items: center;
           justify-content: center;
-          border-radius: 8px;
+          border-radius: 12px;
           border: none;
           background: transparent;
           color: white;
           cursor: pointer;
-          transition: all 0.2s ease;
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .mode-toggle-btn.active {
           background: rgba(255, 255, 255, 0.15);
           color: var(--primary);
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-          opacity: 1;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+          transform: translateY(-1px);
         }
         .mode-toggle-btn.inactive {
           opacity: 0.6;
@@ -175,6 +190,15 @@ export function IconPicker({ value, onChange, defaultIcon = "💬" }: IconPicker
         .mode-toggle-btn.inactive:hover {
           opacity: 1;
           background: rgba(255, 255, 255, 0.05);
+          transform: translateY(-1px);
+        }
+        .reset-btn {
+          color: #ff4d4d;
+          opacity: 0.8 !important;
+        }
+        .reset-btn:hover {
+          background: rgba(255, 77, 77, 0.15);
+          opacity: 1 !important;
         }
         .url-input-wrapper {
           flex: 1;
