@@ -12,6 +12,7 @@ import { LandingPageView } from "./landing-page-view";
 import { useToast } from "./toast-provider";
 import { ContextMenu, ContextMenuItem } from "./context-menu";
 import { PermissionsEditor } from "./permissions-editor";
+import { IconPicker } from "./icon-picker";
 import type { Category, Channel, ChannelType, ChatMessage, MentionMarker, ModerationAction, ModerationReport, Server, VoicePresenceMember, VoiceTokenGrant } from "@skerry/shared";
 import { getChannelName } from "../lib/channel-utils";
 import { ThreadPanel } from "./thread-panel";
@@ -382,6 +383,7 @@ export function ChatClient() {
   const [spaceName, setSpaceName] = useState("New Space");
   const [roomName, setRoomName] = useState("new-room");
   const [roomType, setRoomType] = useState<ChannelType>("text");
+  const [roomIcon, setRoomIcon] = useState("");
   const [selectedHubIdForCreate, setSelectedHubIdForCreate] = useState<string | null>(null);
   const [categoryName, setCategoryName] = useState("New Category");
   const [spaceSettingsTab, setSpaceSettingsTab] = useState<"general" | "permissions">("general");
@@ -863,7 +865,7 @@ export function ChatClient() {
 
   useEffect(() => {
     const selected = channels.find((channel) => channel.id === selectedChannelId);
-    dispatch({ type: "SET_RENAME_ROOM", payload: { id: selected?.id ?? "", name: (selected?.name ?? "").replace(/^#/, ""), type: selected?.type ?? "text", categoryId: selected?.categoryId ?? null, topic: selected?.topic ?? "", styleContent: selected?.styleContent ?? "" } });
+    dispatch({ type: "SET_RENAME_ROOM", payload: { id: selected?.id ?? "", name: (selected?.name ?? "").replace(/^#/, ""), type: selected?.type ?? "text", categoryId: selected?.categoryId ?? null, topic: selected?.topic ?? "", styleContent: selected?.styleContent ?? "", iconUrl: selected?.iconUrl ?? null } });
     dispatch({ type: "SET_SELECTED_CATEGORY_FOR_CREATE", payload: selected?.categoryId ?? "" });
   }, [channels, selectedChannelId, dispatch]);
 
@@ -1342,10 +1344,11 @@ export function ChatClient() {
         type: roomType,
         categoryId: selectedCategoryIdForCreate || undefined,
         topic,
-        iconUrl: "", // Default to empty for now
+        iconUrl: roomIcon,
         styleContent
       });
       setRoomName("new-room");
+      setRoomIcon("");
       await refreshChatState(selectedServerId, created.id);
     } catch (cause) {
       dispatch({ type: "SET_ERROR", payload: cause instanceof Error ? cause.message : "Failed to create room." });
@@ -2286,6 +2289,10 @@ export function ChatClient() {
                       <option value="voice">Voice Room</option>
                       <option value="landing">Landing Page</option>
                     </select>
+
+                  <label>Room Icon</label>
+                  <IconPicker value={roomIcon} onChange={setRoomIcon} />
+
                   <button type="submit" disabled={creatingRoom}>Create Room</button>
                 </form>
               )}
@@ -2316,18 +2323,16 @@ export function ChatClient() {
                               <input
                                 id="rename-room-modal"
                                 value={renameRoomName}
-                                onChange={(e) => dispatch({ type: "SET_RENAME_ROOM", payload: { id: renameRoomId, name: e.target.value, type: renameRoomType, categoryId: renameRoomCategoryId, topic: renameRoomTopic, iconUrl: renameRoomIconUrl, styleContent: renameRoomStyleContent } })}
+                                onChange={(e) => dispatch({ type: "SET_RENAME_ROOM", payload: { id: renameRoomId, name: e.target.value, type: renameRoomType } })}
                                 minLength={2}
                                 maxLength={80}
                                 required
                               />
 
-                              <label htmlFor="rename-room-icon">Room Icon (Emoji or URL)</label>
-                              <input
-                                id="rename-room-icon"
-                                value={renameRoomIconUrl || ""}
-                                placeholder="e.g. 💬 or https://..."
-                                onChange={(e) => dispatch({ type: "SET_RENAME_ROOM", payload: { id: renameRoomId, name: renameRoomName, type: renameRoomType, categoryId: renameRoomCategoryId, topic: renameRoomTopic, iconUrl: e.target.value, styleContent: renameRoomStyleContent } })}
+                              <label>Room Icon</label>
+                              <IconPicker 
+                                value={renameRoomIconUrl || ""} 
+                                onChange={(val) => dispatch({ type: "SET_RENAME_ROOM", payload: { id: renameRoomId, name: renameRoomName, type: renameRoomType, categoryId: renameRoomCategoryId, topic: renameRoomTopic, iconUrl: val, styleContent: renameRoomStyleContent } })} 
                               />
 
                               <label htmlFor="rename-room-template">Start from Template</label>
@@ -2409,7 +2414,7 @@ export function ChatClient() {
                             <label>Landing Page HTML</label>
                             <CodeEditor 
                               value={renameRoomTopic} 
-                              onChange={(val) => dispatch({ type: "SET_RENAME_ROOM", payload: { id: renameRoomId, name: renameRoomName, type: renameRoomType, categoryId: renameRoomCategoryId, topic: val, iconUrl: renameRoomIconUrl, styleContent: renameRoomStyleContent } })} 
+                              onChange={(val) => dispatch({ type: "SET_RENAME_ROOM", payload: { id: renameRoomId, name: renameRoomName, type: renameRoomType, topic: val } })} 
                               language="html"
                               placeholder="<h1>Welcome</h1>"
                               onUploadImage={async () => {
@@ -2433,7 +2438,7 @@ export function ChatClient() {
                             <label>Landing Page CSS (Optional)</label>
                             <CodeEditor 
                               value={renameRoomStyleContent || ""} 
-                              onChange={(val) => dispatch({ type: "SET_RENAME_ROOM", payload: { id: renameRoomId, name: renameRoomName, type: renameRoomType, categoryId: renameRoomCategoryId, topic: renameRoomTopic, iconUrl: renameRoomIconUrl, styleContent: val } })} 
+                              onChange={(val) => dispatch({ type: "SET_RENAME_ROOM", payload: { id: renameRoomId, name: renameRoomName, type: renameRoomType, styleContent: val } })} 
                               language="css"
                               placeholder=".landing-page { color: gold; }"
                             />
@@ -2442,7 +2447,7 @@ export function ChatClient() {
                             <select
                               id="rename-room-type"
                               value={renameRoomType}
-                              onChange={(e) => dispatch({ type: "SET_RENAME_ROOM", payload: { id: renameRoomId, name: renameRoomName, type: e.target.value as any, categoryId: renameRoomCategoryId, topic: renameRoomTopic, iconUrl: renameRoomIconUrl, styleContent: renameRoomStyleContent } })}
+                              onChange={(e) => dispatch({ type: "SET_RENAME_ROOM", payload: { id: renameRoomId, name: renameRoomName, type: e.target.value as any } })}
                             >
                               <option value="text">Text Room</option>
                               <option value="announcement">Announcement Room</option>
@@ -2566,17 +2571,23 @@ export function ChatClient() {
                               id="rename-room-modal"
                               autoFocus
                               value={renameRoomName}
-                              onChange={(e) => dispatch({ type: "SET_RENAME_ROOM", payload: { id: renameRoomId, name: e.target.value, type: renameRoomType, categoryId: renameRoomCategoryId, topic: renameRoomTopic, styleContent: renameRoomStyleContent } })}
+                              onChange={(e) => dispatch({ type: "SET_RENAME_ROOM", payload: { id: renameRoomId, name: e.target.value, type: renameRoomType } })}
                               minLength={2}
                               maxLength={80}
                               required
+                            />
+
+                            <label>Room Icon</label>
+                            <IconPicker 
+                              value={renameRoomIconUrl || ""} 
+                              onChange={(val) => dispatch({ type: "SET_RENAME_ROOM", payload: { id: renameRoomId, name: renameRoomName, type: renameRoomType, iconUrl: val } })} 
                             />
 
                             <label htmlFor="rename-room-topic">Room Topic</label>
                             <input
                               id="rename-room-topic"
                               value={renameRoomTopic}
-                              onChange={(e) => dispatch({ type: "SET_RENAME_ROOM", payload: { id: renameRoomId, name: renameRoomName, type: renameRoomType, categoryId: renameRoomCategoryId, topic: e.target.value, styleContent: renameRoomStyleContent } })}
+                              onChange={(e) => dispatch({ type: "SET_RENAME_ROOM", payload: { id: renameRoomId, name: renameRoomName, type: renameRoomType, topic: e.target.value } })}
                               maxLength={255}
                               placeholder="Set a topic for this room..."
                             />
@@ -2585,7 +2596,7 @@ export function ChatClient() {
                             <select
                               id="rename-room-type"
                               value={renameRoomType}
-                              onChange={(e) => dispatch({ type: "SET_RENAME_ROOM", payload: { id: renameRoomId, name: renameRoomName, type: e.target.value as any, categoryId: renameRoomCategoryId, topic: renameRoomTopic, styleContent: renameRoomStyleContent } })}
+                              onChange={(e) => dispatch({ type: "SET_RENAME_ROOM", payload: { id: renameRoomId, name: renameRoomName, type: e.target.value as any } })}
                             >
                               <option value="text">Text Room</option>
                               <option value="announcement">Announcement Room</option>
@@ -2598,7 +2609,7 @@ export function ChatClient() {
                             <select
                               id="rename-room-category"
                               value={renameRoomCategoryId || ""}
-                              onChange={(e) => dispatch({ type: "SET_RENAME_ROOM", payload: { id: renameRoomId, name: renameRoomName, type: renameRoomType, categoryId: e.target.value || null, topic: renameRoomTopic, styleContent: renameRoomStyleContent } })}
+                              onChange={(e) => dispatch({ type: "SET_RENAME_ROOM", payload: { id: renameRoomId, name: renameRoomName, type: renameRoomType, categoryId: e.target.value || null } })}
                             >
                               <option value="">No Category</option>
                               {categories

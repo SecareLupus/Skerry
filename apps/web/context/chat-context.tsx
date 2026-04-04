@@ -399,10 +399,10 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
                 renameRoomId: action.payload.id,
                 renameRoomName: action.payload.name,
                 renameRoomType: action.payload.type,
-                renameRoomCategoryId: action.payload.categoryId,
-                renameRoomTopic: action.payload.topic ?? "",
-                renameRoomIconUrl: action.payload.iconUrl ?? null,
-                renameRoomStyleContent: action.payload.styleContent ?? ""
+                renameRoomCategoryId: action.payload.categoryId !== undefined ? action.payload.categoryId : state.renameRoomCategoryId,
+                renameRoomTopic: action.payload.topic !== undefined ? (action.payload.topic ?? "") : state.renameRoomTopic,
+                renameRoomIconUrl: action.payload.iconUrl !== undefined ? action.payload.iconUrl : state.renameRoomIconUrl,
+                renameRoomStyleContent: action.payload.styleContent !== undefined ? (action.payload.styleContent ?? "") : state.renameRoomStyleContent
             };
         case "SET_SELECTED_CATEGORY_FOR_CREATE":
             return { ...state, selectedCategoryIdForCreate: action.payload };
