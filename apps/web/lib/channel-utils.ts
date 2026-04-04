@@ -38,3 +38,27 @@ export const getChannelName = (channel: Channel, currentUserId?: string, fallbac
 
     return channel.name;
 };
+/**
+ * Returns the icon for a channel, either custom as defined in iconUrl 
+ * or a default based on the channel type.
+ */
+export const getChannelIcon = (channel: Channel): string => {
+    if (channel.iconUrl) {
+        return channel.iconUrl;
+    }
+
+    switch (channel.type) {
+        case 'landing':
+            return '🏠';
+        case 'voice':
+            return '🔊';
+        case 'announcement':
+            return '📢';
+        case 'forum':
+            return '🏛️';
+        case 'dm':
+            return '👤';
+        default:
+            return '#';
+    }
+};

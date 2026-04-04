@@ -4,7 +4,7 @@ import { withDb } from "../db/client.js";
 import { attachChildRoom, createChannelRoom, createSpace } from "../matrix/synapse-adapter.js";
 import { withRetry } from "./retry.js";
 import { applyFederationPolicyToRoom } from "./federation-service.js";
-import { validateChannelStyle } from "./chat-service.js";
+import { validateChannelStyle, type ChannelRow } from "./chat-service.js";
 
 function randomId(prefix: string): string {
   return `${prefix}_${crypto.randomUUID().replaceAll("-", "")}`;
@@ -135,6 +135,7 @@ export async function createChannelWorkflow(input: {
   name: string;
   type: ChannelType;
   topic?: string;
+  iconUrl?: string;
   styleContent?: string;
   idempotencyKey?: string;
 }): Promise<Channel> {
@@ -171,32 +172,10 @@ export async function createChannelWorkflow(input: {
 
     const defaultVisitorAccess = input.type === "landing" ? "read" : "hidden";
 
-    const created = await db.query<{
-      id: string;
-      server_id: string;
-      category_id: string | null;
-      name: string;
-      type: ChannelType;
-      matrix_room_id: string | null;
-      position: number;
-      is_locked: boolean;
-      slow_mode_seconds: number;
-      posting_restricted_to_roles: string[];
-      hub_admin_access: string;
-      space_member_access: string;
-      hub_member_access: string;
-      visitor_access: string;
-      voice_sfu_room_id: string | null;
-      voice_max_participants: number | null;
-      video_enabled: boolean;
-      video_max_participants: number | null;
-      topic: string | null;
-      style_content: string | null;
-      created_at: string;
-    }>(
+    const created = await db.query<ChannelRow>(
       `insert into channels
-       (id, server_id, category_id, name, type, matrix_room_id, position, topic, style_content, voice_sfu_room_id, voice_max_participants, video_enabled, video_max_participants, hub_admin_access, space_member_access, hub_member_access, visitor_access)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'chat', 'chat', 'chat', $14)
+       (id, server_id, category_id, name, type, matrix_room_id, position, topic, icon_url, style_content, voice_sfu_room_id, voice_max_participants, video_enabled, video_max_participants, hub_admin_access, space_member_access, hub_member_access, visitor_access)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'chat', 'chat', 'chat', $15)
        returning *`,
       [
         id,
@@ -207,6 +186,7 @@ export async function createChannelWorkflow(input: {
         matrixRoomId,
         position,
         input.topic ?? null,
+        input.iconUrl ?? null,
         input.styleContent ?? null,
         voiceRoomId,
         input.type === "voice" ? 25 : null,

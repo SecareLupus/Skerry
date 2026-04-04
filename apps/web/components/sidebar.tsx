@@ -4,7 +4,7 @@ import React, { useMemo } from "react";
 import Link from "next/link";
 import { useChat, ModalType } from "../context/chat-context";
 import { Channel, Server } from "@skerry/shared";
-import { getChannelName } from "../lib/channel-utils";
+import { getChannelName, getChannelIcon } from "../lib/channel-utils";
 import { ContextMenu, ContextMenuItem } from "./context-menu";
 import { upsertChannelReadState, joinServer } from "../lib/control-plane";
 
@@ -453,7 +453,7 @@ export function Sidebar({
                                                     onContextMenu={(e) => handleChannelContextMenu(e, channel)}
                                                 >
                                                     <span style={{ display: 'flex', alignItems: 'center', gap: '4px', opacity: (state.muteStatusByChannel[channel.id] || channel.hubMemberAccess === 'locked' || channel.spaceMemberAccess === 'locked') ? 0.5 : 1 }}>
-                                                        {channel.type === 'voice' ? '🔊' : (channel.type === 'landing' ? '🏠' : '#')}
+                                                        {getChannelIcon(channel)}
                                                         {getChannelName(channel, viewer?.productUserId)}
                                                         {state.muteStatusByChannel[channel.id] && <span title="Muted">🔇</span>}
                                                         {(channel.hubMemberAccess === 'locked' || channel.spaceMemberAccess === 'locked') && <span title="Locked">🔒</span>}

@@ -174,6 +174,7 @@ export interface Channel {
     hubMemberAccess: AccessLevel;
     visitorAccess: AccessLevel;
     topic: string | null;
+    iconUrl?: string | null;
     styleContent?: string | null;
     participants?: { productUserId: string; displayName: string }[];
     createdAt: string;
@@ -203,6 +204,7 @@ export interface CreateChannelRequest {
     name: string;
     type: ChannelType;
     topic?: string;
+    iconUrl?: string;
     idempotencyKey?: string;
 }
 

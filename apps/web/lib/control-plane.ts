@@ -489,6 +489,7 @@ export async function createChannel(input: {
   type: ChannelType;
   categoryId?: string;
   topic?: string;
+  iconUrl?: string;
   styleContent?: string;
 }): Promise<Channel> {
   return apiFetch<Channel>("/v1/channels", {
@@ -590,6 +591,7 @@ export async function updateChannel(
     type?: ChannelType;
     categoryId?: string | null;
     topic?: string | null;
+    iconUrl?: string | null;
     styleContent?: string | null;
     position?: number;
   }

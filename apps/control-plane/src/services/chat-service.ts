@@ -28,7 +28,7 @@ export function validateChannelStyle(style: string | null | undefined): void {
   }
 }
 
-interface ChannelRow {
+export interface ChannelRow {
   id: string;
   server_id: string;
   category_id: string | null;
@@ -48,6 +48,7 @@ interface ChannelRow {
   video_max_participants: number | null;
   position: number;
   topic: string | null;
+  icon_url: string | null;
   style_content: string | null;
   created_at: string;
 }
@@ -117,6 +118,7 @@ function mapChannel(row: ChannelRow): Channel {
     hubMemberAccess: row.hub_member_access as any,
     visitorAccess: row.visitor_access as any,
     topic: row.topic,
+    iconUrl: row.icon_url,
     styleContent: row.style_content,
     createdAt: row.created_at
   };
@@ -1134,6 +1136,7 @@ export async function updateChannel(input: {
   type?: Channel["type"];
   categoryId?: string | null;
   topic?: string | null;
+  iconUrl?: string | null;
   styleContent?: string | null;
   position?: number;
 }): Promise<Channel> {
@@ -1153,13 +1156,14 @@ export async function updateChannel(input: {
     const row = await db.query<ChannelRow>(
       `update channels
        set name = coalesce($1, name),
-    type = coalesce($2, type),
-    category_id = case when $3 = 'REMOVED_VAL' then null else coalesce($4, category_id) end,
+      type = coalesce($2, type),
+      category_id = case when $3 = 'REMOVED_VAL' then null else coalesce($4, category_id) end,
       position = coalesce($5, position),
       topic = case when $8 = 'REMOVED_VAL' then null else coalesce($9, topic) end,
+      icon_url = case when $12 = 'REMOVED_VAL' then null else coalesce($13, icon_url) end,
       style_content = case when $10 = 'REMOVED_VAL' then null else coalesce($11, style_content) end
        where id = $6 and server_id = $7
-  returning * `,
+      returning *`,
       [
         input.name ?? null,
         input.type ?? null,
@@ -1171,7 +1175,9 @@ export async function updateChannel(input: {
         input.topic === null ? "REMOVED_VAL" : "NORMAL",
         input.topic ?? null,
         input.styleContent === null ? "REMOVED_VAL" : "NORMAL",
-        input.styleContent ?? null
+        input.styleContent ?? null,
+        input.iconUrl === null ? "REMOVED_VAL" : "NORMAL",
+        input.iconUrl ?? null
       ]
     );
 

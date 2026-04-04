@@ -273,6 +273,7 @@ export function ChatClient() {
     renameRoomType,
     renameRoomCategoryId,
     renameRoomTopic,
+    renameRoomIconUrl,
     renameRoomStyleContent,
     selectedCategoryIdForCreate,
     unreadCountByChannel,
@@ -1341,6 +1342,7 @@ export function ChatClient() {
         type: roomType,
         categoryId: selectedCategoryIdForCreate || undefined,
         topic,
+        iconUrl: "", // Default to empty for now
         styleContent
       });
       setRoomName("new-room");
@@ -1544,6 +1546,7 @@ export function ChatClient() {
         type: renameRoomType,
         categoryId: renameRoomCategoryId,
         topic: renameRoomTopic,
+        iconUrl: renameRoomIconUrl,
         styleContent: renameRoomStyleContent
       });
       showToast("Room updated successfully", "success");
@@ -2313,10 +2316,18 @@ export function ChatClient() {
                               <input
                                 id="rename-room-modal"
                                 value={renameRoomName}
-                                onChange={(e) => dispatch({ type: "SET_RENAME_ROOM", payload: { id: renameRoomId, name: e.target.value, type: renameRoomType, categoryId: renameRoomCategoryId, topic: renameRoomTopic, styleContent: renameRoomStyleContent } })}
+                                onChange={(e) => dispatch({ type: "SET_RENAME_ROOM", payload: { id: renameRoomId, name: e.target.value, type: renameRoomType, categoryId: renameRoomCategoryId, topic: renameRoomTopic, iconUrl: renameRoomIconUrl, styleContent: renameRoomStyleContent } })}
                                 minLength={2}
                                 maxLength={80}
                                 required
+                              />
+
+                              <label htmlFor="rename-room-icon">Room Icon (Emoji or URL)</label>
+                              <input
+                                id="rename-room-icon"
+                                value={renameRoomIconUrl || ""}
+                                placeholder="e.g. 💬 or https://..."
+                                onChange={(e) => dispatch({ type: "SET_RENAME_ROOM", payload: { id: renameRoomId, name: renameRoomName, type: renameRoomType, categoryId: renameRoomCategoryId, topic: renameRoomTopic, iconUrl: e.target.value, styleContent: renameRoomStyleContent } })}
                               />
 
                               <label htmlFor="rename-room-template">Start from Template</label>
@@ -2334,6 +2345,7 @@ export function ChatClient() {
                                         type: renameRoomType, 
                                         categoryId: renameRoomCategoryId, 
                                         topic: template.html, 
+                                        iconUrl: renameRoomIconUrl,
                                         styleContent: template.css 
                                       } 
                                     });
@@ -2397,7 +2409,7 @@ export function ChatClient() {
                             <label>Landing Page HTML</label>
                             <CodeEditor 
                               value={renameRoomTopic} 
-                              onChange={(val) => dispatch({ type: "SET_RENAME_ROOM", payload: { id: renameRoomId, name: renameRoomName, type: renameRoomType, categoryId: renameRoomCategoryId, topic: val, styleContent: renameRoomStyleContent } })} 
+                              onChange={(val) => dispatch({ type: "SET_RENAME_ROOM", payload: { id: renameRoomId, name: renameRoomName, type: renameRoomType, categoryId: renameRoomCategoryId, topic: val, iconUrl: renameRoomIconUrl, styleContent: renameRoomStyleContent } })} 
                               language="html"
                               placeholder="<h1>Welcome</h1>"
                               onUploadImage={async () => {
@@ -2421,7 +2433,7 @@ export function ChatClient() {
                             <label>Landing Page CSS (Optional)</label>
                             <CodeEditor 
                               value={renameRoomStyleContent || ""} 
-                              onChange={(val) => dispatch({ type: "SET_RENAME_ROOM", payload: { id: renameRoomId, name: renameRoomName, type: renameRoomType, categoryId: renameRoomCategoryId, topic: renameRoomTopic, styleContent: val } })} 
+                              onChange={(val) => dispatch({ type: "SET_RENAME_ROOM", payload: { id: renameRoomId, name: renameRoomName, type: renameRoomType, categoryId: renameRoomCategoryId, topic: renameRoomTopic, iconUrl: renameRoomIconUrl, styleContent: val } })} 
                               language="css"
                               placeholder=".landing-page { color: gold; }"
                             />
@@ -2430,7 +2442,7 @@ export function ChatClient() {
                             <select
                               id="rename-room-type"
                               value={renameRoomType}
-                              onChange={(e) => dispatch({ type: "SET_RENAME_ROOM", payload: { id: renameRoomId, name: renameRoomName, type: e.target.value as any, categoryId: renameRoomCategoryId, topic: renameRoomTopic, styleContent: renameRoomStyleContent } })}
+                              onChange={(e) => dispatch({ type: "SET_RENAME_ROOM", payload: { id: renameRoomId, name: renameRoomName, type: e.target.value as any, categoryId: renameRoomCategoryId, topic: renameRoomTopic, iconUrl: renameRoomIconUrl, styleContent: renameRoomStyleContent } })}
                             >
                               <option value="text">Text Room</option>
                               <option value="announcement">Announcement Room</option>

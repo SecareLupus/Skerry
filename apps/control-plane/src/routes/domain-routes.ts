@@ -558,6 +558,7 @@ export async function registerDomainRoutes(app: FastifyInstance): Promise<void> 
         name: z.string().min(2).max(80),
         type: z.enum(["text", "voice", "announcement", "forum", "landing"]),
         topic: z.string().optional(),
+        iconUrl: z.string().optional(),
         styleContent: z.string().optional()
       })
       .parse(request.body);
@@ -1485,10 +1486,11 @@ export async function registerDomainRoutes(app: FastifyInstance): Promise<void> 
         serverId: z.string().min(1),
         name: z.string().min(2).max(80).optional(),
         type: z.enum(["text", "voice", "announcement", "forum", "landing"]).optional(),
-        categoryId: z.string().min(1).nullable().optional(),
+        categoryId: z.string().nullable().optional(),
         topic: z.string().nullable().optional(),
+        iconUrl: z.string().nullable().optional(),
         styleContent: z.string().nullable().optional(),
-        position: z.number().int().min(0).optional()
+        position: z.number().optional()
       })
       .parse(request.body);
 

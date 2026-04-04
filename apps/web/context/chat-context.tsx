@@ -108,6 +108,7 @@ export interface ChatState {
     renameRoomType: ChannelType;
     renameRoomCategoryId: string | null;
     renameRoomTopic: string;
+    renameRoomIconUrl: string | null;
     renameRoomStyleContent: string;
     selectedCategoryIdForCreate: string;
     isNearBottom: boolean;
@@ -192,7 +193,7 @@ type ChatAction =
     | { type: "SET_CHANNEL_FILTER"; payload: string }
     | { type: "SET_RENAME_SPACE"; payload: { id: string; name: string; iconUrl?: string | null } }
     | { type: "SET_RENAME_CATEGORY"; payload: { id: string; name: string } }
-    | { type: "SET_RENAME_ROOM"; payload: { id: string; name: string; type: ChannelType; categoryId: string | null; topic?: string | null; styleContent?: string | null } }
+    | { type: "SET_RENAME_ROOM"; payload: { id: string; name: string; type: ChannelType; categoryId: string | null; topic?: string | null; iconUrl?: string | null; styleContent?: string | null } }
     | { type: "SET_SELECTED_CATEGORY_FOR_CREATE"; payload: string }
     | { type: "SET_NEAR_BOTTOM"; payload: boolean }
     | { type: "SET_PENDING_NEW_MESSAGE_COUNT"; payload: number }
@@ -281,6 +282,7 @@ const initialState: ChatState = {
     renameRoomType: "text",
     renameRoomCategoryId: null,
     renameRoomTopic: "",
+    renameRoomIconUrl: null,
     renameRoomStyleContent: "",
     selectedCategoryIdForCreate: "",
     isNearBottom: true,
@@ -399,6 +401,7 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
                 renameRoomType: action.payload.type,
                 renameRoomCategoryId: action.payload.categoryId,
                 renameRoomTopic: action.payload.topic ?? "",
+                renameRoomIconUrl: action.payload.iconUrl ?? null,
                 renameRoomStyleContent: action.payload.styleContent ?? ""
             };
         case "SET_SELECTED_CATEGORY_FOR_CREATE":
