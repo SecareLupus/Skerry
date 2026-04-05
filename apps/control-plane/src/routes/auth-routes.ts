@@ -484,7 +484,6 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
       productUserId: actor.productUserId,
       provider: actor.provider,
       oidcSubject: actor.oidcSubject,
-      expiresAt: Math.floor(Date.now() / 1000) + (15 * 60), // 15 minutes for token
       realProductUserId: actor.productUserId,
       masqueradeRole: role,
       masqueradeServerId: serverId,
@@ -516,7 +515,7 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
       productUserId: auth.realProductUserId,
       provider: originalIdentity.provider,
       oidcSubject: originalIdentity.oidcSubject,
-      expiresAt: Math.floor(Date.now() / 1000) + (24 * 60 * 60) // 24 hours
+      expiresAt: Date.now() + (24 * 60 * 60 * 1000) // 24 hours in MS
     };
 
     setSessionCookie(reply, payload);

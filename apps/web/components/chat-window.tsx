@@ -175,7 +175,8 @@ export function ChatWindow({
         allowedActions,
         discordMappings,
         discordConnection,
-        quotingMessage
+        quotingMessage,
+        members
     } = state;
 
     const [contextMenu, setContextMenu] = useState<{ x: number; y: number; message: MessageItem | null } | null>(null);
@@ -188,7 +189,7 @@ export function ChatWindow({
     const [isUploading, setIsUploading] = useState(false);
     const [reactionTargetMessageId, setReactionTargetMessageId] = useState<string | null>(null);
     const [reactionPickerPos, setReactionPickerPos] = useState<{ x: number; y: number } | null>(null);
-    const [channelMembers, setChannelMembers] = useState<{ productUserId: string; displayName: string }[]>([]);
+
     const [isEditingTopic, setIsEditingTopic] = useState(false);
     const [attachments, setAttachments] = useState<any[]>([]);
     const [lastTypingSentAt, setLastTypingSentAt] = useState<number>(0);
@@ -318,31 +319,24 @@ export function ChatWindow({
     }, [messages, state.pendingActionIds]);
 
     useEffect(() => {
-        if (selectedChannelId && activeChannelData?.type === "dm") {
-            void listChannelMembers(selectedChannelId).then(setChannelMembers);
-        } else {
-            setChannelMembers([]);
-        }
         setIsEditingTopic(false);
         setIsInviting(false);
-    }, [selectedChannelId, activeChannelData?.type]);
+    }, [selectedChannelId]);
 
     const dmTitle = useMemo(() => {
         if (!activeChannelData || activeChannelData.type !== "dm") return null;
-        return getChannelName(activeChannelData, viewer?.productUserId, channelMembers);
-    }, [activeChannelData, channelMembers, viewer]);
+        return getChannelName(activeChannelData, viewer?.productUserId, members);
+    }, [activeChannelData, members, viewer]);
 
     const dmSubtitle = useMemo(() => {
         if (!activeChannelData || activeChannelData.type !== "dm" || !activeChannelData.topic) return null;
-        return `${channelMembers.length} members`;
-    }, [activeChannelData, channelMembers]);
+        return `${members.length} members`;
+    }, [activeChannelData, members]);
 
     const handleInviteUser = async (userId: string) => {
         if (!selectedChannelId) return;
         try {
             await inviteToChannel(selectedChannelId, userId);
-            const members = await listChannelMembers(selectedChannelId);
-            setChannelMembers(members);
             await refreshChatState(activeServer?.id, selectedChannelId);
             setIsInviting(false);
         } catch (error) {
@@ -732,7 +726,7 @@ export function ChatWindow({
                         </h2>
                         <p>
                             {activeChannel?.type === "dm"
-                                ? dmSubtitle || `${channelMembers.length} members`
+                                ? dmSubtitle || `${members.length} members`
                                 : activeChannel
                                     ? `${messages.length} messages · slow mode ${activeChannel.slowModeSeconds}s`
                                     : "Select a channel to start chatting"}

@@ -128,6 +128,9 @@ export function useChatMessaging({
   async function handleLogout(): Promise<void> {
     dispatch({ type: "SET_ERROR", payload: null });
     try {
+      if (typeof window !== "undefined") {
+        window.sessionStorage.removeItem("masquerade_token");
+      }
       await logout();
       dispatch({ type: "SET_VIEWER", payload: null });
       dispatch({ type: "SET_SERVERS", payload: [] });

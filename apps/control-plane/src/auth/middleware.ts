@@ -92,8 +92,8 @@ export async function requireAuth(request: FastifyRequest, reply: FastifyReply):
     masqueradeBadgeIds: activePayload.masqueradeBadgeIds,
   };
 
-  // Block mutations if masquerading
-  if (isMasquerading && request.method !== "GET" && request.method !== "HEAD") {
+  // Block mutations if masquerading (except for unmasquerade itself)
+  if (isMasquerading && request.method !== "GET" && request.method !== "HEAD" && request.url !== "/auth/unmasquerade") {
     reply.code(403).send({
       statusCode: 403,
       error: "Forbidden",

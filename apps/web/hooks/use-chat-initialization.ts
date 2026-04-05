@@ -100,8 +100,8 @@ export function useChatInitialization({
     // Throttled fetch for global list of servers and roles
     // Reuse servers and roles from state if available, otherwise fetch
     const [serverItems, roleBindings] = await Promise.all([
-      state.servers.length > 0 ? Promise.resolve(state.servers) : listServers(),
-      state.viewerRoles.length > 0 ? Promise.resolve(state.viewerRoles) : listViewerRoleBindings()
+      (state.servers.length > 0 && !force) ? Promise.resolve(state.servers) : listServers(),
+      (state.viewerRoles.length > 0 && !force) ? Promise.resolve(state.viewerRoles) : listViewerRoleBindings()
     ]);
     if (requestId !== chatStateRequestIdRef.current) return;
 
@@ -191,7 +191,12 @@ export function useChatInitialization({
         if (setTargetUrl) setTargetUrl(targetUrl);
         setDraftMessage(draftMessagesByChannel[nextChannelId] ?? "");
 
-        // Optional post-load tasks
+        // Track last channel by server
+        if (nextServerId) {
+          dispatch({ type: "SET_LAST_CHANNEL_BY_SERVER", payload: { serverId: nextServerId, channelId: nextChannelId } });
+        }
+
+        // Auto-mark as read
         void markChannelAsRead(nextChannelId);
         
         // Only fetch mappings if this is first load or server changed

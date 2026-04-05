@@ -16,11 +16,11 @@ export function MasqueradeBanner() {
 
     const handleStop = async () => {
         try {
+            await unmasquerade();
             // Remove token from session storage if present
             if (typeof window !== "undefined") {
                 window.sessionStorage.removeItem("masquerade_token");
             }
-            await unmasquerade();
             showToast("Masquerade ended. Restoring session...", "success");
             window.location.reload();
         } catch (err) {

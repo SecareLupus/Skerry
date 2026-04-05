@@ -9,6 +9,7 @@
   --accent: #1f7a5a;
   --accent-strong: #15563f;
   --danger: #a32121;
+  --warning: #faa61a;
 
   /* Skerry Design Tokens for Creators */
   --sk-bg: var(--bg);
@@ -34,6 +35,7 @@
   --accent: #2da178;
   --accent-strong: #3ac091;
   --danger: #e64a4a;
+  --warning: #faa61a;
 
   /* Skerry Design Tokens for Creators (Dark) */
   --sk-bg: var(--bg);

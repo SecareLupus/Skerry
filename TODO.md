@@ -174,7 +174,7 @@ Current focus is **Phase 20** (Moderation Hardening) and **Phase 23** (Extension
 - [x] **Fix Page Navigation Flashing (#29)** — Eliminate the back-and-forth flashing behavior when switching between rooms or servers.
 - [ ] **VC Reliability (#13)** — Fix dropping connections (LiveKit/WebRTC debugging required).
 - [ ] **Discord Bridging Refactor (#24)** — Implement dynamic message ID mapping for deletions and editing.
-- [ ] **Masquerade Persistence (#25)** — Fix issue where masquerading logs out the current user.
+- [x] **Masquerade Persistence (#25)** — Fix issue where masquerading logs out the current user.
 
 ### 🔧 Tier 2: Core UX Bugs
 - [ ] **Threaded Conversations (#27)** — Fix missing moderation/context menus for threaded replies.

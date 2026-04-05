@@ -3,8 +3,9 @@
 import React, { useEffect, useState, useRef, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import { useChat, MessageItem } from "../context/chat-context";
-import { listMessages, sendMessage, uploadMedia, formatMessageTime, connectMessageStream } from "../lib/control-plane";
+import { listMessages, sendMessage, uploadMedia, formatMessageTime, connectMessageStream, deleteMessage, performModerationAction } from "../lib/control-plane";
 import { useToast } from "./toast-provider";
+import { ContextMenu, ContextMenuItem } from "./context-menu";
 
 export function ThreadPanel() {
     const { state, dispatch } = useChat();
@@ -19,6 +20,11 @@ export function ThreadPanel() {
     const [attachments, setAttachments] = useState<any[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
+
+    const [contextMenu, setContextMenu] = useState<{ x: number, y: number, message: MessageItem } | null>(null);
+    const [userContextMenu, setUserContextMenu] = useState<{ x: number, y: number, userId: string, displayName: string } | null>(null);
+
+    const { allowedActions } = state;
 
     useEffect(() => {
         if (!threadParentId || !selectedChannelId) {
@@ -108,6 +114,173 @@ export function ThreadPanel() {
         }
     };
 
+    const handleContextMenu = (event: React.MouseEvent, message: MessageItem) => {
+        event.preventDefault();
+        setContextMenu({ x: event.clientX, y: event.clientY, message });
+    };
+
+    const handleUserContextMenu = (event: React.MouseEvent, userId: string, displayName: string) => {
+        event.preventDefault();
+        event.stopPropagation();
+        setUserContextMenu({ x: event.clientX, y: event.clientY, userId, displayName });
+    };
+
+    const messageContextMenuItems: ContextMenuItem[] = useMemo(() => {
+        if (!contextMenu?.message) return [];
+        const isAuthor = contextMenu.message.authorUserId === viewer?.productUserId;
+        const isModerator = allowedActions.includes("moderation.kick") || 
+                           allowedActions.includes("moderation.ban") ||
+                           allowedActions.includes("moderation.warn") ||
+                           allowedActions.includes("moderation.strike");
+
+        const items: ContextMenuItem[] = [
+            {
+                label: "Reply in Thread",
+                icon: "🧵",
+                onClick: () => {
+                    setDraft(prev => prev ? `${prev}\n` : "");
+                    // Just focus composer
+                }
+            },
+            {
+                label: "Copy Text",
+                icon: "📋",
+                onClick: () => {
+                    void navigator.clipboard.writeText(contextMenu.message?.content || "");
+                }
+            }
+        ];
+
+        if (isModerator || isAuthor) {
+            items.push({
+                label: "Delete Message",
+                icon: "🗑️",
+                danger: true,
+                onClick: () => {
+                    dispatch({
+                        type: "SET_CONFIRMATION",
+                        payload: {
+                            title: "Delete Message",
+                            message: "Are you sure you want to delete this message? This action is permanent, but you have 5 seconds to undo it.",
+                            confirmLabel: "Delete",
+                            danger: true,
+                            onConfirm: () => {
+                                const messageId = contextMenu.message?.id;
+                                const channelId = contextMenu.message?.channelId;
+                                if (!messageId || !channelId) return;
+
+                                const timeoutId = setTimeout(async () => {
+                                    try {
+                                        await deleteMessage(channelId, messageId);
+                                        setReplies(current => current.filter((m) => m.id !== messageId));
+                                        if (parentMessage?.id === messageId) {
+                                            setParentMessage(null);
+                                        }
+                                    } catch (err) {
+                                        showToast("Failed to delete message", "error");
+                                    }
+                                }, 5000);
+
+                                showToast("Message deleted", "info", {
+                                    label: "Undo",
+                                    onClick: () => {
+                                        clearTimeout(timeoutId);
+                                        showToast("Deletion cancelled", "success");
+                                    }
+                                }, 5500);
+                            }
+                        }
+                    });
+                    dispatch({ type: "SET_ACTIVE_MODAL", payload: "confirmation" });
+                }
+            });
+        }
+
+        if (isModerator && !isAuthor) {
+            items.push({
+                label: "Moderate User...",
+                icon: "🛡️",
+                danger: true,
+                onClick: () => {
+                    dispatch({
+                        type: "SET_MODERATION_TARGET",
+                        payload: {
+                            userId: contextMenu.message?.authorUserId || "",
+                            displayName: contextMenu.message?.authorDisplayName || "User",
+                            messageId: contextMenu.message?.id
+                        }
+                    });
+                    dispatch({ type: "SET_ACTIVE_MODAL", payload: "moderation" });
+                }
+            });
+        }
+
+        return items;
+    }, [contextMenu, viewer, allowedActions, dispatch, showToast, parentMessage?.id]);
+
+    const userContextMenuItems: ContextMenuItem[] = useMemo(() => {
+        if (!userContextMenu) return [];
+        const isSelf = userContextMenu.userId === viewer?.productUserId;
+        const isModerator = allowedActions.includes("moderation.kick") || 
+                           allowedActions.includes("moderation.ban");
+
+        const items: ContextMenuItem[] = [
+            {
+                label: `Profile: ${userContextMenu.displayName}`,
+                type: "header"
+            },
+            {
+                label: "Mention",
+                icon: "@",
+                onClick: () => {
+                    setDraft(prev => `${prev}@${userContextMenu.displayName} `);
+                }
+            }
+        ];
+
+        if (isModerator && !isSelf) {
+            items.push({
+                label: "Timeout User",
+                icon: "⏳",
+                danger: true,
+                onClick: () => {
+                    const isMasquerade = !!sessionStorage.getItem("masquerade_token");
+                    if (isMasquerade) {
+                        showToast("Masquerade: Moderation is blocked.", "error");
+                        return;
+                    }
+                    void performModerationAction({
+                        action: "timeout",
+                        serverId: selectedServerId || "",
+                        targetUserId: userContextMenu.userId,
+                        timeoutSeconds: 3600,
+                        reason: "Shadow mute requested via thread user"
+                    });
+                }
+            });
+            items.push({
+                label: "Kick User",
+                icon: "👢",
+                danger: true,
+                onClick: () => {
+                    const isMasquerade = !!sessionStorage.getItem("masquerade_token");
+                    if (isMasquerade) {
+                        showToast("Masquerade: Moderation is blocked.", "error");
+                        return;
+                    }
+                    void performModerationAction({
+                        action: "kick",
+                        serverId: selectedServerId || "",
+                        targetUserId: userContextMenu.userId,
+                        reason: "Kick requested via thread user"
+                    });
+                }
+            });
+        }
+
+        return items;
+    }, [userContextMenu, viewer, allowedActions, selectedServerId, showToast]);
+
     if (!threadParentId) return null;
 
     return (
@@ -127,9 +300,17 @@ export function ThreadPanel() {
             <div className="thread-content scrollable-pane" ref={scrollRef}>
                 {parentMessage && (
                     <div className="thread-parent">
-                        <article className="message parent-message">
+                        <article 
+                            className="message parent-message"
+                            onContextMenu={(e) => handleContextMenu(e, parentMessage)}
+                        >
                             <header>
-                                <strong>{parentMessage.externalAuthorName || parentMessage.authorDisplayName}</strong>
+                                <strong 
+                                    onClick={(e) => handleUserContextMenu(e, parentMessage.authorUserId, parentMessage.authorDisplayName)}
+                                    style={{ cursor: "pointer" }}
+                                >
+                                    {parentMessage.externalAuthorName || parentMessage.authorDisplayName}
+                                </strong>
                                 <time>{formatMessageTime(parentMessage.createdAt)}</time>
                             </header>
                             <p className="message-content">
@@ -152,9 +333,17 @@ export function ThreadPanel() {
                     <ol className="replies-list" style={{ listStyle: "none", padding: 0, margin: 0 }}>
                         {replies.map(reply => (
                             <li key={reply.id}>
-                                <article className="message">
+                                <article 
+                                    className="message"
+                                    onContextMenu={(e) => handleContextMenu(e, reply)}
+                                >
                                     <header>
-                                        <strong>{reply.externalAuthorName || reply.authorDisplayName}</strong>
+                                        <strong 
+                                            onClick={(e) => handleUserContextMenu(e, reply.authorUserId, reply.authorDisplayName)}
+                                            style={{ cursor: "pointer" }}
+                                        >
+                                            {reply.externalAuthorName || reply.authorDisplayName}
+                                        </strong>
                                         <time>{formatMessageTime(reply.createdAt)}</time>
                                     </header>
                                     <p className="message-content">
@@ -212,6 +401,24 @@ export function ThreadPanel() {
                     </div>
                 )}
             </form>
+
+            {contextMenu && (
+                <ContextMenu
+                    x={contextMenu.x}
+                    y={contextMenu.y}
+                    items={messageContextMenuItems}
+                    onClose={() => setContextMenu(null)}
+                />
+            )}
+
+            {userContextMenu && (
+                <ContextMenu
+                    x={userContextMenu.x}
+                    y={userContextMenu.y}
+                    items={userContextMenuItems}
+                    onClose={() => setUserContextMenu(null)}
+                />
+            )}
 
             <style jsx>{`
                 .thread-panel {

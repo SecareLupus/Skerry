@@ -97,9 +97,14 @@ export function InviteModals({
                   className="primary"
                   onClick={async () => {
                     try {
-                      const hubId = activeServer?.id;
-                      if (!hubId) return;
+                      // Prefer hubId, then fall back to id (some servers ARE the hub)
+                      const hubId = activeServer?.hubId || activeServer?.id;
+                      if (!hubId) {
+                        showToast("Could not determine Hub ID", "error");
+                        return;
+                      }
                       const invite = await createHubInvite(hubId);
+                      // Use /invite/ which is the established splash redirect route
                       const url = `${window.location.origin}/invite/${invite.id}`;
                       setLastInviteUrl(url);
                     } catch (e) {
@@ -123,8 +128,10 @@ export function InviteModals({
                   <button
                     className="ghost"
                     onClick={() => {
-                        void navigator.clipboard.writeText(lastInviteUrl);
-                        showToast("Link copied!", "success");
+                        if (lastInviteUrl) {
+                            void navigator.clipboard.writeText(lastInviteUrl);
+                            showToast("Link copied!", "success");
+                        }
                     }}
                   >
                     Copy
