@@ -164,3 +164,37 @@ Current focus is **Phase 20** (Moderation Hardening) and **Phase 23** (Extension
 - [ ] **PWA Support** — Manifest.json generation per Hub for "Add to Home Screen" experience
 - [ ] **Custom Domains** — Path-based routing with Caddy (Maintenance and support for user domains)
 
+---
+
+## Phase 25 — Triage Backlog
+
+*Items prioritized during the Refactoring Sprint triage.*
+
+### 🚨 Tier 1: Critical Blockers
+- [ ] **Fix Page Navigation Flashing (#29)** — Eliminate the back-and-forth flashing behavior when switching between rooms or servers.
+- [ ] **VC Reliability (#13)** — Fix dropping connections (LiveKit/WebRTC debugging required).
+- [ ] **Discord Bridging Refactor (#24)** — Implement dynamic message ID mapping for deletions and editing.
+- [ ] **Masquerade Persistence (#25)** — Fix issue where masquerading logs out the current user.
+
+### 🔧 Tier 2: Core UX Bugs
+- [ ] **Threaded Conversations (#27)** — Fix missing moderation/context menus for threaded replies.
+- [ ] **Invite Link Generation (#23)** — Connect Modal UI to backend API for link generation.
+- [ ] **Settings Theme Sync (#21)** — Fix state desync where settings page drops dark/light preference.
+- [ ] **OAuth Mapping (#9)** — Fix "Guest" issue when linking Twitch after Discord.
+
+### 🏗️ Tier 3: Medium Features & Polish
+- [ ] **Discord Content Bridging (#18, #26)** — Fix block quote rendering and implement sticker/emoji support.
+- [ ] **Discord OAuth Flow (#22)** — Refactor connection UX to prevent losing place in menus.
+- [ ] **Twitch Integration UI (#6)** — Fix "ITS F#CKED" alignment/asset issue with Twitch logo on login.
+- [ ] **Storage Audit (#20)** — Monitor Docker storage (Note: manual prune `docker builder prune` recommended).
+- [x] **Rebranding Completion (#28)** — Finalize any remaining code references to EscapeHatch.
+
+---
+
+## Phase 26 — Stability & Refinement
+
+**Goal:** Harden the newly refactored architecture and resolve navigation regressions.
+**Status:** Planning
+
+- [ ] **Deeper Client Isolation** — Maintain strict boundaries between `useChat` hooks and `<ChatClient />` DOM tree across all new features.
+- [ ] **E2E Testing Expansion** — Implement automated headless Cypress/Playwright assertions for isolated Modals and UI triggers.
