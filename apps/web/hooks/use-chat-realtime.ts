@@ -157,6 +157,8 @@ export function useChatRealtime() {
           type: "UPDATE_MESSAGES",
           payload: (current: MessageItem[]) => current.filter((m) => m.id !== id)
         });
+        // Clear any optimistic pending-action hide as well, since the message is now gone
+        dispatch({ type: "SET_PENDING_ACTION_ID", payload: { id, active: false } });
       }
     });
 

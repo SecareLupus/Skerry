@@ -480,3 +480,291 @@ test("message content length is validated at the route boundary", async (t) => {
     await app.close();
   }
 });
+
+// ---------------------------------------------------------------------------
+// Regression tests: image attachment posting via mediaUrls
+// ---------------------------------------------------------------------------
+
+test("messages can be sent with mediaUrls and attachments are stored", async (t) => {
+  if (!pool) { t.skip("DATABASE_URL not configured."); return; }
+  if (!config.setupBootstrapToken) { t.skip("SETUP_BOOTSTRAP_TOKEN not configured."); return; }
+
+  await initDb();
+  await resetDb();
+  const app = await buildApp();
+
+  try {
+    const { adminCookie, defaultChannelId } = await bootstrap(app);
+
+    // Send a message with mediaUrls (as the client does after uploading)
+    const sendRes = await app.inject({
+      method: "POST",
+      url: `/v1/channels/${defaultChannelId}/messages`,
+      headers: { cookie: adminCookie },
+      payload: {
+        content: "Here is an image",
+        mediaUrls: ["https://example.com/photo.png"]
+      }
+    });
+    assert.equal(sendRes.statusCode, 201, `Expected 201, got ${sendRes.statusCode}: ${sendRes.body}`);
+    const message = sendRes.json() as { id: string; attachments?: { url: string; contentType: string; filename: string }[] };
+    assert.ok(message.id, "Message should have an id");
+    assert.ok(Array.isArray(message.attachments) && message.attachments.length === 1, "Message should have one attachment");
+    assert.equal(message.attachments![0]!.url, "https://example.com/photo.png");
+    // Content type should be inferred from extension, not hardcoded as image/jpeg
+    assert.equal(message.attachments![0]!.contentType, "image/png", "Content type should be inferred as image/png for .png extension");
+
+    // Confirm attachment is persisted and returned in listing
+    const listRes = await app.inject({
+      method: "GET",
+      url: `/v1/channels/${defaultChannelId}/messages?limit=20`,
+      headers: { cookie: adminCookie }
+    });
+    assert.equal(listRes.statusCode, 200);
+    const items = listRes.json().items as { id: string; attachments?: { url: string }[] }[];
+    const found = items.find((m) => m.id === message.id);
+    assert.ok(found, "Sent message should appear in listing");
+    assert.ok(
+      Array.isArray(found?.attachments) && found!.attachments!.some((a) => a.url === "https://example.com/photo.png"),
+      "Attachment URL should appear in listing"
+    );
+  } finally {
+    await app.close();
+  }
+});
+
+test("mediaUrls content type is inferred correctly for different file extensions", async (t) => {
+  if (!pool) { t.skip("DATABASE_URL not configured."); return; }
+  if (!config.setupBootstrapToken) { t.skip("SETUP_BOOTSTRAP_TOKEN not configured."); return; }
+
+  await initDb();
+  await resetDb();
+  const app = await buildApp();
+
+  try {
+    const { adminCookie, defaultChannelId } = await bootstrap(app);
+
+    const cases: [string, string][] = [
+      ["https://cdn.example.com/img.jpeg", "image/jpeg"],
+      ["https://cdn.example.com/img.jpg", "image/jpeg"],
+      ["https://cdn.example.com/img.png", "image/png"],
+      ["https://cdn.example.com/img.gif", "image/gif"],
+      ["https://cdn.example.com/img.webp", "image/webp"],
+      ["https://cdn.example.com/img.svg", "image/svg+xml"],
+    ];
+
+    for (const [url, expectedType] of cases) {
+      const res = await app.inject({
+        method: "POST",
+        url: `/v1/channels/${defaultChannelId}/messages`,
+        headers: { cookie: adminCookie },
+        payload: { content: `test image ${url}`, mediaUrls: [url] }
+      });
+      assert.equal(res.statusCode, 201, `Expected 201 for ${url}, got ${res.statusCode}`);
+      const attachments = res.json().attachments as { url: string; contentType: string }[];
+      assert.ok(attachments?.length === 1, `Expected 1 attachment for ${url}`);
+      assert.equal(attachments[0]!.contentType, expectedType, `Expected ${expectedType} for ${url}`);
+    }
+  } finally {
+    await app.close();
+  }
+});
+
+test("mediaUrls array exceeding 8 entries is rejected", async (t) => {
+  if (!pool) { t.skip("DATABASE_URL not configured."); return; }
+  if (!config.setupBootstrapToken) { t.skip("SETUP_BOOTSTRAP_TOKEN not configured."); return; }
+
+  await initDb();
+  await resetDb();
+  const app = await buildApp();
+
+  try {
+    const { adminCookie, defaultChannelId } = await bootstrap(app);
+
+    const tooManyUrls = Array.from({ length: 9 }, (_, i) => `https://example.com/img${i}.png`);
+    const res = await app.inject({
+      method: "POST",
+      url: `/v1/channels/${defaultChannelId}/messages`,
+      headers: { cookie: adminCookie },
+      payload: { content: "too many attachments", mediaUrls: tooManyUrls }
+    });
+    assert.ok(
+      res.statusCode === 400 || res.statusCode === 422,
+      `Expected 400/422 for too many mediaUrls, got ${res.statusCode}`
+    );
+  } finally {
+    await app.close();
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Regression tests: message deletion
+// ---------------------------------------------------------------------------
+
+test("moderator can delete another user's message", async (t) => {
+  if (!pool) { t.skip("DATABASE_URL not configured."); return; }
+  if (!config.setupBootstrapToken) { t.skip("SETUP_BOOTSTRAP_TOKEN not configured."); return; }
+
+  await initDb();
+  await resetDb();
+  const app = await buildApp();
+
+  try {
+    const { adminCookie, adminIdentity, defaultChannelId, defaultServerId } = await bootstrap(app);
+
+    // Create a second regular user
+    const regularIdentity = await upsertIdentityMapping({
+      provider: "dev",
+      oidcSubject: "del_regular",
+      email: "del-regular@dev.local",
+      preferredUsername: "del-regular",
+      avatarUrl: null
+    });
+    const regularCookie = createAuthCookie({
+      productUserId: regularIdentity.productUserId,
+      provider: "dev",
+      oidcSubject: "del_regular"
+    });
+
+    // Grant regular user membership so they can post
+    await app.inject({
+      method: "POST",
+      url: "/v1/roles/grant",
+      headers: { cookie: adminCookie },
+      payload: { productUserId: regularIdentity.productUserId, role: "user", serverId: defaultServerId }
+    });
+
+    // Regular user sends a message
+    const sendRes = await app.inject({
+      method: "POST",
+      url: `/v1/channels/${defaultChannelId}/messages`,
+      headers: { cookie: regularCookie },
+      payload: { content: "Regular user message" }
+    });
+    assert.equal(sendRes.statusCode, 201);
+    const messageId = sendRes.json().id as string;
+
+    // Admin (moderator) deletes the regular user's message
+    const deleteRes = await app.inject({
+      method: "DELETE",
+      url: `/v1/channels/${defaultChannelId}/messages/${messageId}`,
+      headers: { cookie: adminCookie }
+    });
+    assert.equal(deleteRes.statusCode, 204, `Moderator should be able to delete message, got ${deleteRes.statusCode}: ${deleteRes.body}`);
+
+    // Confirm deleted message no longer appears
+    const listRes = await app.inject({
+      method: "GET",
+      url: `/v1/channels/${defaultChannelId}/messages?limit=50`,
+      headers: { cookie: adminCookie }
+    });
+    const items = listRes.json().items as { id: string; deletedAt?: string }[];
+    const found = items.find((m) => m.id === messageId);
+    assert.ok(!found || found.deletedAt, "Deleted message should not appear in listing");
+
+    // Keep adminIdentity referenced to avoid unused warning
+    assert.ok(adminIdentity.productUserId);
+  } finally {
+    await app.close();
+  }
+});
+
+test("non-moderator cannot delete another user's message", async (t) => {
+  if (!pool) { t.skip("DATABASE_URL not configured."); return; }
+  if (!config.setupBootstrapToken) { t.skip("SETUP_BOOTSTRAP_TOKEN not configured."); return; }
+
+  await initDb();
+  await resetDb();
+  const app = await buildApp();
+
+  try {
+    const { adminCookie, defaultChannelId, defaultServerId } = await bootstrap(app);
+
+    // Two regular users
+    const user1 = await upsertIdentityMapping({
+      provider: "dev",
+      oidcSubject: "del_user1",
+      email: "del-u1@dev.local",
+      preferredUsername: "del-user1",
+      avatarUrl: null
+    });
+    const user2 = await upsertIdentityMapping({
+      provider: "dev",
+      oidcSubject: "del_user2",
+      email: "del-u2@dev.local",
+      preferredUsername: "del-user2",
+      avatarUrl: null
+    });
+    const cookie1 = createAuthCookie({ productUserId: user1.productUserId, provider: "dev", oidcSubject: "del_user1" });
+    const cookie2 = createAuthCookie({ productUserId: user2.productUserId, provider: "dev", oidcSubject: "del_user2" });
+
+    // Grant both users membership
+    for (const uid of [user1.productUserId, user2.productUserId]) {
+      await app.inject({
+        method: "POST",
+        url: "/v1/roles/grant",
+        headers: { cookie: adminCookie },
+        payload: { productUserId: uid, role: "user", serverId: defaultServerId }
+      });
+    }
+
+    // User1 sends a message
+    const sendRes = await app.inject({
+      method: "POST",
+      url: `/v1/channels/${defaultChannelId}/messages`,
+      headers: { cookie: cookie1 },
+      payload: { content: "User1 message" }
+    });
+    assert.equal(sendRes.statusCode, 201);
+    const messageId = sendRes.json().id as string;
+
+    // User2 tries to delete User1's message — should fail (403 or 500 from service throw)
+    const deleteRes = await app.inject({
+      method: "DELETE",
+      url: `/v1/channels/${defaultChannelId}/messages/${messageId}`,
+      headers: { cookie: cookie2 }
+    });
+    assert.ok(
+      deleteRes.statusCode >= 400,
+      `Non-moderator should not be able to delete another user's message, got ${deleteRes.statusCode}`
+    );
+
+    // Message should still be present
+    const listRes = await app.inject({
+      method: "GET",
+      url: `/v1/channels/${defaultChannelId}/messages?limit=50`,
+      headers: { cookie: adminCookie }
+    });
+    const items = listRes.json().items as { id: string }[];
+    assert.ok(items.some((m) => m.id === messageId), "Message should still be present after failed delete");
+  } finally {
+    await app.close();
+  }
+});
+
+test("message with mediaUrls is rejected when URL is not valid", async (t) => {
+  if (!pool) { t.skip("DATABASE_URL not configured."); return; }
+  if (!config.setupBootstrapToken) { t.skip("SETUP_BOOTSTRAP_TOKEN not configured."); return; }
+
+  await initDb();
+  await resetDb();
+  const app = await buildApp();
+
+  try {
+    const { adminCookie, defaultChannelId } = await bootstrap(app);
+
+    const res = await app.inject({
+      method: "POST",
+      url: `/v1/channels/${defaultChannelId}/messages`,
+      headers: { cookie: adminCookie },
+      payload: { content: "bad url", mediaUrls: ["not-a-valid-url"] }
+    });
+    assert.ok(
+      res.statusCode === 400 || res.statusCode === 422,
+      `Expected 400/422 for invalid URL in mediaUrls, got ${res.statusCode}: ${res.body}`
+    );
+  } finally {
+    await app.close();
+  }
+});
+

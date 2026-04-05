@@ -138,12 +138,26 @@ export async function registerMessageRoutes(app: FastifyInstance): Promise<void>
       channelId: params.channelId,
       actorUserId: request.auth!.productUserId,
       content: payload.content,
-      attachments: payload.mediaUrls?.map(url => ({
-        id: "att_" + Math.random().toString(36).slice(2),
-        url,
-        contentType: "image/jpeg", // Fallback
-        filename: "attachment"
-      }))
+      attachments: payload.mediaUrls?.map(url => {
+        // Infer content type from the URL's file extension
+        const ext = url.split("?")[0]!.split(".").pop()?.toLowerCase() ?? "";
+        const contentTypeMap: Record<string, string> = {
+          jpg: "image/jpeg",
+          jpeg: "image/jpeg",
+          png: "image/png",
+          gif: "image/gif",
+          webp: "image/webp",
+          svg: "image/svg+xml",
+          mp4: "video/mp4",
+          webm: "video/webm"
+        };
+        return {
+          id: "att_" + Math.random().toString(36).slice(2),
+          url,
+          contentType: contentTypeMap[ext] ?? "application/octet-stream",
+          filename: url.split("/").pop()?.split("?")[0] ?? "attachment"
+        };
+      })
     });
 
     publishChannelMessage(message);

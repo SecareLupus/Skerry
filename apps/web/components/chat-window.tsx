@@ -447,6 +447,14 @@ export function ChatWindow({
                                 const timeoutId = setTimeout(async () => {
                                     try {
                                         await deleteMessage(channelId, messageId);
+                                        // Remove the message from state and clear the pending marker.
+                                        // The SSE message.deleted event also does this but may be missed
+                                        // if the connection is in polling mode or drops.
+                                        dispatch({
+                                            type: "UPDATE_MESSAGES",
+                                            payload: (current) => current.filter((m) => m.id !== messageId)
+                                        });
+                                        dispatch({ type: "SET_PENDING_ACTION_ID", payload: { id: messageId, active: false } });
                                     } catch (err) {
                                         showToast("Failed to delete message", "error");
                                         dispatch({ type: "SET_PENDING_ACTION_ID", payload: { id: messageId, active: false } });

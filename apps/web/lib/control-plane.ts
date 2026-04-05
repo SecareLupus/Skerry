@@ -410,10 +410,13 @@ export async function getFirstUnreadMessageId(channelId: string): Promise<string
 }
 
 export async function sendMessage(channelId: string, content: string, attachments?: ChatMessage["attachments"], parentId?: string): Promise<ChatMessage> {
+  // The API route accepts `mediaUrls` (URL strings), not full attachment objects.
+  // Extract URLs so the server can construct proper Attachment records.
+  const mediaUrls = attachments?.map((a) => a.url).filter(Boolean);
   return apiFetch(`/v1/channels/${encodeURIComponent(channelId)}/messages`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ content, attachments, parentId })
+    body: JSON.stringify({ content, mediaUrls: mediaUrls?.length ? mediaUrls : undefined, parentId })
   });
 }
 
