@@ -25,6 +25,8 @@ export function useChatNavigation() {
   } = state;
 
   const lastSyncedUrlRef = useRef<string>("");
+  const targetUrlSelectionRef = useRef<string | null>(null);
+  const previousUrlRef = useRef<string>("");
 
   const filteredChannels = useMemo(() => {
     const term = channelFilter.trim().toLowerCase();
@@ -155,6 +157,8 @@ export function useChatNavigation() {
     urlChannelId,
     urlMessageId,
     lastSyncedUrlRef,
+    targetUrlSelectionRef,
+    previousUrlRef,
     setUrlSelection,
     handleServerKeyboardNavigation,
     handleChannelKeyboardNavigation

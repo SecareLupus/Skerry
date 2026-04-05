@@ -32,6 +32,7 @@ interface UseChatInitializationProps {
   messagesRef: React.RefObject<HTMLOListElement>;
   setDraftMessage: (msg: string) => void;
   lastSyncedUrlRef: React.MutableRefObject<string>;
+  setTargetUrl?: (url: string | null) => void;
 }
 
 export function useChatInitialization({
@@ -42,7 +43,8 @@ export function useChatInitialization({
   markChannelAsRead,
   messagesRef,
   setDraftMessage,
-  lastSyncedUrlRef
+  lastSyncedUrlRef,
+  setTargetUrl
 }: UseChatInitializationProps) {
   const { state, dispatch } = useChat();
   const { showToast } = useToast();
@@ -111,15 +113,13 @@ export function useChatInitialization({
         ? candidateServerId
         : (serverItems[0]?.id ?? null);
     
-    // Update local synced URL to prevent the sync effect from fighting this manual change
     const targetChannelId = preferredChannelId ?? urlChannelId ?? null;
-    if (nextServerId) {
-      lastSyncedUrlRef.current = `${nextServerId}:${targetChannelId ?? "null"}:${urlMessageId ?? "null"}`;
-    }
-
-    dispatch({ type: "SET_SELECTED_SERVER_ID", payload: nextServerId });
+    const targetUrl = `${nextServerId}:${targetChannelId ?? "null"}:${urlMessageId ?? "null"}`;
+    if (setTargetUrl) setTargetUrl(targetUrl);
+    lastSyncedUrlRef.current = targetUrl;
 
     if (!nextServerId) {
+      dispatch({ type: "SET_SELECTED_SERVER_ID", payload: null });
       dispatch({ type: "SET_CHANNELS", payload: [] });
       dispatch({ type: "SET_CATEGORIES", payload: [] });
       dispatch({ type: "SET_SELECTED_CHANNEL_ID", payload: null });
@@ -128,12 +128,17 @@ export function useChatInitialization({
       return;
     }
 
-    const [channelItems, categoryItems] = await Promise.all([
-      listChannels(nextServerId),
-      listCategories(nextServerId)
-    ]);
+    let channelItems = state.channels;
+    let categoryItems = state.categories;
 
-    if (requestId !== chatStateRequestIdRef.current) return;
+    // Optimize: Only fetch channels/categories if server changed or state is empty
+    if (nextServerId !== state.selectedServerId || channelItems.length === 0) {
+      [channelItems, categoryItems] = await Promise.all([
+        listChannels(nextServerId),
+        listCategories(nextServerId)
+      ]);
+      if (requestId !== chatStateRequestIdRef.current) return;
+    }
 
     // Discord info can stay async/separate as they are less critical for immediate room rendering
     void listDiscordBridgeMappings(nextServerId)
@@ -249,7 +254,9 @@ export function useChatInitialization({
 
     localStorage.setItem("lastChannelId", channelId);
     setUrlSelection(selectedServerId, channelId);
-    lastSyncedUrlRef.current = `${selectedServerId}:${channelId ?? "null"}:null`;
+    const targetUrl = `${selectedServerId}:${channelId ?? "null"}:null`;
+    if (setTargetUrl) setTargetUrl(targetUrl);
+    lastSyncedUrlRef.current = targetUrl;
 
     setDraftMessage(draftMessagesByChannel[channelId] ?? "");
 

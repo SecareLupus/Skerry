@@ -126,6 +126,8 @@ export function ChatClient() {
     urlChannelId,
     urlMessageId,
     lastSyncedUrlRef,
+    targetUrlSelectionRef,
+    previousUrlRef,
     setUrlSelection,
     handleServerKeyboardNavigation,
     handleChannelKeyboardNavigation
@@ -147,7 +149,10 @@ export function ChatClient() {
     markChannelAsRead,
     messagesRef,
     setDraftMessage,
-    lastSyncedUrlRef
+    lastSyncedUrlRef,
+    setTargetUrl: (url: string | null) => {
+      targetUrlSelectionRef.current = url;
+    }
   });
 
   const {
@@ -518,27 +523,48 @@ export function ChatClient() {
     const currentUrlSelection = `${urlServerId}:${urlChannelId ?? "null"}:${urlMessageId ?? "null"}`;
     const stateUrlMapping = `${selectedServerId}:${selectedChannelId ?? "null"}:${state.highlightedMessageId ?? "null"}`;
 
-    if (currentUrlSelection === lastSyncedUrlRef.current) {
+    // 1. If URL matches the target we set, we have arrived!
+    if (targetUrlSelectionRef.current === currentUrlSelection) {
+      targetUrlSelectionRef.current = null;
+      lastSyncedUrlRef.current = currentUrlSelection;
+      previousUrlRef.current = currentUrlSelection;
       return;
     }
 
-    if (currentUrlSelection === stateUrlMapping) {
+    // 2. If URL hasn't moved at all, return.
+    if (currentUrlSelection === previousUrlRef.current) {
       lastSyncedUrlRef.current = currentUrlSelection;
       return;
     }
 
-    // Now we have a discrepancy.
-    // If the state doesn't match the URL, and this URL isn't one we just processed,
-    // trigger a sync back to the URL (Back/Forward navigation).
-    console.log("[ChatClient] Actual URL drift detected! Syncing state to URL.", { 
+    // 3. If URL is still at the OLD value but state is at the NEW value (Lagging),
+    // and we have a pending target, ignore it.
+    if (targetUrlSelectionRef.current && currentUrlSelection === previousUrlRef.current) {
+      return;
+    }
+
+    // 4. If URL matches our current state exactly, just update refs.
+    if (currentUrlSelection === stateUrlMapping) {
+      lastSyncedUrlRef.current = currentUrlSelection;
+      previousUrlRef.current = currentUrlSelection;
+      targetUrlSelectionRef.current = null;
+      return;
+    }
+
+    // 5. If we reach here, the URL has DRIFTED to an unexpected value.
+    // This is likely user navigation (Back/Forward). Sync back to the URL.
+    console.log("[ChatClient] True URL drift detected! Syncing state to URL.", { 
       current: currentUrlSelection, 
-      lastSynced: lastSyncedUrlRef.current,
+      previous: previousUrlRef.current,
+      target: targetUrlSelectionRef.current,
       state: stateUrlMapping
     });
 
+    targetUrlSelectionRef.current = null;
+    previousUrlRef.current = currentUrlSelection;
     lastSyncedUrlRef.current = currentUrlSelection;
     void refreshChatState(urlServerId ?? undefined, urlChannelId ?? undefined);
-  }, [urlServerId, urlChannelId, urlMessageId, bootstrapStatus?.initialized, refreshChatState, selectedServerId, selectedChannelId, state.highlightedMessageId, lastSyncedUrlRef]);
+  }, [urlServerId, urlChannelId, urlMessageId, bootstrapStatus?.initialized, refreshChatState, selectedServerId, selectedChannelId, state.highlightedMessageId]);
 
   useEffect(() => {
     if (!canAccessWorkspace || !selectedServerId) {
