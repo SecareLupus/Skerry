@@ -10,7 +10,7 @@ export const config = {
   baseDomain,
   appBaseUrl,
   webBaseUrl,
-  databaseUrl: process.env.DATABASE_URL ?? "postgres://postgres:postgres@postgres:5432/escapehatch",
+  databaseUrl: process.env.DATABASE_URL ?? "postgres://postgres:postgres@postgres:5432/skerry",
   sessionSecret: process.env.SESSION_SECRET ?? "dev-insecure-session-secret",
   sessionTtlSeconds: Number(process.env.SESSION_TTL_SECONDS ?? "604800"), // 7 days
   devAuthBypass: process.env.DEV_AUTH_BYPASS === "true",

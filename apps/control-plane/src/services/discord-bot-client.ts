@@ -166,7 +166,7 @@ export async function provisionProjectEmoji(guildId: string) {
         const emoji = await guild.emojis.create({
             attachment: logoData,
             name: "skerry",
-            reason: "Project logo for EscapeHatch bridge"
+            reason: "Project logo for Skerry bridge"
         });
         logEvent("info", "discord_emoji_provisioned", { guildId, emojiId: emoji.id });
         return emoji;
@@ -182,15 +182,15 @@ async function getWebhookForChannel(channel: any): Promise<WebhookClient | null>
         console.log(`[Discord Bridge] Fetching webhooks for channel ${channel.id}`);
         try {
             const webhooks = await channel.fetchWebhooks();
-            const existing = webhooks.find((wh: any) => wh.name === "EscapeHatch Bridge");
+            const existing = webhooks.find((wh: any) => wh.name === "Skerry Bridge");
 
             if (existing) {
                 webhook = new WebhookClient({ id: existing.id, token: existing.token! });
             } else {
                 console.log(`[Discord Bridge] Creating new webhook for channel ${channel.id}`);
                 const created = await channel.createWebhook({
-                    name: "EscapeHatch Bridge",
-                    reason: "Automated bridge for EscapeHatch community"
+                    name: "Skerry Bridge",
+                    reason: "Automated bridge for Skerry community"
                 });
                 webhook = new WebhookClient({ id: created.id, token: created.token! });
             }

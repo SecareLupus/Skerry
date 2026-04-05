@@ -1,6 +1,6 @@
 ![Skerry Full Width Logo](Skerry_FullWidth.png)
 
-# Skerry
+# Skerry (`SecareLupus/Skerry`)
 
 Skerry (or **Skerry Chat**) is the monorepo for the **Skerry Collective Hub Chat Platform**: a Matrix-based, Discord-like community product for creator collectives.
 
@@ -35,7 +35,7 @@ The platform provides a complete community experience with high-level abstractio
 
 ## Internal Network Architecture
 
-When running via Docker Compose, services reside on a shared network (`escapehatch_default`) and communicate using their service names as hostnames:
+When running via Docker Compose, services reside on a shared network (`skerry_default`) and communicate using their service names as hostnames:
 
 | Service           | Internal URL         | Purpose                                 |
 | :---------------- | :------------------- | :-------------------------------------- |

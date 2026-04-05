@@ -25,7 +25,7 @@ export async function scrapeUrl(url: string): Promise<LinkEmbed | null> {
 
         const response = await fetch(url, {
             headers: {
-                "User-Agent": "SkerryBot/1.0 (+https://github.com/SecareLupus/EscapeHatch)"
+                "User-Agent": "SkerryBot/1.0 (+https://github.com/SecareLupus/Skerry)"
             },
             signal: AbortSignal.timeout(5000)
         });

@@ -22,7 +22,7 @@ async function setup() {
     await client.connect();
     console.log("Connected to postgres database...");
 
-    const dbName = "escapehatch_test";
+    const dbName = "skerry_test";
     const res = await client.query(
       `SELECT 1 FROM pg_database WHERE datname = '${dbName}'`
     );

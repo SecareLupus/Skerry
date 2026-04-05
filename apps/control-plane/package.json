@@ -14,7 +14,7 @@
     "migrate:up": "npx dotenv-cli -e ../../.env -- node-pg-migrate up --migrations-dir migrations",
     "migrate:down": "npx dotenv-cli -e ../../.env -- node-pg-migrate down --migrations-dir migrations",
     "migrate:create": "npx dotenv-cli -e ../../.env -- node-pg-migrate create --migrations-dir migrations",
-    "check-migrations": "DATABASE_URL=postgres://postgres:postgres@localhost:5432/escapehatch npx dotenv-cli -e ../../.env -- tsx src/test/check-migrations.ts"
+    "check-migrations": "DATABASE_URL=postgres://postgres:postgres@localhost:5432/skerry npx dotenv-cli -e ../../.env -- tsx src/test/check-migrations.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.998.0",
