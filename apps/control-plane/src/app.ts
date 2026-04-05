@@ -92,7 +92,14 @@ export async function buildApp() {
   });
 
   app.setErrorHandler((error, request, reply) => {
-    const parsedError = error instanceof Error ? error : new Error("Internal Server Error");
+    // Determine if it's a real Error or something else (like a string or plain object)
+    const isStandardError = error instanceof Error;
+    const parsedError = isStandardError ? error : new Error(typeof error === 'string' ? error : JSON.stringify(error) || "Unknown Error");
+    
+    // Add original raw error to the parsed object for logging
+    if (!isStandardError) {
+      Object.assign(parsedError, { raw: error });
+    }
     const statusCode = (() => {
       if (parsedError instanceof ZodError) {
         return 400;
@@ -114,11 +121,19 @@ export async function buildApp() {
         ? "Request validation failed."
         : parsedError.message || STATUS_CODES[statusCode] || "Internal Server Error";
     
-    // Log full error for 500s to allow diagnostics
-    if (statusCode === 500) {
+    // Detect request cancellation/abortion
+    const isAborted = request.raw.destroyed || reply.raw.writableEnded || 
+                     parsedError.message?.includes("aborted") || 
+                     (parsedError as any).code === "ECONNRESET";
+
+    // Log full error for 500s to allow diagnostics, but skip for aborted requests
+    if (statusCode === 500 && !isAborted) {
       console.error(`[CONTROL-PLANE ERROR] ${request.method} ${request.url}:`, parsedError);
       if (parsedError.stack) {
         console.error(parsedError.stack);
+      }
+      if (!isStandardError) {
+        console.error("[RAW ERROR OBJECT]:", error);
       }
     }
     const errorLabel = STATUS_CODES[statusCode] ?? "Error";
