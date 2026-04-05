@@ -131,8 +131,11 @@ export function useChatInitialization({
     let channelItems = state.channels;
     let categoryItems = state.categories;
 
-    // Optimize: Only fetch channels/categories if server changed or state is empty
-    if (nextServerId !== state.selectedServerId || channelItems.length === 0) {
+    // Check if the current data actually belongs to the target server
+    const currentDataBelongsToNextServer = channelItems.length > 0 && channelItems[0].serverId === nextServerId;
+
+    // Optimize: Only skip fetch if we are on the same server AND already have its data
+    if (nextServerId !== state.selectedServerId || !currentDataBelongsToNextServer || categoryItems.length === 0) {
       [channelItems, categoryItems] = await Promise.all([
         listChannels(nextServerId),
         listCategories(nextServerId)

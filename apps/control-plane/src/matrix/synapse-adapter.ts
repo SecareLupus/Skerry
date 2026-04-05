@@ -31,14 +31,17 @@ async function synapseRequest<T>(
     url.searchParams.set("user_id", options.userId);
   }
 
+  const method = options.method ?? "POST";
+  const isBodyAllowed = !["GET", "HEAD"].includes(method.toUpperCase());
+
   let response: Response;
   try {
     response = await fetch(url.toString(), {
-      method: options.method ?? "POST",
+      method,
       headers: {
         "Content-Type": "application/json"
       },
-      body: body ? JSON.stringify(body) : undefined
+      body: (isBodyAllowed && body && Object.keys(body).length > 0) ? JSON.stringify(body) : undefined
     });
   } catch (error) {
     const message = `Synapse request network failure: ${error instanceof Error ? error.message : "unknown error"
