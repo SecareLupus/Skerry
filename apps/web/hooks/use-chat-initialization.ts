@@ -132,7 +132,7 @@ export function useChatInitialization({
     let categoryItems = state.categories;
 
     // Check if the current data actually belongs to the target server
-    const currentDataBelongsToNextServer = channelItems.length > 0 && channelItems[0].serverId === nextServerId;
+    const currentDataBelongsToNextServer = channelItems.length > 0 && channelItems[0]?.serverId === nextServerId;
 
     // Optimize: Only skip fetch if we are on the same server AND already have its data
     if (nextServerId !== state.selectedServerId || !currentDataBelongsToNextServer || categoryItems.length === 0) {
