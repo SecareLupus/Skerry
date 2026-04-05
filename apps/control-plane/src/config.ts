@@ -64,7 +64,7 @@ export const config = {
   voice: {
     tokenTtlSeconds: Number(process.env.SFU_TOKEN_TTL_SECONDS ?? "300"),
     url: process.env.LIVEKIT_URL ?? "ws://livekit:7880",
-    publicUrl: process.env.LIVEKIT_PUBLIC_URL || (baseDomain ? `${protocol === "https" ? "wss" : "ws"}://${baseDomain}${isLocal ? ":7880" : ""}` : "ws://localhost:7880"),
+    publicUrl: process.env.LIVEKIT_PUBLIC_URL || (baseDomain ? `${protocol === "https" ? "wss" : "ws"}://${baseDomain}` : "ws://localhost:7880"),
     apiKey: process.env.LIVEKIT_API_KEY ?? "devkey",
     apiSecret: process.env.LIVEKIT_API_SECRET ?? "secret",
   },

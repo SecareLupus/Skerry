@@ -172,19 +172,19 @@ Current focus is **Phase 20** (Moderation Hardening) and **Phase 23** (Extension
 
 ### 🚨 Tier 1: Critical Blockers
 - [x] **Fix Page Navigation Flashing (#29)** — Eliminate the back-and-forth flashing behavior when switching between rooms or servers.
-- [ ] **VC Reliability (#13)** — Fix dropping connections (LiveKit/WebRTC debugging required).
+- [x] **VC Reliability (#13)** — Fix dropping connections (LiveKit/WebRTC debugging required).
 - [ ] **Discord Bridging Refactor (#24)** — Implement dynamic message ID mapping for deletions and editing.
-- [x] **Masquerade Persistence (#25)** — Fix issue where masquerading logs out the current user.
+- [ ] **Masquerade Persistence (#25)** — Fix complex issues with masquerade system.
 
 ### 🔧 Tier 2: Core UX Bugs
 - [ ] **Threaded Conversations (#27)** — Fix missing moderation/context menus for threaded replies.
-- [ ] **Invite Link Generation (#23)** — Connect Modal UI to backend API for link generation.
+- [ ] **Invite Link Generation (#23)** — Current generated links need a functional contract defining what they do and are for.
 - [ ] **Settings Theme Sync (#21)** — Fix state desync where settings page drops dark/light preference.
 - [ ] **OAuth Mapping (#9)** — Fix "Guest" issue when linking Twitch after Discord.
 
 ### 🏗️ Tier 3: Medium Features & Polish
 - [ ] **Discord Content Bridging (#18, #26)** — Fix block quote rendering and implement sticker/emoji support.
-- [ ] **Discord OAuth Flow (#22)** — Refactor connection UX to prevent losing place in menus.
+- [ ] **Discord Bridge OAuth Flow (#22)** — Refactor connection UX to prevent losing place in menus.
 - [ ] **Twitch Integration UI (#6)** — Fix "ITS F#CKED" alignment/asset issue with Twitch logo on login.
 - [ ] **Storage Audit (#20)** — Monitor Docker storage (Note: manual prune `docker builder prune` recommended).
 - [x] **Rebranding Completion (#28)** — Finalize any remaining code references to EscapeHatch.
