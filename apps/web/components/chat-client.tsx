@@ -516,27 +516,29 @@ export function ChatClient() {
     if (!bootstrapStatus?.initialized) return;
 
     const currentUrlSelection = `${urlServerId}:${urlChannelId ?? "null"}:${urlMessageId ?? "null"}`;
+    const stateUrlMapping = `${selectedServerId}:${selectedChannelId ?? "null"}:${state.highlightedMessageId ?? "null"}`;
+
     if (currentUrlSelection === lastSyncedUrlRef.current) {
       return;
     }
-    
-    // Only trigger if URL actually changed from its previous value (e.g. Back/Forward)
-    // and it doesn't match the current state we've already moved to.
-    const stateUrlMapping = `${selectedServerId}:${selectedChannelId ?? "null"}:${state.highlightedMessageId ?? "null"}`;
+
     if (currentUrlSelection === stateUrlMapping) {
       lastSyncedUrlRef.current = currentUrlSelection;
       return;
     }
 
+    // Now we have a discrepancy.
+    // If the state doesn't match the URL, and this URL isn't one we just processed,
+    // trigger a sync back to the URL (Back/Forward navigation).
     console.log("[ChatClient] Actual URL drift detected! Syncing state to URL.", { 
-      from: lastSyncedUrlRef.current, 
-      to: currentUrlSelection,
+      current: currentUrlSelection, 
+      lastSynced: lastSyncedUrlRef.current,
       state: stateUrlMapping
     });
-    
+
     lastSyncedUrlRef.current = currentUrlSelection;
     void refreshChatState(urlServerId ?? undefined, urlChannelId ?? undefined);
-  }, [urlServerId, urlChannelId, urlMessageId, bootstrapStatus?.initialized, refreshChatState, selectedServerId, selectedChannelId, state.highlightedMessageId]);
+  }, [urlServerId, urlChannelId, urlMessageId, bootstrapStatus?.initialized, refreshChatState, selectedServerId, selectedChannelId, state.highlightedMessageId, lastSyncedUrlRef]);
 
   useEffect(() => {
     if (!canAccessWorkspace || !selectedServerId) {
@@ -569,21 +571,7 @@ export function ChatClient() {
   }, [canAccessWorkspace, selectedServerId, dispatch]);
 
 
-  useEffect(() => {
-    if (!canAccessWorkspace) return;
-    const dmServer = servers.find((s) => s.type === "dm");
-    if (!dmServer) return;
-
-    const refreshDmChannels = () => {
-      listChannels(dmServer.id)
-        .then((channels) => dispatch({ type: "SET_ALL_DM_CHANNELS", payload: channels }))
-        .catch(console.error);
-    };
-
-    refreshDmChannels();
-    const timer = setInterval(refreshDmChannels, 60000); // refresh every minute just in case
-    return () => clearInterval(timer);
-  }, [canAccessWorkspace, servers, dispatch]);
+  // useDMs() hook at top of component already handles this
 
   useEffect(() => {
     dispatch({ type: "SET_PENDING_NEW_MESSAGE_COUNT", payload: 0 });

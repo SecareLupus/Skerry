@@ -245,7 +245,22 @@ type ChatAction =
     | { type: "SET_NOTIFICATION_PREFERENCE", payload: { channelId: string; preference: 'all' | 'mentions' | 'none'; isMuted?: boolean } }
     | { type: "SET_CONFIRMATION", payload: ConfirmationContext | null }
     | { type: "SET_PENDING_ACTION_ID", payload: { id: string; active: boolean } }
-    | { type: "SET_ROLE_CONTEXT", payload: ChatState["roleContext"] };
+    | { type: "SET_ROLE_CONTEXT", payload: ChatState["roleContext"] }
+    | { 
+        type: "SET_CHAT_INITIAL_DATA"; 
+        payload: { 
+            servers?: Server[]; 
+            channels?: Channel[]; 
+            categories?: Category[]; 
+            viewerRoles?: ViewerRoleBinding[];
+            selectedServerId?: string | null;
+            selectedChannelId?: string | null;
+            activeChannelData?: Channel | null;
+            messages?: MessageItem[];
+            highlightedMessageId?: string | null;
+            error?: string | null;
+        } 
+      };
 
 
 const initialState: ChatState = {
@@ -600,6 +615,20 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
         }
         case "SET_ROLE_CONTEXT":
             return { ...state, roleContext: action.payload };
+        case "SET_CHAT_INITIAL_DATA":
+            return {
+                ...state,
+                ...(action.payload.servers !== undefined && { servers: action.payload.servers }),
+                ...(action.payload.channels !== undefined && { channels: action.payload.channels }),
+                ...(action.payload.categories !== undefined && { categories: action.payload.categories }),
+                ...(action.payload.viewerRoles !== undefined && { viewerRoles: action.payload.viewerRoles }),
+                ...(action.payload.selectedServerId !== undefined && { selectedServerId: action.payload.selectedServerId }),
+                ...(action.payload.selectedChannelId !== undefined && { selectedChannelId: action.payload.selectedChannelId }),
+                ...(action.payload.activeChannelData !== undefined && { activeChannelData: action.payload.activeChannelData }),
+                ...(action.payload.messages !== undefined && { messages: action.payload.messages }),
+                ...(action.payload.highlightedMessageId !== undefined && { highlightedMessageId: action.payload.highlightedMessageId }),
+                ...(action.payload.error !== undefined && { error: action.payload.error })
+            };
         default:
             return state;
     }

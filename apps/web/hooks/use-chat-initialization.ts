@@ -128,20 +128,14 @@ export function useChatInitialization({
       return;
     }
 
-    const currentServerId = state.selectedServerId;
-    if (nextServerId !== currentServerId) {
-      dispatch({ type: "SET_CHANNELS", payload: [] });
-      dispatch({ type: "SET_CATEGORIES", payload: [] });
-    }
+    const [channelItems, categoryItems] = await Promise.all([
+      listChannels(nextServerId),
+      listCategories(nextServerId)
+    ]);
 
-    const channelItems = await listChannels(nextServerId);
-    if (requestId !== chatStateRequestIdRef.current) return;
-    const categoryItems = await listCategories(nextServerId);
     if (requestId !== chatStateRequestIdRef.current) return;
 
-    dispatch({ type: "SET_CHANNELS", payload: channelItems });
-    dispatch({ type: "SET_CATEGORIES", payload: categoryItems });
-
+    // Discord info can stay async/separate as they are less critical for immediate room rendering
     void listDiscordBridgeMappings(nextServerId)
       .then((items) => dispatch({ type: "SET_DISCORD_MAPPINGS", payload: items }))
       .catch(() => dispatch({ type: "SET_DISCORD_MAPPINGS", payload: [] }));
@@ -168,19 +162,24 @@ export function useChatInitialization({
       shouldFetchMessages = true;
     }
 
-    if (nextChannelId !== selectedChannelId) {
-      dispatch({ type: "SET_SELECTED_CHANNEL_ID", payload: nextChannelId });
-    }
+    const nextChannelObj = nextChannelId ? channelItems.find(c => c.id === nextChannelId) : null;
 
-    if (nextChannelId && (shouldFetchMessages || !selectedChannelId)) {
-      const nextChannelObj = channelItems.find(c => c.id === nextChannelId);
-      if (nextChannelObj) {
-        dispatch({ type: "SET_ACTIVE_CHANNEL_DATA", payload: nextChannelObj });
+    // Batch core state update
+    dispatch({
+      type: "SET_CHAT_INITIAL_DATA",
+      payload: {
+        servers: serverItems,
+        viewerRoles: roleBindings,
+        selectedServerId: nextServerId,
+        selectedChannelId: nextChannelId,
+        channels: channelItems,
+        categories: categoryItems,
+        activeChannelData: nextChannelObj ?? null
       }
-    }
+    });
 
     setUrlSelection(nextServerId, nextChannelId, urlMessageId);
-    lastSyncedUrlRef.current = `${nextServerId}:${nextChannelId}:${urlMessageId}`;
+    lastSyncedUrlRef.current = `${nextServerId}:${nextChannelId ?? "null"}:${urlMessageId ?? "null"}`;
 
     if (!nextChannelId) {
       dispatch({ type: "SET_MESSAGES", payload: [] });
@@ -247,28 +246,29 @@ export function useChatInitialization({
 
   const handleChannelChange = useCallback(async (channelId: string): Promise<void> => {
     const channel = state.channels.find(c => c.id === channelId);
-    if (channel) dispatch({ type: "SET_ACTIVE_CHANNEL_DATA", payload: channel });
 
-    if (selectedChannelId) {
-      // Accessing draftMessage from outside might be tricky, maybe we pass it as a getter or just trust the context
-      // For now, let's assume the draft is updated in context before change
-    }
-
-    dispatch({ type: "SET_SELECTED_CHANNEL_ID", payload: channelId });
-    if (selectedServerId) {
-      dispatch({ type: "SET_LAST_CHANNEL_BY_SERVER", payload: { serverId: selectedServerId, channelId } });
-    }
     localStorage.setItem("lastChannelId", channelId);
-
     setUrlSelection(selectedServerId, channelId);
-    lastSyncedUrlRef.current = `${selectedServerId}:${channelId}:null`;
+    lastSyncedUrlRef.current = `${selectedServerId}:${channelId ?? "null"}:null`;
 
     setDraftMessage(draftMessagesByChannel[channelId] ?? "");
 
-    dispatch({ type: "SET_ERROR", payload: null });
     try {
       const next = await listMessages(channelId, null);
-      dispatch({ type: "SET_MESSAGES", payload: next.map((message) => ({ ...message })) });
+      
+      dispatch({
+        type: "SET_CHAT_INITIAL_DATA",
+        payload: {
+          selectedChannelId: channelId,
+          activeChannelData: channel ?? null,
+          messages: next.map((message) => ({ ...message })),
+          error: null
+        }
+      });
+
+      if (selectedServerId) {
+        dispatch({ type: "SET_LAST_CHANNEL_BY_SERVER", payload: { serverId: selectedServerId, channelId } });
+      }
 
       void listChannelMembers(channelId)
         .then((items) => dispatch({ type: "SET_MEMBERS", payload: items }))
