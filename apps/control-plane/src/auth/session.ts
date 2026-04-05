@@ -104,7 +104,9 @@ export function getSession(request: FastifyRequest): SessionPayload | null {
   return payload;
 }
 
-export function createMasqueradeToken(payload: SessionPayload): string {
+export function createMasqueradeToken(
+  payload: Omit<SessionPayload, "expiresAt"> & { expiresAt?: number }
+): string {
   return createSessionToken({
     ...payload,
     expiresAt: Date.now() + 15 * 60 * 1000 // 15 minutes for masquerade tokens

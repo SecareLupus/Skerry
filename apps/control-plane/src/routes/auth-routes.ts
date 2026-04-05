@@ -480,7 +480,7 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
     }
 
     // 2. Prepare payload
-    const payload: SessionPayload = {
+    const payload = {
       productUserId: actor.productUserId,
       provider: actor.provider,
       oidcSubject: actor.oidcSubject,
