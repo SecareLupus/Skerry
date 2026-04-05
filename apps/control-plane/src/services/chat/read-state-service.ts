@@ -67,7 +67,7 @@ export async function getChannelReadState(channelId: string, productUserId: stri
       notification_preference: "all" | "mentions" | "none";
       updated_at: string;
     }>(
-      `select channel_id, product_user_id, last_read_at, is_muted, notification_preference, updatedAt
+      `select channel_id, product_user_id, last_read_at, is_muted, notification_preference, updated_at
        from channel_read_states
        where product_user_id = $1 and channel_id = $2
        limit 1`,
