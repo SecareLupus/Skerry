@@ -131,20 +131,25 @@ function ParticipantView({ participant }: { participant: Participant }) {
     const videoRef = useRef<HTMLVideoElement>(null);
     const audioRef = useRef<HTMLAudioElement>(null);
     const [isSpeaking, setIsSpeaking] = useState(false);
+    const [updateCount, setUpdateCount] = useState(0);
 
     useEffect(() => {
-        const handleMetadataChanged = () => {
-            // Logic for handling metadata changes if needed
-        };
-
         const handleIsSpeakingChanged = (speaking: boolean) => {
             setIsSpeaking(speaking);
         };
 
-        participant.on(ParticipantEvent.IsSpeakingChanged, handleIsSpeakingChanged);
+        const triggerUpdate = () => {
+            setUpdateCount((c) => c + 1);
+        };
+
+        participant.on(ParticipantEvent.IsSpeakingChanged, handleIsSpeakingChanged)
+                   .on(ParticipantEvent.TrackSubscribed, triggerUpdate)
+                   .on(ParticipantEvent.TrackUnsubscribed, triggerUpdate);
 
         return () => {
-            participant.off(ParticipantEvent.IsSpeakingChanged, handleIsSpeakingChanged);
+            participant.off(ParticipantEvent.IsSpeakingChanged, handleIsSpeakingChanged)
+                       .off(ParticipantEvent.TrackSubscribed, triggerUpdate)
+                       .off(ParticipantEvent.TrackUnsubscribed, triggerUpdate);
         };
     }, [participant]);
 
@@ -153,7 +158,7 @@ function ParticipantView({ participant }: { participant: Participant }) {
         const tracks = Array.from(participant.trackPublications.values());
 
         tracks.forEach((pub) => {
-            if (pub.track) {
+            if (pub.track && pub.isSubscribed) {
                 if (pub.kind === Track.Kind.Video && videoRef.current) {
                     pub.track.attach(videoRef.current);
                 } else if (pub.kind === Track.Kind.Audio && audioRef.current && participant instanceof RemoteParticipant) {
@@ -169,7 +174,7 @@ function ParticipantView({ participant }: { participant: Participant }) {
                 }
             });
         };
-    }, [participant]);
+    }, [participant, updateCount]);
 
     const videoPub = Array.from(participant.trackPublications.values()).find(
         (p) => p.kind === Track.Kind.Video
