@@ -131,50 +131,29 @@ function ParticipantView({ participant }: { participant: Participant }) {
     const videoRef = useRef<HTMLVideoElement>(null);
     const audioRef = useRef<HTMLAudioElement>(null);
     const [isSpeaking, setIsSpeaking] = useState(false);
-    const [publications, setPublications] = useState<TrackPublication[]>([]);
 
     useEffect(() => {
+        const handleMetadataChanged = () => {
+            // Logic for handling metadata changes if needed
+        };
+
         const handleIsSpeakingChanged = (speaking: boolean) => {
             setIsSpeaking(speaking);
         };
 
-        const updatePublications = () => {
-            setPublications(Array.from(participant.trackPublications.values()));
+        participant.on(ParticipantEvent.IsSpeakingChanged, handleIsSpeakingChanged);
+
+        return () => {
+            participant.off(ParticipantEvent.IsSpeakingChanged, handleIsSpeakingChanged);
         };
+    }, [participant]);
 
-        const handleTrackSubscribed = (
-            track: Track,
-            publication: RemoteTrackPublication
-        ) => {
-            if (track.kind === Track.Kind.Video && videoRef.current) {
-                track.attach(videoRef.current);
-            } else if (track.kind === Track.Kind.Audio && audioRef.current) {
-                track.attach(audioRef.current);
-            }
-            updatePublications();
-        };
+    // Hook up tracks
+    useEffect(() => {
+        const tracks = Array.from(participant.trackPublications.values());
 
-        const handleTrackUnsubscribed = (
-            track: Track,
-            publication: RemoteTrackPublication
-        ) => {
-            track.detach();
-            updatePublications();
-        };
-
-        const handleTrackPublished = () => updatePublications();
-        const handleTrackUnpublished = () => updatePublications();
-
-        participant.on(ParticipantEvent.IsSpeakingChanged, handleIsSpeakingChanged)
-            .on(ParticipantEvent.TrackSubscribed, handleTrackSubscribed)
-            .on(ParticipantEvent.TrackUnsubscribed, handleTrackUnsubscribed)
-            .on(ParticipantEvent.TrackPublished, handleTrackPublished)
-            .on(ParticipantEvent.TrackUnpublished, handleTrackUnpublished);
-
-        // Initial setup for already-subscribed tracks
-        updatePublications();
-        participant.trackPublications.forEach((pub) => {
-            if (pub.track && pub.isSubscribed) {
+        tracks.forEach((pub) => {
+            if (pub.track) {
                 if (pub.kind === Track.Kind.Video && videoRef.current) {
                     pub.track.attach(videoRef.current);
                 } else if (pub.kind === Track.Kind.Audio && audioRef.current && participant instanceof RemoteParticipant) {
@@ -184,14 +163,7 @@ function ParticipantView({ participant }: { participant: Participant }) {
         });
 
         return () => {
-            participant.off(ParticipantEvent.IsSpeakingChanged, handleIsSpeakingChanged)
-                .off(ParticipantEvent.TrackSubscribed, handleTrackSubscribed)
-                .off(ParticipantEvent.TrackUnsubscribed, handleTrackUnsubscribed)
-                .off(ParticipantEvent.TrackPublished, handleTrackPublished)
-                .off(ParticipantEvent.TrackUnpublished, handleTrackUnpublished);
-            
-            // Cleanup: detach all tracks
-            participant.trackPublications.forEach((pub) => {
+            tracks.forEach((pub) => {
                 if (pub.track) {
                     pub.track.detach();
                 }
@@ -199,7 +171,7 @@ function ParticipantView({ participant }: { participant: Participant }) {
         };
     }, [participant]);
 
-    const videoPub = publications.find(
+    const videoPub = Array.from(participant.trackPublications.values()).find(
         (p) => p.kind === Track.Kind.Video
     );
 
