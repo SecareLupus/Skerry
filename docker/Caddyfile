@@ -27,7 +27,7 @@
     handle /twirp/* {
         reverse_proxy livekit:7880
     }
-    handle_path /rtc* {
+    handle /rtc* {
         reverse_proxy livekit:7880
     }
     handle {
