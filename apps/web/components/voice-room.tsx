@@ -150,34 +150,23 @@ function ParticipantView({ participant }: { participant: Participant }) {
 
     // Hook up tracks
     useEffect(() => {
-        const attachTrack = (track: Track) => {
-            if (track.kind === Track.Kind.Video && videoRef.current) {
-                track.attach(videoRef.current);
-            } else if (track.kind === Track.Kind.Audio && audioRef.current && participant instanceof RemoteParticipant) {
-                track.attach(audioRef.current);
+        const tracks = Array.from(participant.trackPublications.values());
+
+        tracks.forEach((pub) => {
+            if (pub.track) {
+                if (pub.kind === Track.Kind.Video && videoRef.current) {
+                    pub.track.attach(videoRef.current);
+                } else if (pub.kind === Track.Kind.Audio && audioRef.current && participant instanceof RemoteParticipant) {
+                    pub.track.attach(audioRef.current);
+                }
             }
-        };
-
-        const detachTrack = (track: Track) => {
-            track.detach();
-        };
-
-        // Attach existing tracks
-        participant.trackPublications.forEach((pub) => {
-            if (pub.track) attachTrack(pub.track);
         });
 
-        const handleTrackSubscribed = (track: Track) => attachTrack(track);
-        const handleTrackUnsubscribed = (track: Track) => detachTrack(track);
-
-        participant.on(ParticipantEvent.TrackSubscribed, handleTrackSubscribed);
-        participant.on(ParticipantEvent.TrackUnsubscribed, handleTrackUnsubscribed);
-
         return () => {
-            participant.off(ParticipantEvent.TrackSubscribed, handleTrackSubscribed);
-            participant.off(ParticipantEvent.TrackUnsubscribed, handleTrackUnsubscribed);
-            participant.trackPublications.forEach((pub) => {
-                if (pub.track) detachTrack(pub.track);
+            tracks.forEach((pub) => {
+                if (pub.track) {
+                    pub.track.detach();
+                }
             });
         };
     }, [participant]);
