@@ -42,7 +42,11 @@ services:
     image: livekit/livekit-server:v1.9.11
     env_file:
       - .env
-    command: [ "--dev", "--bind", "0.0.0.0" ]
+    command: >
+      sh -c '
+      export RESOLVED_IP=$$(getent hosts ${BASE_DOMAIN:-localhost} | head -n1 | awk "{print $$1}");
+      echo "Resolved ${BASE_DOMAIN:-localhost} to $$RESOLVED_IP";
+      /livekit-server --dev --bind 0.0.0.0 --node-ip $$RESOLVED_IP'
     # Signaling port 7880 is now internal only
     ports:
       - "7881:7881"
