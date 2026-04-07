@@ -20,7 +20,7 @@ docker/synapse/skerry-appservice.yaml
  
  # TypeScript & Build
  *.tsbuildinfo
- build_output.log
+ *.log
  .turbo
  
  # Environment
@@ -28,3 +28,4 @@ docker/synapse/skerry-appservice.yaml
  .env.development.local
  .env.test.local
  .env.production.local
+
