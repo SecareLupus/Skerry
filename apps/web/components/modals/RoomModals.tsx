@@ -38,7 +38,7 @@ interface RoomModalsProps {
   performDeleteRoom: (serverId: string, roomId: string) => Promise<void>;
   dispatch: (action: any) => void;
   showToast: (message: string, type: "success" | "error") => void;
-  refreshChatState: () => Promise<void>;
+  refreshChatState: (serverId?: string, channelId?: string, messageId?: string, force?: boolean) => Promise<void>;
 }
 
 export function RoomModals({
@@ -251,26 +251,29 @@ export function RoomModals({
               </button>
             </div>
           </div>
-        ) : (
-          <PermissionsEditor 
-            serverId={activeChannel?.serverId ?? serverId}
-            channelId={renameRoomId}
-            initialAccess={{
-              hubAdminAccess: activeChannel?.hubAdminAccess ?? 'chat',
-              spaceMemberAccess: activeChannel?.spaceMemberAccess ?? 'chat',
-              hubMemberAccess: activeChannel?.hubMemberAccess ?? 'chat',
-              visitorAccess: activeChannel?.visitorAccess ?? 'hidden'
-            }}
-            onSaveDefaults={async (access) => {
-              await updateChannelSettings(renameRoomId, {
-                serverId: activeChannel?.serverId ?? serverId ?? "",
-                ...access
-              });
-              showToast("Permissions updated", "success");
-              void refreshChatState();
-            }}
-          />
-        )}
+        ) : (() => {
+          const channelToEdit = channels.find(c => c.id === renameRoomId) || activeChannel;
+          return (
+            <PermissionsEditor 
+              serverId={channelToEdit?.serverId ?? serverId}
+              channelId={renameRoomId}
+              initialAccess={{
+                hubAdminAccess: channelToEdit?.hubAdminAccess ?? 'chat',
+                spaceMemberAccess: channelToEdit?.spaceMemberAccess ?? 'chat',
+                hubMemberAccess: channelToEdit?.hubMemberAccess ?? 'chat',
+                visitorAccess: channelToEdit?.visitorAccess ?? 'hidden'
+              }}
+              onSaveDefaults={async (access) => {
+                await updateChannelSettings(renameRoomId, {
+                  serverId: channelToEdit?.serverId ?? serverId ?? "",
+                  ...access
+                });
+                showToast("Permissions updated", "success");
+                void refreshChatState(undefined, undefined, undefined, true);
+              }}
+            />
+          );
+        })()}
       </div>
     );
   }

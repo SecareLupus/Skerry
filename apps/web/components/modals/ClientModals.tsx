@@ -61,6 +61,7 @@ interface ClientModalsProps {
   
   activeServer?: Server;
   activeChannel?: Channel;
+  servers: Server[];
   channels: Channel[];
   categories: Category[];
 
@@ -75,7 +76,7 @@ interface ClientModalsProps {
   handleRenameRoom: (e: React.FormEvent) => Promise<void>;
   moveChannelPosition: (id: string, direction: "up" | "down") => Promise<void>;
   performDeleteRoom: (serverId: string, roomId: string) => Promise<void>;
-  refreshChatState: () => Promise<void>;
+  refreshChatState: (serverId?: string, channelId?: string, messageId?: string, force?: boolean) => Promise<void>;
 }
 
 export function ClientModals(props: ClientModalsProps) {
@@ -131,6 +132,7 @@ export function ClientModals(props: ClientModalsProps) {
               iconFile={props.iconFile}
               setIconFile={props.setIconFile}
               mutatingStructure={props.mutatingStructure}
+              servers={props.servers}
               activeServer={props.activeServer}
               handleCreateSpace={props.handleCreateSpace}
               handleRenameSpace={props.handleRenameSpace}

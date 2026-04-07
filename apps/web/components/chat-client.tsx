@@ -980,6 +980,7 @@ export function ChatClient() {
         selectedCategoryIdForCreate={selectedCategoryIdForCreate}
         activeServer={activeServer}
         activeChannel={activeChannel!}
+        servers={servers}
         channels={channels}
         categories={categories}
         handleCreateSpace={handleCreateSpace}

@@ -20,11 +20,12 @@ interface SpaceModalsProps {
   setIconFile: (file: File | null) => void;
   mutatingStructure: boolean;
   activeServer?: Server;
+  servers: Server[];
   handleCreateSpace: (e: React.FormEvent) => Promise<void>;
   handleRenameSpace: (e: React.FormEvent) => Promise<void>;
   dispatch: (action: any) => void;
   showToast: (message: string, type: "success" | "error") => void;
-  refreshChatState: () => Promise<void>;
+  refreshChatState: (serverId?: string, channelId?: string, messageId?: string, force?: boolean) => Promise<void>;
 }
 
 export function SpaceModals({
@@ -40,6 +41,7 @@ export function SpaceModals({
   setIconFile,
   mutatingStructure,
   activeServer,
+  servers,
   handleCreateSpace,
   handleRenameSpace,
   dispatch,
@@ -151,23 +153,26 @@ export function SpaceModals({
             </div>
             <button type="submit" disabled={mutatingStructure}>Save Changes</button>
           </form>
-        ) : (
-          <PermissionsEditor 
-            serverId={renameSpaceId}
-            initialAccess={{
-              hubAdminAccess: activeServer?.hubAdminAccess ?? 'chat',
-              spaceMemberAccess: activeServer?.spaceMemberAccess ?? 'chat',
-              hubMemberAccess: activeServer?.hubMemberAccess ?? 'chat',
-              visitorAccess: activeServer?.visitorAccess ?? 'hidden',
-              joinPolicy: activeServer?.joinPolicy
-            }}
-            onSaveDefaults={async (access) => {
-              await updateServerSettings(renameSpaceId, access);
-              showToast("Permissions updated", "success");
-              void refreshChatState();
-            }}
-          />
-        )}
+        ) : (() => {
+          const serverToEdit = servers.find(s => s.id === renameSpaceId) || activeServer;
+          return (
+            <PermissionsEditor 
+              serverId={renameSpaceId}
+              initialAccess={{
+                hubAdminAccess: serverToEdit?.hubAdminAccess ?? 'chat',
+                spaceMemberAccess: serverToEdit?.spaceMemberAccess ?? 'chat',
+                hubMemberAccess: serverToEdit?.hubMemberAccess ?? 'chat',
+                visitorAccess: serverToEdit?.visitorAccess ?? 'hidden',
+                joinPolicy: serverToEdit?.joinPolicy
+              }}
+              onSaveDefaults={async (access) => {
+                await updateServerSettings(renameSpaceId, access);
+                showToast("Permissions updated", "success");
+                void refreshChatState(undefined, undefined, undefined, true);
+              }}
+            />
+          );
+        })()}
       </div>
     );
   }
