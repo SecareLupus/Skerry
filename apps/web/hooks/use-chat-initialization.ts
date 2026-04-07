@@ -146,7 +146,7 @@ export function useChatInitialization({
     let categoryItems = state.categories;
     const currentDataBelongsToNextServer = channelItems.length > 0 && channelItems[0]?.serverId === nextServerId;
 
-    if (nextServerId !== state.selectedServerId || !currentDataBelongsToNextServer || categoryItems.length === 0) {
+    if (force || nextServerId !== state.selectedServerId || !currentDataBelongsToNextServer || categoryItems.length === 0) {
       // If we are switching servers, we still need the room list for the sidebar
       [channelItems, categoryItems] = await Promise.all([
         listChannels(nextServerId),

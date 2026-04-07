@@ -584,33 +584,6 @@ export function ChatClient() {
   }, [selectedChannelId, dispatch]);
 
   useEffect(() => {
-    const selectedServer = servers.find((server) => server.id === selectedServerId);
-    dispatch({ type: "SET_RENAME_SPACE", payload: { id: selectedServer?.id ?? "", name: selectedServer?.name ?? "" } });
-    dispatch({ type: "SET_DELETE_TARGET_SPACE_ID", payload: state.deleteTargetSpaceId || selectedServer?.id || servers[0]?.id || "" });
-  }, [selectedServerId, servers, dispatch, state.deleteTargetSpaceId]);
-
-
-  useEffect(() => {
-    const selected = channels.find((channel) => channel.id === selectedChannelId);
-    dispatch({ type: "SET_RENAME_ROOM", payload: { id: selected?.id ?? "", name: (selected?.name ?? "").replace(/^#/, ""), type: selected?.type ?? "text", categoryId: selected?.categoryId ?? null, topic: selected?.topic ?? "", styleContent: selected?.styleContent ?? "", iconUrl: selected?.iconUrl ?? null } });
-    dispatch({ type: "SET_SELECTED_CATEGORY_FOR_CREATE", payload: selected?.categoryId ?? "" });
-  }, [channels, selectedChannelId, dispatch]);
-
-  useEffect(() => {
-    if (categories.length === 0) {
-      dispatch({ type: "SET_RENAME_CATEGORY", payload: { id: "", name: "" } });
-      dispatch({ type: "SET_SELECTED_CATEGORY_FOR_CREATE", payload: "" });
-      return;
-    }
-
-    const current = categories.find((category) => category.id === renameCategoryId);
-    const selected = current ?? categories[0]!;
-    dispatch({ type: "SET_RENAME_CATEGORY", payload: { id: selected.id, name: selected.name } });
-    dispatch({ type: "SET_SELECTED_CATEGORY_FOR_CREATE", payload: selected.id });
-  }, [categories, renameCategoryId, dispatch]);
-
-
-  useEffect(() => {
     if (!voiceConnected || !selectedServerId || !selectedChannelId || activeChannel?.type !== "voice") {
       dispatch({ type: "SET_VOICE_MEMBERS", payload: [] });
       return;
