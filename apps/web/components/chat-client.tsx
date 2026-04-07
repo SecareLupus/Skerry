@@ -211,7 +211,7 @@ export function ChatClient() {
   const handleMessageListScroll = (event: React.UIEvent<HTMLOListElement>) => {
     const { scrollTop, scrollHeight, clientHeight } = event.currentTarget;
     const nearBottom = scrollHeight - scrollTop - clientHeight < 100;
-    dispatch({ type: "SET_IS_NEAR_BOTTOM", payload: nearBottom });
+    dispatch({ type: "SET_NEAR_BOTTOM", payload: nearBottom });
     if (nearBottom) {
       dispatch({ type: "SET_PENDING_NEW_MESSAGE_COUNT", payload: 0 });
     }

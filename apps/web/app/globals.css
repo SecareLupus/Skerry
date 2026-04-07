@@ -482,6 +482,7 @@ body {
   border: 1px solid var(--border);
   border-radius: 0.85rem;
   padding: 1rem;
+  position: relative;
 }
 
 .panel h2 {
