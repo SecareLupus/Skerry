@@ -41,7 +41,8 @@ export function Sidebar({
         lastReadByChannel,
         mentionCountByChannel,
         blockedUserIds,
-        viewer
+        viewer,
+        switchingServer
     } = state;
 
     const defaultServers = useMemo(() => servers.filter(s => s.type !== 'dm'), [servers]);
@@ -397,8 +398,15 @@ export function Sidebar({
                         onChange={(event) => dispatch({ type: "SET_CHANNEL_FILTER", payload: event.target.value })}
                     />
 
-                    <div className="channel-groups-container">
-                        <ul>
+                    {switchingServer ? (
+                        <div className="throbber" aria-label="Loading rooms">
+                            <div className="throbber-dot"></div>
+                            <div className="throbber-dot"></div>
+                            <div className="throbber-dot"></div>
+                        </div>
+                    ) : (
+                        <div className="channel-groups-container">
+                            <ul>
                             {groupedChannels.map((group) => (
                                 <li key={group.id ?? "uncategorized"}>
                                     {group.id && (
@@ -504,7 +512,8 @@ export function Sidebar({
                                 </li>
                             ))}
                         </ul>
-                    </div>
+                        </div>
+                    )}
                 </nav>
             )}
             {contextMenu && (

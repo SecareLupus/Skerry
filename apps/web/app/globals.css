@@ -445,6 +445,38 @@ body {
   }
 }
 
+.throbber {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 3rem 1rem;
+  width: 100%;
+}
+
+.throbber-dot {
+  width: 8px;
+  height: 8px;
+  background: var(--accent);
+  border-radius: 50%;
+  animation: sk-throb 1.4s infinite ease-in-out both;
+}
+
+.throbber-dot:nth-child(1) { animation-delay: -0.32s; }
+.throbber-dot:nth-child(2) { animation-delay: -0.16s; }
+
+@keyframes sk-throb {
+  0%, 80%, 100% { 
+    transform: scale(0.6); 
+    opacity: 0.2; 
+  }
+  40% { 
+    transform: scale(1.2); 
+    opacity: 1; 
+    box-shadow: 0 0 10px var(--accent);
+  }
+}
+
 .panel {
   background: var(--surface);
   border: 1px solid var(--border);

@@ -183,6 +183,7 @@ export function useChatInitialization({
             error: null
           }
         });
+        dispatch({ type: "SET_SWITCHING_SERVER", payload: false });
 
         const finalMessageId = preferredMessageId ?? urlMessageId ?? null;
         setUrlSelection(nextServerId, nextChannelId, finalMessageId);
@@ -233,12 +234,14 @@ export function useChatInitialization({
           error: null
         }
       });
+      dispatch({ type: "SET_SWITCHING_SERVER", payload: false });
       setUrlSelection(nextServerId, null);
     }
   }, [urlServerId, urlChannelId, urlMessageId, selectedServerId, selectedChannelId, dispatch, setUrlSelection, lastSyncedUrlRef, setDraftMessage, draftMessagesByChannel, channelScrollPositions, messagesRef, markChannelAsRead, setTargetUrl, state.channels, state.categories]);
 
   const handleServerChange = useCallback(async (serverId: string, channelId?: string): Promise<void> => {
     const targetChannelId = channelId ?? state.lastChannelByServer[serverId];
+    dispatch({ type: "SET_SWITCHING_SERVER", payload: true });
     dispatch({ type: "SET_SELECTED_SERVER_ID", payload: serverId });
     localStorage.setItem("lastServerId", serverId);
     if (targetChannelId) localStorage.setItem("lastChannelId", targetChannelId);
@@ -246,6 +249,7 @@ export function useChatInitialization({
     try {
       await refreshChatState(serverId, targetChannelId, undefined, true);
     } catch (cause) {
+      dispatch({ type: "SET_SWITCHING_SERVER", payload: false });
       dispatch({ type: "SET_ERROR", payload: cause instanceof Error ? cause.message : "Failed to load channels." });
     }
   }, [state.lastChannelByServer, dispatch, refreshChatState]);

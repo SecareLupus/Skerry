@@ -167,6 +167,7 @@ export interface ChatState {
         scope: "hub" | "space";
         serverId?: string;
     } | null;
+    switchingServer: boolean;
 }
 
 type ChatAction =
@@ -248,6 +249,7 @@ type ChatAction =
     | { type: "SET_CONFIRMATION", payload: ConfirmationContext | null }
     | { type: "SET_PENDING_ACTION_ID", payload: { id: string; active: boolean } }
     | { type: "SET_ROLE_CONTEXT", payload: ChatState["roleContext"] }
+    | { type: "SET_SWITCHING_SERVER", payload: boolean }
     | { 
         type: "SET_CHAT_INITIAL_DATA"; 
         payload: { 
@@ -351,7 +353,8 @@ const initialState: ChatState = {
     moderationTargetMessageId: null,
     confirmationContext: null,
     pendingActionIds: new Set(),
-    roleContext: null
+    roleContext: null,
+    switchingServer: false
 };
 
 function chatReducer(state: ChatState, action: ChatAction): ChatState {
@@ -622,6 +625,8 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
         }
         case "SET_ROLE_CONTEXT":
             return { ...state, roleContext: action.payload };
+        case "SET_SWITCHING_SERVER":
+            return { ...state, switchingServer: action.payload };
         case "SET_CHAT_INITIAL_DATA":
             return {
                 ...state,
