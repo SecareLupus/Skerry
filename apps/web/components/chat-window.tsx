@@ -831,11 +831,12 @@ export function ChatWindow({
                 </div>
             </header>
 
-            {selectedChannelId && (state.unreadCountByChannel[selectedChannelId] || 0) > 0 && !isNearBottom && (
-                <div className="unread-banner" onClick={handleJumpToUnread}>
-                    You have unread messages. Click to jump to the first unread.
-                </div>
-            )}
+            <div className="chat-main-section">
+                {selectedChannelId && (state.unreadCountByChannel[selectedChannelId] || 0) > 0 && !isNearBottom && (
+                    <div className="unread-banner" onClick={handleJumpToUnread}>
+                        You have unread messages. Click to jump to the first unread.
+                    </div>
+                )}
 
             {activeChannel?.type === "landing" ? (
                 <LandingPageView channel={activeChannel} />
@@ -1110,54 +1111,9 @@ export function ChatWindow({
                 })}
             </ol>
             <TypingIndicator channelId={selectedChannelId!} />
-
-            {/* Single fixed-position reaction picker — decoupled from message DOM */}
-            {
-                reactionTargetMessageId && reactionPickerPos && (() => {
-                    const pickerH = 345;
-                    const pickerW = 300;
-                    const vw = window.innerWidth;
-                    const vh = window.innerHeight;
-                    // Prefer opening below the button; flip up if not enough room
-                    const spaceBelow = vh - reactionPickerPos.y;
-                    const top = spaceBelow >= pickerH + 8
-                        ? reactionPickerPos.y + 4
-                        : Math.max(8, reactionPickerPos.y - pickerH - 4);
-                    // Snap left so picker doesn't overflow right edge
-                    const left = Math.min(reactionPickerPos.x, vw - pickerW - 8);
-                    return (
-                        <div
-                            className="reaction-picker-overlay"
-                            style={{ position: "fixed", top, left, zIndex: 3000 }}
-                        >
-                            <div className="picker-backdrop" style={{ position: "fixed", inset: 0, zIndex: 90 }} onClick={() => setReactionTargetMessageId(null)} />
-                            <div className="emoji-picker-container reaction-picker-compact" style={{ position: "relative", zIndex: 100 }}>
-                                <EmojiPicker
-                                    onEmojiClick={async (emojiData: EmojiClickData) => {
-                                        const targetMsg = messages.find(m => m.id === reactionTargetMessageId);
-                                        if (targetMsg) {
-                                            await addReaction(targetMsg.channelId, targetMsg.id, emojiData.emoji);
-                                        }
-                                        setReactionTargetMessageId(null);
-                                    }}
-                                    theme={theme as any}
-                                    width={pickerW}
-                                    height={340}
-                                    emojiSize={22}
-                                    previewConfig={{ showPreview: false }}
-                                    skinTonesDisabled={true}
-                                    style={{
-                                        "--epr-emoji-padding": "2px",
-                                        "--epr-emoji-size": "22px",
-                                        "--epr-horizontal-padding": "6px",
-                                        "--epr-search-input-height": "32px"
-                                    } as any}
-                                />
-                            </div>
-                        </div>
-                    );
-                })()
-            }
+        </>
+    )}
+</div>
 
 
 
@@ -1192,8 +1148,8 @@ export function ChatWindow({
                     </div>
                 )
             }
-                </>
-            )}
+
+
 
             {activeChannel?.type !== "landing" && (
             <form onSubmit={(e) => {
