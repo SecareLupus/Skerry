@@ -222,6 +222,8 @@ export function useChatInitialization({
           if (list) {
             const savedPos = channelScrollPositions[nextChannelId!];
             list.scrollTop = savedPos !== undefined ? savedPos : 0;
+            // Immediate check to see if we need the "Jump to Present" button
+            dispatch({ type: "SET_NEAR_BOTTOM", payload: Math.abs(list.scrollTop) < 100 });
           }
         }, 50);
 

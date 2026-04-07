@@ -240,7 +240,10 @@ export function ChatClient() {
     const list = messagesRef.current;
     if (list) {
       // With column-reverse, snapping to 0 is snapping to bottom.
-      list.scrollTop = 0;
+      list.scrollTo({
+        top: 0,
+        behavior: "smooth"
+      });
     }
     dispatch({ type: "SET_PENDING_NEW_MESSAGE_COUNT", payload: 0 });
   };
