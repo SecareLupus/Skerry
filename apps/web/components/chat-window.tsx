@@ -398,7 +398,10 @@ export function ChatWindow({
                 label: "Add Reaction",
                 icon: "😀",
                 onClick: () => {
-                    setReactionTargetMessageId(contextMenu.message?.id || null);
+                    if (contextMenu.message) {
+                        setReactionPickerPos({ x: contextMenu.x, y: contextMenu.y });
+                        setReactionTargetMessageId(contextMenu.message.id);
+                    }
                 }
             },
             {
@@ -546,10 +549,20 @@ export function ChatWindow({
                     }
                     try {
                         if (isPinned) {
-                            await unpinMessage(contextMenu.message!.channelId, contextMenu.message!.id);
+                            const msg = contextMenu.message!;
+                            await unpinMessage(msg.channelId, msg.id);
+                            dispatch({
+                                type: "UPDATE_MESSAGES",
+                                payload: (current) => current.map(m => m.id === msg.id ? { ...m, isPinned: false } : m)
+                            });
                             showToast("Message unpinned", "success");
                         } else {
-                            await pinMessage(contextMenu.message!.channelId, contextMenu.message!.id);
+                            const msg = contextMenu.message!;
+                            await pinMessage(msg.channelId, msg.id);
+                            dispatch({
+                                type: "UPDATE_MESSAGES",
+                                payload: (current) => current.map(m => m.id === msg.id ? { ...m, isPinned: true } : m)
+                            });
                             showToast("Message pinned", "success");
                         }
                     } catch (e) {
@@ -967,7 +980,13 @@ export function ChatWindow({
                                                                 setEditingMessageId(null);
                                                                 return;
                                                             }
-                                                            void updateMessage(message.channelId, message.id, editContent).then(() => setEditingMessageId(null));
+                                                            void updateMessage(message.channelId, message.id, editContent).then(() => {
+                                                                dispatch({
+                                                                    type: "UPDATE_MESSAGES",
+                                                                    payload: (current) => current.map(m => m.id === message.id ? { ...m, content: editContent, updatedAt: new Date().toISOString() } : m)
+                                                                });
+                                                                setEditingMessageId(null);
+                                                            });
                                                         }
                                                     } else if (e.key === "Escape") {
                                                         setEditingMessageId(null);
@@ -1067,7 +1086,33 @@ export function ChatWindow({
                                                     type="button"
                                                     className={`interaction-btn ${r.me ? "active" : ""}`}
                                                     style={{ padding: "1px 6px", borderRadius: "12px", border: "1px solid var(--border-color)", background: r.me ? "var(--accent-color-transparent)" : "var(--surface-color)", fontSize: "0.85rem", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.25rem" }}
-                                                    onClick={() => r.me ? removeReaction(message.channelId, message.id, r.emoji) : addReaction(message.channelId, message.id, r.emoji)}
+                                                    onClick={() => {
+                                                        const emoji = r.emoji;
+                                                        const isMe = r.me;
+                                                        
+                                                        // Optimistic update
+                                                        dispatch({
+                                                            type: "UPDATE_MESSAGES",
+                                                            payload: (current) => current.map(m => {
+                                                                if (m.id !== message.id) return m;
+                                                                const newReactions = (m.reactions || []).map(react => {
+                                                                    if (react.emoji !== emoji) return react;
+                                                                    return {
+                                                                        ...react,
+                                                                        count: isMe ? Math.max(0, react.count - 1) : react.count + 1,
+                                                                        me: !isMe
+                                                                    };
+                                                                }).filter(react => react.count > 0);
+                                                                return { ...m, reactions: newReactions };
+                                                            })
+                                                        });
+
+                                                        if (isMe) {
+                                                            void removeReaction(message.channelId, message.id, emoji);
+                                                        } else {
+                                                            void addReaction(message.channelId, message.id, emoji);
+                                                        }
+                                                    }}
                                                 >
                                                     <span>{r.emoji}</span>
                                                     <span style={{ fontWeight: 600, opacity: 0.8 }}>{r.count}</span>
@@ -1411,20 +1456,50 @@ export function ChatWindow({
                 )
             }
             {
-                lightboxUrl && (
-                    <div className="lightbox-overlay" onClick={() => setLightboxUrl(null)}>
-                        <img 
-                            src={lightboxUrl} 
-                            alt="Full size preview" 
-                            className="lightbox-image" 
-                            onClick={(e) => e.stopPropagation()}
+                reactionTargetMessageId && reactionPickerPos && (
+                    <div
+                        className="emoji-picker-container"
+                        style={{
+                            position: "fixed",
+                            top: Math.min(reactionPickerPos.y, window.innerHeight - 450),
+                            left: Math.min(reactionPickerPos.x, window.innerWidth - 350),
+                            zIndex: 1000
+                        }}
+                    >
+                        <EmojiPicker
+                            theme={theme as any}
+                            onEmojiClick={(data: EmojiClickData) => {
+                                const emoji = data.emoji;
+                                const targetId = reactionTargetMessageId;
+                                
+                                // Optimistic update for adding a brand new reaction or incrementing existing
+                                dispatch({
+                                    type: "UPDATE_MESSAGES",
+                                    payload: (current) => current.map(m => {
+                                        if (m.id !== targetId) return m;
+                                        const reactions = [...(m.reactions || [])];
+                                        const existingIdx = reactions.findIndex(react => react && react.emoji === emoji);
+                                        if (existingIdx > -1) {
+                                            const react = reactions[existingIdx];
+                                            if (react && !react.me) {
+                                                reactions[existingIdx] = { ...react, count: react.count + 1, me: true, userIds: react.userIds || [] };
+                                            }
+                                        } else {
+                                            reactions.push({ emoji, count: 1, me: true, userIds: [] });
+                                        }
+                                        return { ...m, reactions };
+                                    })
+                                });
+
+                                void addReaction(selectedChannelId!, targetId, emoji);
+                                setReactionTargetMessageId(null);
+                            }}
                         />
-                        <button 
-                            className="lightbox-close"
-                            onClick={() => setLightboxUrl(null)}
-                        >
-                            &times;
-                        </button>
+                        <div
+                            className="emoji-picker-backdrop"
+                            onClick={() => setReactionTargetMessageId(null)}
+                            style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: -1 }}
+                        />
                     </div>
                 )
             }

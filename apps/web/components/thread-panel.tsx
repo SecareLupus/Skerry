@@ -148,8 +148,30 @@ export function ThreadPanel() {
 
     const handleAddReaction = async (emoji: string) => {
         if (!selectedChannelId || !reactionTargetMessageId) return;
+        const targetId = reactionTargetMessageId;
+        
+        const updateFn = (m: MessageItem) => {
+            if (m.id !== targetId) return m;
+            const reactions = [...(m.reactions || [])];
+            const existingIdx = reactions.findIndex(r => r && r.emoji === emoji);
+            if (existingIdx > -1) {
+                const r = reactions[existingIdx];
+                if (r && !r.me) {
+                    reactions[existingIdx] = { ...r, count: r.count + 1, me: true, userIds: r.userIds || [] };
+                }
+            } else {
+                reactions.push({ emoji, count: 1, me: true, userIds: [] });
+            }
+            return { ...m, reactions };
+        };
+
+        setReplies(prev => prev.map(updateFn));
+        if (parentMessage?.id === targetId) {
+            setParentMessage(updateFn(parentMessage));
+        }
+
         try {
-            await addReaction(selectedChannelId, reactionTargetMessageId, emoji);
+            await addReaction(selectedChannelId, targetId, emoji);
             setReactionTargetMessageId(null);
         } catch (err) {
             showToast("Failed to add reaction", "error");
@@ -326,9 +348,15 @@ export function ThreadPanel() {
                 try {
                     if (isPinned) {
                         await unpinMessage(contextMenu.message.channelId, contextMenu.message.id);
+                        const updateFn = (m: MessageItem) => m.id === contextMenu.message.id ? { ...m, isPinned: false } : m;
+                        setReplies(prev => prev.map(updateFn));
+                        if (parentMessage?.id === contextMenu.message.id) setParentMessage(updateFn(parentMessage));
                         showToast("Message unpinned", "success");
                     } else {
                         await pinMessage(contextMenu.message.channelId, contextMenu.message.id);
+                        const updateFn = (m: MessageItem) => m.id === contextMenu.message.id ? { ...m, isPinned: true } : m;
+                        setReplies(prev => prev.map(updateFn));
+                        if (parentMessage?.id === contextMenu.message.id) setParentMessage(updateFn(parentMessage));
                         showToast("Message pinned", "success");
                     }
                 } catch (e) {
@@ -542,7 +570,31 @@ export function ThreadPanel() {
                                                 <button
                                                     key={r.emoji}
                                                     className={`interaction-btn ${r.me ? "active" : ""}`}
-                                                    onClick={() => r.me ? removeReaction(reply.channelId, reply.id, r.emoji) : addReaction(reply.channelId, reply.id, r.emoji)}
+                                                    onClick={() => {
+                                                        const emoji = r.emoji;
+                                                        const isMe = r.me;
+                                                        const updateFn = (m: MessageItem) => {
+                                                            if (m.id !== reply.id) return m;
+                                                            const newReactions = (m.reactions || []).map(react => {
+                                                                if (react.emoji !== emoji) return react;
+                                                                return {
+                                                                    ...react,
+                                                                    count: isMe ? Math.max(0, react.count - 1) : react.count + 1,
+                                                                    me: !isMe
+                                                                };
+                                                            }).filter(react => react.count > 0);
+                                                            return { ...m, reactions: newReactions };
+                                                        };
+                                                        
+                                                        setReplies(prev => prev.map(updateFn));
+                                                        if (parentMessage?.id === reply.id) setParentMessage(updateFn(parentMessage));
+
+                                                        if (isMe) {
+                                                            void removeReaction(reply.channelId, reply.id, emoji);
+                                                        } else {
+                                                            void addReaction(reply.channelId, reply.id, emoji);
+                                                        }
+                                                    }}
                                                 >
                                                     <span>{r.emoji}</span>
                                                     <span style={{ fontWeight: 600, opacity: 0.8 }}>{r.count}</span>
