@@ -219,7 +219,10 @@ export function ChatClient() {
 
   const jumpToLatest = () => {
     if (messagesRef.current) {
-      messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
+      messagesRef.current.scrollTo({
+        top: messagesRef.current.scrollHeight,
+        behavior: "smooth"
+      });
     }
     dispatch({ type: "SET_PENDING_NEW_MESSAGE_COUNT", payload: 0 });
   };
@@ -628,7 +631,10 @@ export function ChatClient() {
     }
 
     if (isNearBottom) {
-      list.scrollTop = list.scrollHeight;
+      list.scrollTo({
+        top: list.scrollHeight,
+        behavior: "smooth"
+      });
       dispatch({ type: "SET_PENDING_NEW_MESSAGE_COUNT", payload: 0 });
       dispatch({ type: "SET_LAST_SEEN_MESSAGE_ID", payload: newest.id });
       return;
