@@ -270,7 +270,7 @@ export function ChatWindow({
         if (!selectedChannelId) return;
         const messageId = await getFirstUnreadMessageId(selectedChannelId);
         if (messageId) {
-            void refreshChatState(selectedServerId ?? undefined, selectedChannelId, messageId);
+            void refreshChatState(selectedServerId ?? undefined, selectedChannelId, messageId, true);
         }
     }, [selectedChannelId, selectedServerId, refreshChatState]);
 
@@ -337,7 +337,7 @@ export function ChatWindow({
         if (!selectedChannelId) return;
         try {
             await inviteToChannel(selectedChannelId, userId);
-            await refreshChatState(activeServer?.id, selectedChannelId);
+            await refreshChatState(activeServer?.id, selectedChannelId, undefined, true);
             setIsInviting(false);
         } catch (error) {
             console.error("Invite failed", error);

@@ -563,7 +563,11 @@ export function ChatClient() {
     targetUrlSelectionRef.current = null;
     previousUrlRef.current = currentUrlSelection;
     lastSyncedUrlRef.current = currentUrlSelection;
-    void refreshChatState(urlServerId ?? undefined, urlChannelId ?? undefined);
+    if (urlMessageId) {
+        void refreshChatState(urlServerId ?? undefined, urlChannelId ?? undefined, urlMessageId, true);
+    } else {
+        void refreshChatState(urlServerId ?? undefined, urlChannelId ?? undefined, undefined, true);
+    }
   }, [urlServerId, urlChannelId, urlMessageId, bootstrapStatus?.initialized, refreshChatState, selectedServerId, selectedChannelId, state.highlightedMessageId]);
 
 
