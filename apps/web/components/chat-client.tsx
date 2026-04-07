@@ -775,7 +775,7 @@ export function ChatClient() {
           </ErrorBoundary>
 
           <ErrorBoundary>
-            {state.threadParentId && <ThreadPanel />}
+            {state.threadParentId && <ThreadPanel key={state.threadParentId} />}
           </ErrorBoundary>
 
           <div className="details-drawer-container">

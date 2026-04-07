@@ -3,7 +3,12 @@
 import React, { useEffect, useState, useRef, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import { useChat, MessageItem } from "../context/chat-context";
-import { listMessages, sendMessage, uploadMedia, formatMessageTime, connectMessageStream, deleteMessage, performModerationAction } from "../lib/control-plane";
+import { listMessages, sendMessage, uploadMedia, formatMessageTime, connectMessageStream, deleteMessage, performModerationAction, updateMessage, addReaction, removeReaction, pinMessage, unpinMessage } from "../lib/control-plane";
+import dynamic from "next/dynamic";
+
+// @ts-ignore - emoji-picker-react types mismatch with Next.js dynamic
+const EmojiPicker = dynamic(() => import("emoji-picker-react"), { ssr: false }) as any;
+import type { EmojiClickData } from "emoji-picker-react";
 import { useToast } from "./toast-provider";
 import { ContextMenu, ContextMenuItem } from "./context-menu";
 
@@ -24,21 +29,20 @@ export function ThreadPanel() {
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, message: MessageItem } | null>(null);
     const [userContextMenu, setUserContextMenu] = useState<{ x: number, y: number, userId: string, displayName: string } | null>(null);
 
+    const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+    const [editContent, setEditContent] = useState("");
+    const [reactionTargetMessageId, setReactionTargetMessageId] = useState<string | null>(null);
+    const [reactionPickerPos, setReactionPickerPos] = useState<{ x: number; y: number } | null>(null);
+
     const { allowedActions } = state;
 
     useEffect(() => {
         if (!threadParentId || !selectedChannelId) {
-            setParentMessage(null);
             setReplies([]);
             return;
         }
 
         setLoading(true);
-        // Find parent in existing messages or fetch it? 
-        // For now, let's assume it's in the state's messages list
-        const parent = state.messages.find(m => m.id === threadParentId);
-        setParentMessage(parent || null);
-
         void listMessages(selectedChannelId, threadParentId)
             .then(setReplies)
             .catch(err => {
@@ -46,7 +50,18 @@ export function ThreadPanel() {
                 showToast("Failed to load replies", "error");
             })
             .finally(() => setLoading(false));
-    }, [threadParentId, selectedChannelId, state.messages, showToast]);
+    }, [threadParentId, selectedChannelId, showToast]);
+
+    useEffect(() => {
+        if (!threadParentId) {
+            setParentMessage(null);
+            return;
+        }
+        const parent = state.messages.find(m => m.id === threadParentId);
+        if (parent) {
+            setParentMessage(parent);
+        }
+    }, [threadParentId, state.messages]);
 
     useEffect(() => {
         if (!threadParentId || !selectedChannelId) return;
@@ -117,6 +132,30 @@ export function ThreadPanel() {
         }
     };
 
+    const handleUpdateMessage = async (messageId: string) => {
+        if (!selectedChannelId || !editContent.trim()) return;
+        try {
+            const updated = await updateMessage(selectedChannelId, messageId, editContent);
+            setReplies(prev => prev.map(m => m.id === messageId ? updated : m));
+            if (parentMessage?.id === messageId) {
+                setParentMessage(updated);
+            }
+            setEditingMessageId(null);
+        } catch (err) {
+            showToast("Failed to update message", "error");
+        }
+    };
+
+    const handleAddReaction = async (emoji: string) => {
+        if (!selectedChannelId || !reactionTargetMessageId) return;
+        try {
+            await addReaction(selectedChannelId, reactionTargetMessageId, emoji);
+            setReactionTargetMessageId(null);
+        } catch (err) {
+            showToast("Failed to add reaction", "error");
+        }
+    };
+
     const handleContextMenu = (event: React.MouseEvent, message: MessageItem) => {
         event.preventDefault();
         setContextMenu({ x: event.clientX, y: event.clientY, message });
@@ -138,6 +177,14 @@ export function ThreadPanel() {
 
         const items: ContextMenuItem[] = [
             {
+                label: "Add Reaction",
+                icon: "😀",
+                onClick: () => {
+                    setReactionTargetMessageId(contextMenu.message.id);
+                    setReactionPickerPos({ x: contextMenu.x, y: contextMenu.y });
+                }
+            },
+            {
                 label: "Reply in Thread",
                 icon: "🧵",
                 onClick: () => {
@@ -153,6 +200,17 @@ export function ThreadPanel() {
                 }
             }
         ];
+
+        if (isAuthor) {
+            items.push({
+                label: "Edit Message",
+                icon: "✏️",
+                onClick: () => {
+                    setEditingMessageId(contextMenu.message.id);
+                    setEditContent(contextMenu.message.content);
+                }
+            });
+        }
 
         if (isModerator || isAuthor) {
             items.push({
@@ -216,10 +274,71 @@ export function ThreadPanel() {
                     dispatch({ type: "SET_ACTIVE_MODAL", payload: "moderation" });
                 }
             });
+            items.push({
+                label: "Timeout User",
+                icon: "⏳",
+                danger: true,
+                onClick: () => {
+                    const isMasquerade = !!sessionStorage.getItem("masquerade_token");
+                    if (isMasquerade) {
+                        showToast("Masquerade: Moderation is blocked.", "error");
+                        return;
+                    }
+                    void performModerationAction({
+                        action: "timeout",
+                        serverId: selectedServerId || "",
+                        targetUserId: contextMenu.message.authorUserId,
+                        timeoutSeconds: 3600,
+                        reason: "Shadow mute requested via thread message"
+                    });
+                }
+            });
+            items.push({
+                label: "Kick User",
+                icon: "👢",
+                danger: true,
+                onClick: () => {
+                    const isMasquerade = !!sessionStorage.getItem("masquerade_token");
+                    if (isMasquerade) {
+                        showToast("Masquerade: Moderation is blocked.", "error");
+                        return;
+                    }
+                    void performModerationAction({
+                        action: "kick",
+                        serverId: selectedServerId || "",
+                        targetUserId: contextMenu.message.authorUserId,
+                        reason: "Kick requested via thread message"
+                    });
+                }
+            });
         }
 
+        const isPinned = contextMenu.message.isPinned;
+        items.push({
+            label: isPinned ? "Unpin Message" : "Pin Message",
+            icon: "📌",
+            onClick: async () => {
+                const isMasquerade = !!sessionStorage.getItem("masquerade_token");
+                if (isMasquerade) {
+                    showToast(`Masquerade: Cannot ${isPinned ? "unpin" : "pin"} message.`, "error");
+                    return;
+                }
+                try {
+                    if (isPinned) {
+                        await unpinMessage(contextMenu.message.channelId, contextMenu.message.id);
+                        showToast("Message unpinned", "success");
+                    } else {
+                        await pinMessage(contextMenu.message.channelId, contextMenu.message.id);
+                        showToast("Message pinned", "success");
+                    }
+                } catch (e) {
+                    showToast("Failed to update pin status", "error");
+                }
+            }
+        });
+
         return items;
-    }, [contextMenu, viewer, allowedActions, dispatch, showToast, parentMessage?.id]);
+    }, [contextMenu, viewer, allowedActions, dispatch, showToast, parentMessage?.id, selectedServerId]);
 
     const userContextMenuItems: ContextMenuItem[] = useMemo(() => {
         if (!userContextMenu) return [];
@@ -314,16 +433,53 @@ export function ThreadPanel() {
                                 >
                                     {parentMessage.externalAuthorName || parentMessage.authorDisplayName}
                                 </strong>
-                                <time>{formatMessageTime(parentMessage.createdAt)}</time>
+                            <time>{formatMessageTime(parentMessage.createdAt)}</time>
                             </header>
-                            <p className="message-content">
-                                <ReactMarkdown>{parentMessage.content}</ReactMarkdown>
-                            </p>
+                            {editingMessageId === parentMessage.id ? (
+                                <div className="edit-composer" style={{ marginTop: "0.5rem" }}>
+                                    <textarea 
+                                        value={editContent}
+                                        onChange={(e) => setEditContent(e.target.value)}
+                                        style={{ width: "100%", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "4px", color: "var(--text)", padding: "0.5rem" }}
+                                    />
+                                    <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}>
+                                        <button onClick={() => handleUpdateMessage(parentMessage.id)} style={{ background: "var(--accent)", color: "white", border: "none", padding: "0.2rem 0.5rem", borderRadius: "4px" }}>Save</button>
+                                        <button onClick={() => setEditingMessageId(null)} style={{ background: "transparent", color: "var(--text-muted)", border: "1px solid var(--border)", padding: "0.2rem 0.5rem", borderRadius: "4px" }}>Cancel</button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <p className="message-content">
+                                    <ReactMarkdown>{parentMessage.content}</ReactMarkdown>
+                                </p>
+                            )}
+                            {parentMessage.isPinned && (
+                                <div className="pinned-badge" style={{ fontSize: "0.7rem", color: "var(--accent)", display: "flex", alignItems: "center", gap: "0.25rem", marginTop: "0.25rem" }}>
+                                    <span>📌</span> Pinned
+                                </div>
+                            )}
                             {parentMessage.attachments?.map(att => (
-                                <div key={att.id} className="attachment">
-                                    <img src={att.url} alt={att.filename} style={{ maxWidth: "100%", borderRadius: "8px", marginTop: "0.5rem" }} />
+                                <div key={att.id} className="attachment" style={{ marginTop: "0.5rem" }}>
+                                    {att.contentType.startsWith("video/") ? (
+                                        <video src={att.url} controls style={{ maxWidth: "100%", borderRadius: "8px" }} />
+                                    ) : (
+                                        <img src={att.url} alt={att.filename} style={{ maxWidth: "100%", borderRadius: "8px" }} />
+                                    )}
                                 </div>
                             ))}
+                            {parentMessage.reactions && parentMessage.reactions.length > 0 && (
+                                <div className="reactions" style={{ display: "flex", flexWrap: "wrap", gap: "0.25rem", marginTop: "0.5rem" }}>
+                                    {parentMessage.reactions.map((r: any) => (
+                                        <button
+                                            key={r.emoji}
+                                            className={`interaction-btn ${r.me ? "active" : ""}`}
+                                            onClick={() => r.me ? removeReaction(parentMessage.channelId, parentMessage.id, r.emoji) : addReaction(parentMessage.channelId, parentMessage.id, r.emoji)}
+                                        >
+                                            <span>{r.emoji}</span>
+                                            <span style={{ fontWeight: 600, opacity: 0.8 }}>{r.count}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
                         </article>
                     </div>
                 )}
@@ -349,14 +505,51 @@ export function ThreadPanel() {
                                         </strong>
                                         <time>{formatMessageTime(reply.createdAt)}</time>
                                     </header>
-                                    <p className="message-content">
-                                        <ReactMarkdown>{reply.content}</ReactMarkdown>
-                                    </p>
+                                    {editingMessageId === reply.id ? (
+                                        <div className="edit-composer" style={{ marginTop: "0.5rem" }}>
+                                            <textarea 
+                                                value={editContent}
+                                                onChange={(e) => setEditContent(e.target.value)}
+                                                style={{ width: "100%", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "4px", color: "var(--text)", padding: "0.5rem" }}
+                                            />
+                                            <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}>
+                                                <button onClick={() => handleUpdateMessage(reply.id)} style={{ background: "var(--accent)", color: "white", border: "none", padding: "0.2rem 0.5rem", borderRadius: "4px" }}>Save</button>
+                                                <button onClick={() => setEditingMessageId(null)} style={{ background: "transparent", color: "var(--text-muted)", border: "1px solid var(--border)", padding: "0.2rem 0.5rem", borderRadius: "4px" }}>Cancel</button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <p className="message-content">
+                                            <ReactMarkdown>{reply.content}</ReactMarkdown>
+                                        </p>
+                                    )}
+                                    {reply.isPinned && (
+                                        <div className="pinned-badge" style={{ fontSize: "0.7rem", color: "var(--accent)", display: "flex", alignItems: "center", gap: "0.25rem", marginTop: "0.25rem" }}>
+                                            <span>📌</span> Pinned
+                                        </div>
+                                    )}
                                     {reply.attachments?.map(att => (
-                                        <div key={att.id} className="attachment">
-                                            <img src={att.url} alt={att.filename} style={{ maxWidth: "100%", borderRadius: "8px", marginTop: "0.5rem" }} />
+                                        <div key={att.id} className="attachment" style={{ marginTop: "0.5rem" }}>
+                                            {att.contentType.startsWith("video/") ? (
+                                                <video src={att.url} controls style={{ maxWidth: "100%", borderRadius: "8px" }} />
+                                            ) : (
+                                                <img src={att.url} alt={att.filename} style={{ maxWidth: "100%", borderRadius: "8px" }} />
+                                            )}
                                         </div>
                                     ))}
+                                    {reply.reactions && reply.reactions.length > 0 && (
+                                        <div className="reactions" style={{ display: "flex", flexWrap: "wrap", gap: "0.25rem", marginTop: "0.5rem" }}>
+                                            {reply.reactions.map((r: any) => (
+                                                <button
+                                                    key={r.emoji}
+                                                    className={`interaction-btn ${r.me ? "active" : ""}`}
+                                                    onClick={() => r.me ? removeReaction(reply.channelId, reply.id, r.emoji) : addReaction(reply.channelId, reply.id, r.emoji)}
+                                                >
+                                                    <span>{r.emoji}</span>
+                                                    <span style={{ fontWeight: 600, opacity: 0.8 }}>{r.count}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
                                 </article>
                             </li>
                         ))}
@@ -421,6 +614,28 @@ export function ThreadPanel() {
                     items={userContextMenuItems}
                     onClose={() => setUserContextMenu(null)}
                 />
+            )}
+
+            {reactionTargetMessageId && reactionPickerPos && (
+                <div 
+                    className="emoji-picker-container"
+                    style={{
+                        position: "fixed",
+                        top: Math.min(reactionPickerPos.y, window.innerHeight - 450),
+                        left: Math.min(reactionPickerPos.x, window.innerWidth - 350),
+                        zIndex: 1000
+                    }}
+                >
+                    <EmojiPicker 
+                        theme={theme}
+                        onEmojiClick={(data: EmojiClickData) => handleAddReaction(data.emoji)} 
+                    />
+                    <div 
+                        className="emoji-picker-backdrop"
+                        onClick={() => setReactionTargetMessageId(null)}
+                        style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: -1 }}
+                    />
+                </div>
             )}
 
             <style jsx>{`
