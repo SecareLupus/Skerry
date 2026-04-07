@@ -187,6 +187,8 @@ export function ChatClient() {
     handleRenameCategory
   } = settings;
 
+  const isBootstrappingRef = useRef(false);
+
   const handleUpdateRoomTopic = useCallback((topic: string) => {
     if (!state.selectedChannelId) return Promise.resolve();
     return baseUpdateRoomTopic(state.selectedChannelId, topic);
@@ -218,9 +220,14 @@ export function ChatClient() {
   };
 
   const jumpToLatest = () => {
-    if (messagesRef.current) {
-      messagesRef.current.scrollTo({
-        top: messagesRef.current.scrollHeight,
+    const list = messagesRef.current;
+    if (list) {
+      // First, do an instant jump to catch the current height
+      list.scrollTop = list.scrollHeight;
+      
+      // Then, do a smooth scroll in case content expanded slightly or to ensure sync
+      list.scrollTo({
+        top: list.scrollHeight,
         behavior: "smooth"
       });
     }
@@ -583,9 +590,15 @@ export function ChatClient() {
   // useDMs() hook at top of component already handles this
 
   useEffect(() => {
+    isBootstrappingRef.current = true;
     dispatch({ type: "SET_PENDING_NEW_MESSAGE_COUNT", payload: 0 });
     dispatch({ type: "SET_LAST_SEEN_MESSAGE_ID", payload: null });
     dispatch({ type: "SET_NEAR_BOTTOM", payload: true });
+    // Lock auto-scrolling for 500ms while the room settles
+    const timer = setTimeout(() => {
+      isBootstrappingRef.current = false;
+    }, 500);
+    return () => clearTimeout(timer);
   }, [selectedChannelId, dispatch]);
 
   useEffect(() => {
@@ -630,7 +643,7 @@ export function ChatClient() {
       return;
     }
 
-    if (isNearBottom) {
+    if (isNearBottom && !isBootstrappingRef.current) {
       list.scrollTo({
         top: list.scrollHeight,
         behavior: "smooth"
