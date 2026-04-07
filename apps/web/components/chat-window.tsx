@@ -842,14 +842,16 @@ export function ChatWindow({
             ) : (
                 <>
                     {activeChannel?.type === "voice" && voiceConnected && voiceGrant && (
-                        <VoiceRoom
-                            grant={voiceGrant}
-                            muted={voiceMuted}
-                            deafened={voiceDeafened}
-                            videoEnabled={voiceVideoEnabled}
-                            screenShareEnabled={voiceScreenShareEnabled}
-                            onDisconnect={handleLeaveVoice}
-                        />
+                        <div className="voice-room-container">
+                            <VoiceRoom
+                                grant={voiceGrant}
+                                muted={voiceMuted}
+                                deafened={voiceDeafened}
+                                videoEnabled={voiceVideoEnabled}
+                                screenShareEnabled={voiceScreenShareEnabled}
+                                onDisconnect={handleLeaveVoice}
+                            />
+                        </div>
                     )}
 
 
