@@ -20,7 +20,7 @@ import {
 } from "../lib/control-plane";
 
 interface UseChatMutationsProps {
-  refreshChatState: (serverId?: string, channelId?: string) => Promise<void>;
+  refreshChatState: (serverId?: string, channelId?: string, messageId?: string, force?: boolean) => Promise<void>;
   handleChannelChange: (channelId: string) => Promise<void>;
 }
 
@@ -81,7 +81,7 @@ export function useChatMutations({
       setSpaceName("New Space");
       dispatch({ type: "SET_ACTIVE_MODAL", payload: null });
       showToast("Space created successfully", "success");
-      await refreshChatState(server.id);
+      await refreshChatState(server.id, undefined, undefined, true);
     } catch (cause) {
       dispatch({ type: "SET_ERROR", payload: cause instanceof Error ? cause.message : "Failed to create space." });
       showToast(cause instanceof Error ? cause.message : "Failed to create space.", "error");
@@ -119,7 +119,7 @@ export function useChatMutations({
       dispatch({ type: "SET_RENAME_SPACE", payload: { id: renameSpaceId, name: "", iconUrl: null } });
       setIconFile(null);
       showToast("Space renamed successfully", "success");
-      await refreshChatState(renameSpaceId, selectedChannelId ?? undefined);
+      await refreshChatState(renameSpaceId, selectedChannelId ?? undefined, undefined, true);
     } catch (cause) {
       dispatch({ type: "SET_ERROR", payload: cause instanceof Error ? cause.message : "Failed to rename space." });
       showToast(cause instanceof Error ? cause.message : "Failed to rename space.", "error");
@@ -136,7 +136,7 @@ export function useChatMutations({
       dispatch({ type: "SET_DELETE_SPACE_CONFIRM", payload: "" });
       showToast("Space deleted successfully", "success");
       const remainingServers = servers.filter((s) => s.id !== serverId);
-      await refreshChatState(remainingServers[0]?.id);
+      await refreshChatState(remainingServers[0]?.id, undefined, undefined, true);
     } catch (cause) {
       dispatch({ type: "SET_ERROR", payload: cause instanceof Error ? cause.message : "Failed to delete space." });
       showToast(cause instanceof Error ? cause.message : "Failed to delete space.", "error");
@@ -176,7 +176,7 @@ export function useChatMutations({
       setRoomIcon("");
       dispatch({ type: "SET_ACTIVE_MODAL", payload: null });
       showToast("Room created successfully", "success");
-      await refreshChatState(selectedServerId, channel.id);
+      await refreshChatState(selectedServerId, channel.id, undefined, true);
     } catch (cause) {
       dispatch({ type: "SET_ERROR", payload: cause instanceof Error ? cause.message : "Failed to create room." });
       showToast(cause instanceof Error ? cause.message : "Failed to create room.", "error");
@@ -206,7 +206,7 @@ export function useChatMutations({
       });
       showToast("Room updated successfully", "success");
       dispatch({ type: "SET_ACTIVE_MODAL", payload: null });
-      await refreshChatState(selectedServerId, renameRoomId);
+      await refreshChatState(selectedServerId, renameRoomId, undefined, true);
     } catch (cause) {
       showToast(cause instanceof Error ? cause.message : "Failed to update room.", "error");
     } finally {
@@ -222,7 +222,7 @@ export function useChatMutations({
       dispatch({ type: "SET_DELETE_ROOM_CONFIRM", payload: "" });
       showToast("Room deleted successfully", "success");
       const remainingChannels = channels.filter((c) => c.id !== channelId);
-      await refreshChatState(serverId, remainingChannels[0]?.id);
+      await refreshChatState(serverId, remainingChannels[0]?.id, undefined, true);
     } catch (cause) {
       dispatch({ type: "SET_ERROR", payload: cause instanceof Error ? cause.message : "Failed to delete room." });
       showToast(cause instanceof Error ? cause.message : "Failed to delete room.", "error");
@@ -258,7 +258,7 @@ export function useChatMutations({
       setCategoryName("New Category");
       dispatch({ type: "SET_ACTIVE_MODAL", payload: null });
       showToast("Category created successfully", "success");
-      await refreshChatState(selectedServerId, selectedChannelId ?? undefined);
+      await refreshChatState(selectedServerId, selectedChannelId ?? undefined, undefined, true);
     } catch (cause) {
       dispatch({ type: "SET_ERROR", payload: cause instanceof Error ? cause.message : "Failed to create category." });
       showToast(cause instanceof Error ? cause.message : "Failed to create category.", "error");
@@ -280,7 +280,7 @@ export function useChatMutations({
         categoryId: categoryId
       });
       showToast("Category deleted successfully", "success");
-      await refreshChatState(selectedServerId, selectedChannelId ?? undefined);
+      await refreshChatState(selectedServerId, selectedChannelId ?? undefined, undefined, true);
     } catch (cause) {
       dispatch({ type: "SET_ERROR", payload: cause instanceof Error ? cause.message : "Failed to delete category." });
       showToast(cause instanceof Error ? cause.message : "Failed to delete category.", "error");
@@ -305,7 +305,7 @@ export function useChatMutations({
       });
       showToast("Room moved successfully", "success");
       dispatch({ type: "SET_ACTIVE_MODAL", payload: null });
-      await refreshChatState(selectedServerId, selectedChannelId);
+      await refreshChatState(selectedServerId, selectedChannelId, undefined, true);
     } catch (cause) {
       dispatch({ type: "SET_ERROR", payload: cause instanceof Error ? cause.message : "Failed to move room." });
       showToast(cause instanceof Error ? cause.message : "Failed to move room.", "error");
@@ -332,7 +332,7 @@ export function useChatMutations({
         renameCategory({ categoryId: current.id, serverId: selectedServerId, position: neighbor.position }),
         renameCategory({ categoryId: neighbor.id, serverId: selectedServerId, position: current.position })
       ]);
-      await refreshChatState(selectedServerId, selectedChannelId ?? undefined);
+      await refreshChatState(selectedServerId, selectedChannelId ?? undefined, undefined, true);
     } catch (cause) {
       dispatch({ type: "SET_ERROR", payload: cause instanceof Error ? cause.message : "Failed to reorder category." });
     } finally {
@@ -360,7 +360,7 @@ export function useChatMutations({
         renameChannel({ channelId: channel.id, serverId: selectedServerId, position: neighbor.position }),
         renameChannel({ channelId: neighbor.id, serverId: selectedServerId, position: channel.position })
       ]);
-      await refreshChatState(selectedServerId, channelId);
+      await refreshChatState(selectedServerId, channelId, undefined, true);
     } catch (cause) {
       dispatch({ type: "SET_ERROR", payload: cause instanceof Error ? cause.message : "Failed to reorder room." });
     } finally {

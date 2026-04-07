@@ -100,8 +100,8 @@ export function useChatInitialization({
     // Throttled fetch for global list of servers and roles
     // Reuse servers and roles from state if available, otherwise fetch
     const [serverItems, roleBindings] = await Promise.all([
-      (state.servers.length > 0 && !force) ? Promise.resolve(state.servers) : listServers(),
-      (state.viewerRoles.length > 0 && !force) ? Promise.resolve(state.viewerRoles) : listViewerRoleBindings()
+      (state.servers.length > 0 && !force) ? Promise.resolve(state.servers) : listServers(force),
+      (state.viewerRoles.length > 0 && !force) ? Promise.resolve(state.viewerRoles) : listViewerRoleBindings(force)
     ]);
     if (requestId !== chatStateRequestIdRef.current) return;
 
@@ -244,7 +244,7 @@ export function useChatInitialization({
     if (targetChannelId) localStorage.setItem("lastChannelId", targetChannelId);
 
     try {
-      await refreshChatState(serverId, targetChannelId);
+      await refreshChatState(serverId, targetChannelId, undefined, true);
     } catch (cause) {
       dispatch({ type: "SET_ERROR", payload: cause instanceof Error ? cause.message : "Failed to load channels." });
     }

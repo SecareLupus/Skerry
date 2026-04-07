@@ -11,7 +11,7 @@ import {
 import { useToast } from "../components/toast-provider";
 import { ContextMenuItem } from "../components/context-menu";
 
-export function useModeration(setUrlSelection: (serverId: string | null, channelId: string | null) => void, refreshChatState: (serverId?: string, channelId?: string) => Promise<void>) {
+export function useModeration(setUrlSelection: (serverId: string | null, channelId: string | null) => void, refreshChatState: (serverId?: string, channelId?: string, messageId?: string, force?: boolean) => Promise<void>) {
   const { state, dispatch } = useChat();
   const { showToast } = useToast();
   const {
@@ -56,7 +56,7 @@ export function useModeration(setUrlSelection: (serverId: string | null, channel
           try {
             const channel = await createDMChannel(hubId, [userContextMenu.userId]);
             setUrlSelection(channel.serverId, channel.id);
-            void refreshChatState(channel.serverId, channel.id);
+            void refreshChatState(channel.serverId, channel.id, undefined, true);
           } catch (e) {
             showToast("Failed to create DM channel", "error");
           }

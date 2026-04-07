@@ -172,7 +172,7 @@ Current focus is **Phase 20** (Moderation Hardening) and **Phase 23** (Extension
 
 ### 🚨 Tier 1: Critical Blockers
 - [x] **Fix Page Navigation Flashing (#29)** — Eliminate the back-and-forth flashing behavior when switching between rooms or servers.
-- [ ] **VC Reliability (#13)** — Fix dropping connections (LiveKit/WebRTC debugging required).
+- [x] **VC Reliability (#13)** — Fix dropping connections (LiveKit/WebRTC debugging required).
 - [ ] **Discord Bridging Refactor (#24)** — Implement dynamic message ID mapping for deletions and editing.
 - [ ] **Masquerade Persistence (#25)** — Fix complex issues with masquerade system.
 

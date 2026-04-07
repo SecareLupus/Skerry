@@ -10,7 +10,7 @@ import {
 } from "../lib/control-plane";
 
 interface UseChatSettingsProps {
-  refreshChatState: (serverId?: string, channelId?: string) => Promise<void>;
+  refreshChatState: (serverId?: string, channelId?: string, messageId?: string, force?: boolean) => Promise<void>;
 }
 
 export function useChatSettings({
@@ -32,7 +32,7 @@ export function useChatSettings({
     try {
       await updateChannelSettings(channelId, { topic, serverId: selectedServerId });
       showToast("Topic updated", "success");
-      await refreshChatState(selectedServerId, channelId);
+      await refreshChatState(selectedServerId, channelId, undefined, true);
     } catch (cause) {
       showToast(cause instanceof Error ? cause.message : "Failed to update topic.", "error");
     } finally {
@@ -46,7 +46,7 @@ export function useChatSettings({
     try {
       await updateChannelSettings(channelId, { iconUrl, serverId: selectedServerId });
       showToast("Icon updated", "success");
-      await refreshChatState(selectedServerId, channelId);
+      await refreshChatState(selectedServerId, channelId, undefined, true);
     } catch (cause) {
       showToast(cause instanceof Error ? cause.message : "Failed to update icon.", "error");
     } finally {
@@ -61,7 +61,7 @@ export function useChatSettings({
       // Assuming updateChannelSettings handles locking or there's a specific endpoint
       await updateChannelSettings(channelId, { locked, serverId: selectedServerId } as any);
       showToast(locked ? "Room locked" : "Room unlocked", "success");
-      await refreshChatState(selectedServerId, channelId);
+      await refreshChatState(selectedServerId, channelId, undefined, true);
     } catch (cause) {
       showToast(cause instanceof Error ? cause.message : "Failed to toggle lock.", "error");
     } finally {
@@ -75,7 +75,7 @@ export function useChatSettings({
     try {
       await updateChannelSettings(channelId, { slowmode, serverId: selectedServerId } as any);
       showToast(`Slowmode set to ${slowmode}s`, "success");
-      await refreshChatState(selectedServerId, channelId);
+      await refreshChatState(selectedServerId, channelId, undefined, true);
     } catch (cause) {
       showToast(cause instanceof Error ? cause.message : "Failed to set slowmode.", "error");
     } finally {
@@ -99,7 +99,7 @@ export function useChatSettings({
       });
       showToast("Category renamed successfully", "success");
       dispatch({ type: "SET_ACTIVE_MODAL", payload: null });
-      await refreshChatState(selectedServerId, selectedChannelId ?? undefined);
+      await refreshChatState(selectedServerId, selectedChannelId ?? undefined, undefined, true);
     } catch (cause) {
       dispatch({ type: "SET_ERROR", payload: cause instanceof Error ? cause.message : "Failed to rename category." });
       showToast(cause instanceof Error ? cause.message : "Failed to rename category.", "error");
