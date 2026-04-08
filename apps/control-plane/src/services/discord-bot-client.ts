@@ -618,30 +618,42 @@ export async function relayMatrixMessageToDiscord(input: {
                 }
             }
 
-            // 3. Handle Raw Shortcodes (:name:)
-            // We look for :name: and try to resolve it from our seen emojis or mirrored emojis
-            const shortcodeMatches = content.match(/:[a-zA-Z0-9_-]+:/g);
-            if (shortcodeMatches) {
-                for (const match of shortcodeMatches) {
-                    // Skip if it was already handled by skerryEmojiMatches (which use :emo_...)
-                    if (match.startsWith(":emo_")) continue;
+            // 3. Handle Emojis (Shortcodes & Bare Words)
+            // We look for :name: and bare words that match known custom emojis
+            const allWords = content.match(/:?[a-zA-Z0-9_-]+:?/g);
+            if (allWords) {
+                // Remove duplicates to avoid redundant processing
+                const uniqueWords = Array.from(new Set(allWords));
+                
+                for (const word of uniqueWords) {
+                    const isShortcode = word.startsWith(":") && word.endsWith(":");
+                    const name = isShortcode ? word.slice(1, -1) : word;
                     
-                    const name = match.slice(1, -1);
-                    const discordEmojiFound = await findEmojiByName(input.serverId, name);
-                    if (discordEmojiFound && discordEmojiFound.provider === "discord") {
-                        // resolve mirrored tag for guild
-                        const fullEmoji = await getOrMirrorExternalEmoji(input.serverId, guild.id, discordEmojiFound.id, discordEmojiFound.name);
+                    // Skip if it looks like a Skerry internal ID unless it's a shortcode we want to resolve
+                    if (name.startsWith("emo_") && !isShortcode) continue;
+
+                    // Resolve the emoji. For bare words, we skip global discovery to avoid false positives.
+                    const emoji = await findEmojiByName(input.serverId, name, !isShortcode);
+                    if (!emoji) continue;
+
+                    if (emoji.provider === "discord") {
+                        console.log(`[Discord Mirror] Resolving external emoji mirror for '${name}' in guild '${guild.id}'`);
+                        const fullEmoji = await getOrMirrorExternalEmoji(input.serverId, guild.id, emoji.id, emoji.name);
                         if (fullEmoji) {
                             const prefix = fullEmoji.isAnimated ? "a" : "";
-                            content = content.replace(match, `<${prefix}:${fullEmoji.name}:${fullEmoji.id}>`);
+                            const discordTag = `<${prefix}:${fullEmoji.name}:${fullEmoji.id}>`;
+                            // Replace all occurrences using word boundaries for bare words
+                            const regex = isShortcode ? new RegExp(word, 'g') : new RegExp(`\\b${word}\\b`, 'g');
+                            content = content.replace(regex, discordTag);
                         }
-                    } else if (discordEmojiFound && discordEmojiFound.provider === "skerry") {
-                         // resolve mirrored tag for guild
-                         const emoId = discordEmojiFound.url.split("/").pop() || "";
-                         const fullEmoji = await getOrMirrorEmoji(input.serverId, guild.id, emoId);
-                         if (fullEmoji) {
-                            content = content.replace(match, `<:${fullEmoji.name}:${fullEmoji.id}>`);
-                         }
+                    } else if (emoji.provider === "skerry") {
+                        console.log(`[Discord Mirror] Resolving native emoji mirror for '${name}' in guild '${guild.id}'`);
+                        const fullEmoji = await getOrMirrorEmoji(input.serverId, guild.id, emoji.id);
+                        if (fullEmoji) {
+                            const discordTag = `<:${fullEmoji.name}:${fullEmoji.id}>`;
+                            const regex = isShortcode ? new RegExp(word, 'g') : new RegExp(`\\b${word}\\b`, 'g');
+                            content = content.replace(regex, discordTag);
+                        }
                     }
                 }
             }
@@ -1021,10 +1033,14 @@ async function getOrMirrorEmoji(serverId: string, guildId: string, skerryEmojiId
             }
 
             // 3. Upload to Discord
+            // Ensure URL is absolute for Discord API
+            const absoluteUrl = url.startsWith("http") ? url : `${config.appBaseUrl}${url}`;
+            
+            console.log(`[Discord Mirror] Uploading native emoji '${name}' to guild '${guildId}' from ${absoluteUrl}`);
             const discordEmoji = await guild.emojis.create({
-                attachment: url,
+                attachment: absoluteUrl,
                 name: name,
-                reason: "Mirrored from Skerry"
+                reason: `Mirrored from Skerry (Source: ${absoluteUrl})`
             });
 
             // 4. Save mapping
@@ -1089,6 +1105,7 @@ async function getOrMirrorExternalEmoji(serverId: string, guildId: string, exter
             const url = `https://cdn.discordapp.com/emojis/${externalEmojiId}.${ext}?size=128&quality=lossless`;
 
             // Upload to Discord
+            console.log(`[Discord Mirror] Uploading external emoji '${name}' to guild '${guildId}' from ${url}`);
             const discordEmoji = await guild.emojis.create({
                 attachment: url,
                 name: name,

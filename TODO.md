@@ -184,7 +184,7 @@ Current focus is **Phase 20** (Moderation Hardening) and **Phase 23** (Extension
 - [x] **OAuth Mapping (#9)** — Fix "Guest" issue when linking Twitch after Discord.
 
 ### 🏗️ Tier 3: Medium Features & Polish
-- [ ] **Discord Content Bridging (#18, #26)** — Fix block quote rendering and implement sticker/emoji support.
+- [x] **Discord Content Bridging (#18, #26)** — Fix block quote rendering and implement sticker/emoji support.
 - [ ] **Discord Bridge OAuth Flow (#22)** — Refactor connection UX to prevent losing place in menus.
 - [x] **Twitch Integration UI (#6)** — Fixed alignment and asset issues with Twitch logo on login.
 - [x] **Storage Audit (#20)** — Implemented automated `pnpm run cleanup` (builder/image prune) in build cycle.
