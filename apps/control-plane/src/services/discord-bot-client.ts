@@ -34,7 +34,8 @@ export async function startDiscordBot() {
                 GatewayIntentBits.GuildMessages,
                 GatewayIntentBits.MessageContent,
                 GatewayIntentBits.GuildPresences,
-                GatewayIntentBits.GuildMembers
+                GatewayIntentBits.GuildMembers,
+                GatewayIntentBits.GuildMessageTyping
             ],
             partials: [Partials.Message, Partials.Channel, Partials.GuildMember, Partials.User]
         });
@@ -99,7 +100,11 @@ export async function startDiscordBot() {
                 }
             }
             if (newMessage.author?.bot) return;
-            if (oldMessage.content === newMessage.content) return;
+
+            const contentChanged = oldMessage.content !== newMessage.content;
+            const pinChanged = oldMessage.pinned !== newMessage.pinned;
+
+            if (!contentChanged && !pinChanged) return;
 
             const discordChannelIdForMapping = newMessage.channel.isThread() ? (newMessage.channel as any).parentId : newMessage.channelId;
             const serverIds = await withDb(async (db) => {
@@ -112,13 +117,34 @@ export async function startDiscordBot() {
 
             for (const serverId of serverIds) {
                 try {
-                    const { updateRelayedDiscordMessage } = await import("./discord-bridge-service.js");
-                    await updateRelayedDiscordMessage({
-                        serverId,
-                        discordChannelId: String(discordChannelIdForMapping),
-                        externalMessageId: newMessage.id,
-                        content: newMessage.content || ""
-                    });
+                    if (contentChanged) {
+                        const { updateRelayedDiscordMessage } = await import("./discord-bridge-service.js");
+                        await updateRelayedDiscordMessage({
+                            serverId,
+                            discordChannelId: String(discordChannelIdForMapping),
+                            externalMessageId: newMessage.id,
+                            content: newMessage.content || ""
+                        });
+                    }
+
+                    if (pinChanged) {
+                        const { pinMessage, unpinMessage } = await import("./chat/message-service.js");
+                        const skerryMessageId = await withDb(async (db) => {
+                            const row = await db.query<{ id: string }>(
+                                "select id from chat_messages where external_message_id = $1 and external_provider = 'discord' limit 1",
+                                [newMessage.id]
+                            );
+                            return row.rows[0]?.id;
+                        });
+
+                        if (skerryMessageId) {
+                            if (newMessage.pinned) {
+                                await pinMessage({ messageId: skerryMessageId, actorUserId: "discord_bridged_user" } as any);
+                            } else {
+                                await unpinMessage({ messageId: skerryMessageId, actorUserId: "discord_bridged_user" } as any);
+                            }
+                        }
+                    }
                 } catch (error) {
                     logEvent("error", "discord_update_relay_failed", { serverId, messageId: newMessage.id, error: String(error) });
                 }
@@ -158,6 +184,151 @@ export async function startDiscordBot() {
                     });
                 } catch (error) {
                     logEvent("error", "discord_delete_relay_failed", { serverId, messageId: message.id, error: String(error) });
+                }
+            }
+        });
+
+        client.on(Events.MessageReactionAdd, async (reaction, user) => {
+            if (user.bot) return;
+            if (reaction.partial) {
+                try {
+                    await reaction.fetch();
+                } catch (error) {
+                    console.error("[Discord Bridge] Failed to fetch partial reaction:", error);
+                    return;
+                }
+            }
+
+            const message = reaction.message;
+            const guildId = message.guildId;
+            const channelId = message.channelId;
+            const emoji = reaction.emoji.name;
+            if (!emoji) return;
+
+            const discordChannelIdForMapping = message.channel.isThread() ? (message.channel as any).parentId : channelId;
+            const serverIds = await withDb(async (db) => {
+                const rows = await db.query<{ server_id: string }>(
+                    "select server_id from discord_bridge_channel_mappings where guild_id = $1 and discord_channel_id = $2 and enabled = true",
+                    [guildId, discordChannelIdForMapping]
+                );
+                return rows.rows.map(r => r.server_id);
+            });
+
+            for (const serverId of serverIds) {
+                try {
+                    const { addReaction } = await import("./chat/reaction-service.js");
+                    // We need the Skerry message ID mapped from the Discord message ID
+                    const skerryMessageId = await withDb(async (db) => {
+                        const row = await db.query<{ id: string }>(
+                            "select id from chat_messages where external_message_id = $1 and external_provider = 'discord' limit 1",
+                            [message.id]
+                        );
+                        return row.rows[0]?.id;
+                    });
+
+                    if (skerryMessageId) {
+                        await addReaction({
+                            messageId: skerryMessageId,
+                            userId: "discord_bridged_user", // Placeholder or map to a virtual user
+                            emoji: emoji,
+                            isRelay: true // Need to add this to service
+                        } as any);
+                    }
+                } catch (error) {
+                    logEvent("error", "discord_reaction_relay_failed", { serverId, messageId: message.id, error: String(error) });
+                }
+            }
+        });
+
+        client.on(Events.MessageReactionRemove, async (reaction, user) => {
+            if (user.bot) return;
+            if (reaction.partial) {
+                try {
+                    await reaction.fetch();
+                } catch (error) {
+                    console.error("[Discord Bridge] Failed to fetch partial reaction remove:", error);
+                    return;
+                }
+            }
+
+            const message = reaction.message;
+            const emoji = reaction.emoji.name;
+            if (!emoji) return;
+
+            const discordChannelIdForMapping = message.channel.isThread() ? (message.channel as any).parentId : message.channelId;
+            const serverIds = await withDb(async (db) => {
+                const rows = await db.query<{ server_id: string }>(
+                    "select server_id from discord_bridge_channel_mappings where guild_id = $1 and discord_channel_id = $2 and enabled = true",
+                    [message.guildId, discordChannelIdForMapping]
+                );
+                return rows.rows.map(r => r.server_id);
+            });
+
+            for (const serverId of serverIds) {
+                try {
+                    const { removeReaction } = await import("./chat/reaction-service.js");
+                    const skerryMessageId = await withDb(async (db) => {
+                        const row = await db.query<{ id: string }>(
+                            "select id from chat_messages where external_message_id = $1 and external_provider = 'discord' limit 1",
+                            [message.id]
+                        );
+                        return row.rows[0]?.id;
+                    });
+
+                    if (skerryMessageId) {
+                        await removeReaction({
+                            messageId: skerryMessageId,
+                            userId: "discord_bridged_user",
+                            emoji: emoji,
+                            isRelay: true
+                        } as any);
+                    }
+                } catch (error) {
+                    logEvent("error", "discord_reaction_remove_relay_failed", { serverId, messageId: message.id, error: String(error) });
+                }
+            }
+        });
+
+        client.on(Events.TypingStart, async (typing) => {
+            if (typing.user.bot) return;
+
+            const discordChannelIdForMapping = typing.channel.isThread() ? (typing.channel as any).parentId : typing.channel.id;
+            const serverIds = await withDb(async (db) => {
+                const rows = await db.query<{ server_id: string }>(
+                    "select server_id from discord_bridge_channel_mappings where guild_id = $1 and discord_channel_id = $2 and enabled = true",
+                    [typing.guild?.id, discordChannelIdForMapping]
+                );
+                return rows.rows.map(r => r.server_id);
+            });
+
+            for (const serverId of serverIds) {
+                // Find the Matrix channel ID for this mapping
+                const matrixChannelId = await withDb(async (db) => {
+                    const row = await db.query<{ matrix_channel_id: string }>(
+                        "select matrix_channel_id from discord_bridge_channel_mappings where server_id = $1 and discord_channel_id = $2",
+                        [serverId, discordChannelIdForMapping]
+                    );
+                    return row.rows[0]?.matrix_channel_id;
+                });
+
+                if (matrixChannelId) {
+                    const { publishHubEvent } = await import("./chat-realtime.ts"); // Use .ts or .js?
+                    // Need to find hubId
+                    const hubId = await withDb(async (db) => {
+                        const row = await db.query<{ hub_id: string }>(
+                            "select hub_id from hubs h join servers s on s.hub_id = h.id where s.id = $1",
+                            [serverId]
+                        );
+                        return row.rows[0]?.hub_id;
+                    });
+                    if (hubId) {
+                       const { publishHubEvent } = await import("./chat-realtime.js");
+                       publishHubEvent(hubId, "typing.start", { 
+                           channelId: matrixChannelId, 
+                           userId: `discord_${typing.user.id}`,
+                           username: typing.member?.displayName ?? typing.user.username
+                       });
+                    }
                 }
             }
         });
@@ -360,6 +531,24 @@ export async function relayMatrixMessageToDiscord(input: {
                     const discordEmojiFound = await getOrMirrorEmoji(input.serverId, guild.id, skerryEmojiId);
                     if (discordEmojiFound) {
                         content = content.replace(match, `<:${discordEmojiFound.name}:${discordEmojiFound.id}>`);
+                    }
+                }
+            }
+
+            // --- Mention Mirroring ---
+            const mentionMatches = content.match(/@([a-zA-Z0-9_\-]+)/g);
+            if (mentionMatches) {
+                for (const match of mentionMatches) {
+                    const username = match.slice(1);
+                    const discordId = await withDb(async (db) => {
+                        const row = await db.query<{ discord_user_id: string }>(
+                            "select discord_user_id from identity_mappings where display_name = $1 and discord_user_id is not null limit 1",
+                            [username]
+                        );
+                        return row.rows[0]?.discord_user_id;
+                    });
+                    if (discordId) {
+                        content = content.replace(new RegExp(match, 'g'), `<@${discordId}>`);
                     }
                 }
             }
@@ -736,4 +925,79 @@ async function getOrMirrorEmoji(serverId: string, guildId: string, skerryEmojiId
         }
     });
 }
+
+export async function relayMatrixReactionToDiscord(input: {
+    serverId: string;
+    discordChannelId: string;
+    externalMessageId: string;
+    emoji: string;
+    action: "add" | "remove";
+}) {
+    if (!client || !client.isReady()) return;
+
+    try {
+        const channel = await client.channels.fetch(input.discordChannelId);
+        if (!channel || !("messages" in channel)) return;
+
+        const message = await (channel as any).messages.fetch(input.externalMessageId);
+        if (!message) return;
+
+        if (input.action === "add") {
+            await message.react(input.emoji).catch(err => {
+                console.warn(`[Discord Bridge] Failed to react with ${input.emoji}:`, err.message);
+            });
+        } else {
+            const reaction = message.reactions.cache.get(input.emoji);
+            if (reaction) {
+                await reaction.users.remove(client.user!.id).catch(err => {
+                    console.warn(`[Discord Bridge] Failed to remove reaction ${input.emoji}:`, err.message);
+                });
+            }
+        }
+    } catch (error) {
+        logEvent("error", "discord_reaction_mirror_failed", { error: String(error) });
+    }
+}
+
+export async function relayMatrixTypingToDiscord(input: {
+    serverId: string;
+    discordChannelId: string;
+}) {
+    if (!client || !client.isReady()) return;
+
+    try {
+        const channel = await client.channels.fetch(input.discordChannelId);
+        if (channel && "sendTyping" in channel) {
+            await (channel as any).sendTyping();
+        }
+    } catch (error) {
+        logEvent("error", "discord_typing_mirror_failed", { error: String(error) });
+    }
+}
+
+export async function relayMatrixPinToDiscord(input: {
+    serverId: string;
+    discordChannelId: string;
+    externalMessageId: string;
+    action: "pin" | "unpin";
+}) {
+    if (!client || !client.isReady()) return;
+
+    try {
+        const channel = await client.channels.fetch(input.discordChannelId);
+        if (!channel || !("messages" in channel)) return;
+
+        const message = await (channel as any).messages.fetch(input.externalMessageId);
+        if (!message) return;
+
+        if (input.action === "pin") {
+            await message.pin();
+        } else {
+            await message.unpin();
+        }
+    } catch (error) {
+        logEvent("error", "discord_pin_mirror_failed", { error: String(error) });
+    }
+}
+
 

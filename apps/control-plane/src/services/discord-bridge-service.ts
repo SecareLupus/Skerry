@@ -136,7 +136,7 @@ export function createDiscordConnectUrl(input: { serverId: string; productUserId
     redirect_uri: config.discordBridge.callbackUrl,
     response_type: "code",
     scope: "identify guilds bot applications.commands",
-    permissions: "536873984", // Read Messages, Send Messages, Manage Webhooks
+    permissions: "536939584", // Read Messages, Send Messages, Manage Webhooks, Add Reactions, Read Message History
     state
   });
   return `${config.discordBridge.authorizeUrl}?${query.toString()}`;
@@ -680,6 +680,31 @@ export async function relayDiscordMessageToMappedChannel(input: {
   }
 
   let finalContent = input.content.trim();
+
+  // --- Resolve Mentions ---
+  const mentionMatches = finalContent.match(/<@!?(\d+)>/g);
+  if (mentionMatches) {
+    for (const match of mentionMatches) {
+      const discordId = match.match(/\d+/)?.[0];
+      if (discordId) {
+        const username = await withDb(async (db) => {
+          const row = await db.query<{ display_name: string }>(
+            "select display_name from identity_mappings where discord_user_id = $1 limit 1",
+            [discordId]
+          );
+          return row.rows[0]?.display_name;
+        });
+
+        if (username) {
+          finalContent = finalContent.replace(match, `@${username}`);
+        } else {
+            // Fallback: Use the author name from the bridge if we can't find a mapping? 
+            // Or just leave it as is. Better to leave as is if we can't find a local identity.
+        }
+      }
+    }
+  }
+
   const attachments = (input.media ?? []).map((item) => {
     const url = item.url;
     const filename = url.split("/").pop()?.split("?")[0] || "image.png";

@@ -579,6 +579,30 @@ export async function pinMessage(input: { messageId: string; actorUserId: string
     const message = await fetchMessage(res.rows[0].channel_id, res.rows[0].id, input.actorUserId);
     if (message) {
       await publishChannelMessage(message, "message.updated");
+
+      // Mirror pin to Discord
+      if (!message.isRelay && message.externalMessageId && message.externalProvider === "discord") {
+        try {
+          const { relayMatrixPinToDiscord } = await import("../discord-bot-client.js");
+          const { listDiscordChannelMappings } = await import("../discord-bridge-service.js");
+          const chInfo = await db.query<{ server_id: string }>("select server_id from channels where id = $1", [res.rows[0].channel_id]);
+          const serverId = chInfo.rows[0]?.server_id;
+          if (serverId) {
+              const mappings = await listDiscordChannelMappings(serverId);
+              const mapping = mappings.find(m => m.matrixChannelId === res.rows[0].channel_id && m.enabled);
+              if (mapping) {
+                  await relayMatrixPinToDiscord({
+                      serverId,
+                      discordChannelId: mapping.discordChannelId,
+                      externalMessageId: message.externalMessageId!,
+                      action: "pin"
+                  });
+              }
+          }
+        } catch (err) {
+          console.error("[Discord Bridge] Failed to relay message pin:", err);
+        }
+      }
     }
     return message as any;
   });
@@ -591,6 +615,30 @@ export async function unpinMessage(input: { messageId: string; actorUserId: stri
     const message = await fetchMessage(res.rows[0].channel_id, res.rows[0].id, input.actorUserId);
     if (message) {
       await publishChannelMessage(message, "message.updated");
+
+      // Mirror unpin to Discord
+      if (!message.isRelay && message.externalMessageId && message.externalProvider === "discord") {
+        try {
+          const { relayMatrixPinToDiscord } = await import("../discord-bot-client.js");
+          const { listDiscordChannelMappings } = await import("../discord-bridge-service.js");
+          const chInfo = await db.query<{ server_id: string }>("select server_id from channels where id = $1", [res.rows[0].channel_id]);
+          const serverId = chInfo.rows[0]?.server_id;
+          if (serverId) {
+              const mappings = await listDiscordChannelMappings(serverId);
+              const mapping = mappings.find(m => m.matrixChannelId === res.rows[0].channel_id && m.enabled);
+              if (mapping) {
+                  await relayMatrixPinToDiscord({
+                      serverId,
+                      discordChannelId: mapping.discordChannelId,
+                      externalMessageId: message.externalMessageId!,
+                      action: "unpin"
+                  });
+              }
+          }
+        } catch (err) {
+          console.error("[Discord Bridge] Failed to relay message unpin:", err);
+        }
+      }
     }
     return message as any;
   });

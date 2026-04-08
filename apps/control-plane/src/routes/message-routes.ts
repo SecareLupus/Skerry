@@ -338,6 +338,30 @@ export async function registerMessageRoutes(app: FastifyInstance): Promise<void>
       createdAt: new Date().toISOString()
     } as any, payload.isTyping ? "typing.start" : "typing.stop");
 
+    // Mirror typing to Discord if it's a start event
+    if (payload.isTyping) {
+      try {
+        const chInfo = await withDb(async (db) => {
+          const row = await db.query<{ server_id: string }>("select server_id from channels where id = $1", [params.channelId]);
+          return row.rows[0];
+        });
+        if (chInfo?.server_id) {
+          const { relayMatrixTypingToDiscord } = await import("../services/discord-bot-client.js");
+          const { listDiscordChannelMappings } = await import("../services/discord-bridge-service.js");
+          const mappings = await listDiscordChannelMappings(chInfo.server_id);
+          const mapping = mappings.find(m => m.matrixChannelId === params.channelId && m.enabled);
+          if (mapping) {
+            await relayMatrixTypingToDiscord({
+              serverId: chInfo.server_id,
+              discordChannelId: mapping.discordChannelId
+            });
+          }
+        }
+      } catch (err) {
+        console.error("[Discord Bridge] Failed to relay typing start:", err);
+      }
+    }
+
     reply.code(204).send();
   });
 
