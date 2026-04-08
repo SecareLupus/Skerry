@@ -312,7 +312,7 @@ export async function startDiscordBot() {
                 });
 
                 if (matrixChannelId) {
-                    const { publishHubEvent } = await import("./chat-realtime.ts"); // Use .ts or .js?
+                    const { publishHubEvent } = await import("./chat-realtime.js"); 
                     // Need to find hubId
                     const hubId = await withDb(async (db) => {
                         const row = await db.query<{ hub_id: string }>(
@@ -322,7 +322,6 @@ export async function startDiscordBot() {
                         return row.rows[0]?.hub_id;
                     });
                     if (hubId) {
-                       const { publishHubEvent } = await import("./chat-realtime.js");
                        publishHubEvent(hubId, "typing.start", { 
                            channelId: matrixChannelId, 
                            userId: `discord_${typing.user.id}`,
@@ -943,13 +942,13 @@ export async function relayMatrixReactionToDiscord(input: {
         if (!message) return;
 
         if (input.action === "add") {
-            await message.react(input.emoji).catch(err => {
+            await message.react(input.emoji).catch((err: any) => {
                 console.warn(`[Discord Bridge] Failed to react with ${input.emoji}:`, err.message);
             });
         } else {
             const reaction = message.reactions.cache.get(input.emoji);
             if (reaction) {
-                await reaction.users.remove(client.user!.id).catch(err => {
+                await reaction.users.remove(client.user!.id).catch((err: any) => {
                     console.warn(`[Discord Bridge] Failed to remove reaction ${input.emoji}:`, err.message);
                 });
             }
