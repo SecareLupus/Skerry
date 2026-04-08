@@ -62,12 +62,33 @@ export function useChatRealtime() {
               type: "UPDATE_MESSAGES",
               payload: (current: MessageItem[]) => {
                 const map = new Map<string, MessageItem>();
-                current.forEach((m: MessageItem) => {
-                  if (m.clientState === "sending" || m.clientState === "failed") {
-                    map.set(m.id, m);
-                  }
+                
+                // 1. Initialize map with current state
+                current.forEach((m: MessageItem) => map.set(m.id, m));
+                
+                // 2. Merge server state
+                next.forEach((serverMsg: MessageItem) => {
+                    const localMsg = map.get(serverMsg.id);
+                    
+                    // If we don't have it, or it's a sending/failed state, or the server version is definitively newer
+                    if (!localMsg) {
+                        map.set(serverMsg.id, serverMsg);
+                        return;
+                    }
+
+                    // Preserve local optimistic states (sending/failed)
+                    if (localMsg.clientState === "sending" || localMsg.clientState === "failed") {
+                        return;
+                    }
+
+                    // Only overwrite if the server's update timestamp is newer than our local one
+                    const serverUpdate = serverMsg.updatedAt ? new Date(serverMsg.updatedAt).getTime() : 0;
+                    const localUpdate = localMsg.updatedAt ? new Date(localMsg.updatedAt).getTime() : 0;
+                    
+                    if (serverUpdate >= localUpdate) {
+                        map.set(serverMsg.id, serverMsg);
+                    }
                 });
-                next.forEach((m: MessageItem) => map.set(m.id, m));
 
                 return Array.from(map.values()).sort((a, b) =>
                   new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()

@@ -79,7 +79,8 @@ export async function startDiscordBot() {
                         content: message.content,
                         messageId: message.id,
                         media,
-                        externalThreadId: message.channel.isThread() ? message.channelId : (message.reference?.messageId ?? undefined)
+                        replyToId: !message.channel.isThread() ? (message.reference?.messageId ?? undefined) : undefined,
+                        externalThreadId: message.channel.isThread() ? message.channelId : undefined
                     });
                 } catch (error) {
                     logEvent("error", "discord_relay_failed", { serverId, messageId: message.id, error: String(error) });

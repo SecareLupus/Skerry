@@ -425,6 +425,7 @@ export interface ChatMessage {
     externalAuthorName?: string;
     externalAuthorAvatarUrl?: string;
     parentId?: string;
+    replyToId?: string;
     externalThreadId?: string;
     repliesCount?: number;
     isPinned?: boolean;

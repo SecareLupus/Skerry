@@ -609,6 +609,7 @@ export async function relayDiscordMessageToMappedChannel(input: {
   messageId?: string; // Add this
   media?: Array<{ url: string; sourceUrl: string }>;
   parentId?: string;
+  replyToId?: string;
   externalThreadId?: string;
 }): Promise<{ relayed: boolean; matrixChannelId?: string; limitation?: string }> {
   const mappings = await listDiscordChannelMappings(input.serverId);
@@ -674,8 +675,9 @@ export async function relayDiscordMessageToMappedChannel(input: {
     externalAuthorName: input.authorName,
     externalAuthorAvatarUrl: input.authorAvatarUrl,
     parentId: input.parentId,
+    replyToId: input.replyToId,
     externalThreadId: input.externalThreadId,
-    externalMessageId: input.messageId // Match this
+    externalMessageId: input.messageId
   });
 
   publishChannelMessage(message);

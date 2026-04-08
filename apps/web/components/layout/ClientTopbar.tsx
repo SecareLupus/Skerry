@@ -25,7 +25,10 @@ export function ClientTopbar({
   return (
     <>
       <header className="topbar">
-        <h1>Skerry Local Chat</h1>
+        <div className="topbar-branding">
+          <img src="/logo.png" alt="Skerry Logo" className="topbar-logo" />
+          <h1>Skerry Local Chat</h1>
+        </div>
         <div className="topbar-meta">
           <button
             type="button"

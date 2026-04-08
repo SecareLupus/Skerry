@@ -21,7 +21,7 @@ export function useChatMessaging({
 }: UseChatHandlersProps) {
   const { state, dispatch } = useChat();
 
-  async function sendContentWithOptimistic(content: string, attachments: any[] = [], existingMessageId?: string): Promise<void> {
+  async function sendContentWithOptimistic(content: string, attachments: any[] = [], existingMessageId?: string, parentId?: string, replyToId?: string): Promise<void> {
     if (!selectedChannelId || !state.viewer || (!content.trim() && attachments.length === 0)) {
       return;
     }
@@ -69,7 +69,7 @@ export function useChatMessaging({
           channelId: optimisticMessage.channelId
         };
       } else {
-        persisted = await sendMessage(selectedChannelId, content.trim(), attachments);
+        persisted = await sendMessage(selectedChannelId, content.trim(), attachments, parentId, replyToId);
       }
       dispatch({
         type: "UPDATE_MESSAGES",
@@ -117,7 +117,11 @@ export function useChatMessaging({
 
     setDraftMessage("");
     messageInputRef.current?.focus();
-    await sendContentWithOptimistic(finalContent, attachments);
+    const replyToId = state.quotingMessage?.id;
+    if (state.quotingMessage) {
+      dispatch({ type: "SET_QUOTING_MESSAGE", payload: null });
+    }
+    await sendContentWithOptimistic(finalContent, attachments, undefined, undefined, replyToId);
   }
 
   async function handleSendMessage(event: React.FormEvent): Promise<void> {

@@ -227,18 +227,24 @@ export function ChatWindow({
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             const target = event.target as HTMLElement;
+            // Handle main emoji picker (for composer/replies)
             if (showEmojiPicker && !target.closest(".emoji-picker-container") && !target.closest(".composer-trigger")) {
                 setShowEmojiPicker(false);
             }
+            // Handle reaction picker
+            if (reactionTargetMessageId && !target.closest(".emoji-picker-container") && !target.closest(".hover-action-item") && !target.closest(".interaction-btn")) {
+                setReactionTargetMessageId(null);
+                setReactionPickerPos(null);
+            }
         };
 
-        if (showEmojiPicker) {
+        if (showEmojiPicker || reactionTargetMessageId) {
             document.addEventListener("mousedown", handleClickOutside);
         }
         return () => {
             document.removeEventListener("mousedown", handleClickOutside);
         };
-    }, [showEmojiPicker]);
+    }, [showEmojiPicker, reactionTargetMessageId]);
 
     useEffect(() => {
         const messagesList = messagesRef.current;
@@ -880,6 +886,20 @@ export function ChatWindow({
                                     <span>{new Date(message.createdAt).toLocaleDateString()}</span>
                                 </div>
                             ) : null}
+
+                            {message.replyToId && (
+                                <div className="message-reply-indicator">
+                                    <div className="reply-spine" />
+                                    <span className="reply-prefix">Replying to</span>
+                                    <span className="reply-author">
+                                        @{messages.find(m => m.id === message.replyToId)?.authorDisplayName || 'deleted message'}
+                                    </span>
+                                    <span className="reply-preview">
+                                        {messages.find(m => m.id === message.replyToId)?.content.slice(0, 50)}...
+                                    </span>
+                                </div>
+                            )}
+
                             <article className="message-item-container" onContextMenu={(e) => handleContextMenu(e, message)}>
                                 {showHeader ? (
                                     <header>
@@ -1455,54 +1475,7 @@ export function ChatWindow({
                     </div>
                 )
             }
-            {
-                reactionTargetMessageId && reactionPickerPos && (
-                    <div
-                        className="emoji-picker-container"
-                        style={{
-                            position: "fixed",
-                            top: Math.min(reactionPickerPos.y, window.innerHeight - 450),
-                            left: Math.min(reactionPickerPos.x, window.innerWidth - 350),
-                            zIndex: 1000
-                        }}
-                    >
-                        <EmojiPicker
-                            theme={theme as any}
-                            onEmojiClick={(data: EmojiClickData) => {
-                                const emoji = data.emoji;
-                                const targetId = reactionTargetMessageId;
-                                
-                                // Optimistic update for adding a brand new reaction or incrementing existing
-                                dispatch({
-                                    type: "UPDATE_MESSAGES",
-                                    payload: (current) => current.map(m => {
-                                        if (m.id !== targetId) return m;
-                                        const reactions = [...(m.reactions || [])];
-                                        const existingIdx = reactions.findIndex(react => react && react.emoji === emoji);
-                                        if (existingIdx > -1) {
-                                            const react = reactions[existingIdx];
-                                            if (react && !react.me) {
-                                                reactions[existingIdx] = { ...react, count: react.count + 1, me: true, userIds: react.userIds || [] };
-                                            }
-                                        } else {
-                                            reactions.push({ emoji, count: 1, me: true, userIds: [] });
-                                        }
-                                        return { ...m, reactions };
-                                    })
-                                });
 
-                                void addReaction(selectedChannelId!, targetId, emoji);
-                                setReactionTargetMessageId(null);
-                            }}
-                        />
-                        <div
-                            className="emoji-picker-backdrop"
-                            onClick={() => setReactionTargetMessageId(null)}
-                            style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: -1 }}
-                        />
-                    </div>
-                )
-            }
             <style jsx>{`
             .highlighted-message {
                 background: rgba(255, 255, 0, 0.15);
@@ -1520,6 +1493,40 @@ export function ChatWindow({
             }
             .unread-banner:hover {
                 background: #4752c4;
+            }
+            .message-reply-indicator {
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+                margin-left: 36px;
+                margin-bottom: 2px;
+                font-size: 0.8rem;
+                opacity: 0.6;
+                position: relative;
+            }
+            .reply-spine {
+                position: absolute;
+                left: -18px;
+                top: 0.6rem;
+                width: 16px;
+                height: 10px;
+                border: 2px solid var(--border-color);
+                border-right: none;
+                border-bottom: none;
+                border-top-left-radius: 4px;
+            }
+            .reply-prefix {
+                font-style: italic;
+            }
+            .reply-author {
+                font-weight: 600;
+                color: var(--accent-color);
+            }
+            .reply-preview {
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                max-width: 300px;
             }
             .jump-latest {
                 position: absolute;
@@ -1556,6 +1563,49 @@ export function ChatWindow({
             }
             `}</style>
 
+            {
+                reactionTargetMessageId && reactionPickerPos && (
+                    <div
+                        className="emoji-picker-container"
+                        style={{
+                            position: "fixed",
+                            top: Math.min(reactionPickerPos.y, window.innerHeight - 450),
+                            left: Math.min(reactionPickerPos.x, window.innerWidth - 350),
+                            zIndex: 2000
+                        }}
+                    >
+                        <EmojiPicker
+                            theme={theme as any}
+                            onEmojiClick={(data: EmojiClickData) => {
+                                const emoji = data.emoji;
+                                const targetId = reactionTargetMessageId;
+                                
+                                dispatch({
+                                    type: "UPDATE_MESSAGES",
+                                    payload: (current) => current.map(m => {
+                                        if (m.id !== targetId) return m;
+                                        const reactions = [...(m.reactions || [])];
+                                        const existingIdx = reactions.findIndex(react => react && react.emoji === emoji);
+                                        if (existingIdx > -1) {
+                                            const react = reactions[existingIdx];
+                                            if (react && !react.me) {
+                                                reactions[existingIdx] = { ...react, count: react.count + 1, me: true, userIds: react.userIds || [] };
+                                            }
+                                        } else {
+                                            reactions.push({ emoji, count: 1, me: true, userIds: [] });
+                                        }
+                                        return { ...m, reactions };
+                                    })
+                                });
+
+                                void addReaction(selectedChannelId!, targetId, emoji);
+                                setReactionTargetMessageId(null);
+                                setReactionPickerPos(null);
+                            }}
+                        />
+                    </div>
+                )
+            }
         </section >
     );
 }

@@ -45,15 +45,21 @@ export async function registerMessageRoutes(app: FastifyInstance): Promise<void>
       .object({
         limit: z.coerce.number().int().min(1).max(100).default(50),
         before: z.string().optional(),
-        after: z.string().optional()
+        after: z.string().optional(),
+        parentId: z.string().optional()
       })
       .parse(request.query);
+
+    // Convert "null" string from query param to actual null literal for the service
+    const parentId = query.parentId === "null" ? null : query.parentId;
 
     return {
       items: await listMessages({
         channelId: params.channelId,
         viewerUserId: request.auth!.productUserId,
-        ...query
+        limit: query.limit,
+        before: query.before,
+        parentId
       })
     };
   });
@@ -133,7 +139,9 @@ export async function registerMessageRoutes(app: FastifyInstance): Promise<void>
         mediaUrls: z.array(z.string().url()).max(8).optional(),
         // Preferred: structured objects carrying explicit contentType.
         // Critical for Synapse media URLs which have no file extension.
-        mediaAttachments: z.array(AttachmentInput).max(8).optional()
+        mediaAttachments: z.array(AttachmentInput).max(8).optional(),
+        parentId: z.string().optional(),
+        replyToId: z.string().optional()
       })
       .parse(request.body);
 
@@ -176,7 +184,9 @@ export async function registerMessageRoutes(app: FastifyInstance): Promise<void>
       channelId: params.channelId,
       actorUserId: request.auth!.productUserId,
       content: payload.content,
-      attachments: attachments.length > 0 ? attachments : undefined
+      attachments: attachments.length > 0 ? attachments : undefined,
+      parentId: payload.parentId,
+      replyToId: payload.replyToId
     });
 
     publishChannelMessage(message);

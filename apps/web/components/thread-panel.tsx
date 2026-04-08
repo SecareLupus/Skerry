@@ -90,12 +90,29 @@ export function ThreadPanel() {
 
     useEffect(() => {
         if (scrollRef.current) {
-        scrollRef.current.scrollTo({
-            top: scrollRef.current.scrollHeight,
-            behavior: "smooth"
-        });
+            scrollRef.current.scrollTo({
+                top: scrollRef.current.scrollHeight,
+                behavior: "smooth"
+            });
         }
     }, [replies]);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            const target = event.target as HTMLElement;
+            if (reactionTargetMessageId && !target.closest(".emoji-picker-container") && !target.closest(".hover-action-item") && !target.closest(".interaction-btn")) {
+                setReactionTargetMessageId(null);
+                setReactionPickerPos(null);
+            }
+        };
+
+        if (reactionTargetMessageId) {
+            document.addEventListener("mousedown", handleClickOutside);
+        }
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, [reactionTargetMessageId]);
 
     const handleSendReply = async (e?: React.FormEvent) => {
         if (e) e.preventDefault();
@@ -675,7 +692,7 @@ export function ThreadPanel() {
                         position: "fixed",
                         top: Math.min(reactionPickerPos.y, window.innerHeight - 450),
                         left: Math.min(reactionPickerPos.x, window.innerWidth - 350),
-                        zIndex: 1000
+                        zIndex: 2000
                     }}
                 >
                     <EmojiPicker 

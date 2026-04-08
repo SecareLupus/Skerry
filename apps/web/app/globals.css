@@ -166,9 +166,23 @@ body {
   border-radius: 0.85rem;
 }
 
+.topbar-branding {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.topbar-logo {
+  height: 32px;
+  width: auto;
+  border-radius: 6px;
+}
+
 .topbar h1 {
   margin: 0;
   font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
 .topbar-meta {

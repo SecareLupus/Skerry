@@ -37,7 +37,7 @@ export async function registerChannelInitRoutes(app: FastifyInstance): Promise<v
     // 2. Fetch everything in parallel for maximum efficiency
     const [channelList, messages, members, readState, permissions] = await Promise.all([
       listChannels(serverId, productUserId),
-      listMessages({ channelId: params.channelId, viewerUserId: productUserId, limit: 50 }),
+      listMessages({ channelId: params.channelId, viewerUserId: productUserId, limit: 50, parentId: null }),
       listChannelMembers(params.channelId, productUserId),
       getChannelReadState(params.channelId, productUserId),
       listAllowedActions({ 

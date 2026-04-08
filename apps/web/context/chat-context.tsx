@@ -32,6 +32,7 @@ export interface ChatHandlers {
 
 export interface MessageItem extends ChatMessage {
     clientState?: "sending" | "failed";
+    replyToId?: string;
 }
 
 export interface ChatMember {

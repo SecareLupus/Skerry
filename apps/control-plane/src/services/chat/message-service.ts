@@ -223,6 +223,7 @@ export async function createMessage(input: {
   externalAuthorName?: string;
   externalAuthorAvatarUrl?: string;
   parentId?: string;
+  replyToId?: string;
   externalThreadId?: string;
   externalMessageId?: string;
 }): Promise<ChatMessage> {
@@ -274,9 +275,9 @@ export async function createMessage(input: {
       `insert into chat_messages(
           id, channel_id, author_user_id, author_display_name, content, attachments, embeds, is_relay,
           external_author_id, external_provider, external_author_name, external_author_avatar_url,
-          parent_id, external_thread_id, external_message_id
+          parent_id, reply_to_id, external_thread_id, external_message_id
         )
-       values($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+       values($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
        returning * `,
       [
         randomId("msg"),
@@ -292,6 +293,7 @@ export async function createMessage(input: {
         input.externalAuthorName ?? null,
         input.externalAuthorAvatarUrl ?? null,
         input.parentId ?? null,
+        input.replyToId ?? null,
         input.externalThreadId ?? null,
         input.externalMessageId ?? null
       ]

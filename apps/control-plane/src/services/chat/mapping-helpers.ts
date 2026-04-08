@@ -61,6 +61,7 @@ export interface ChatMessageRow {
   external_author_name: string | null;
   external_author_avatar_url: string | null;
   parent_id: string | null;
+  reply_to_id: string | null;
   external_thread_id: string | null;
   external_message_id?: string | null;
   is_pinned: boolean;
@@ -188,6 +189,7 @@ export function mapChatMessage(
     externalAuthorName: row.external_author_name ?? undefined,
     externalAuthorAvatarUrl: row.external_author_avatar_url ?? undefined,
     parentId: row.parent_id ?? undefined,
+    replyToId: row.reply_to_id ?? undefined,
     externalThreadId: row.external_thread_id ?? undefined,
     repliesCount: repliesCountMap[row.id] || 0,
     isPinned: row.is_pinned,

@@ -402,7 +402,7 @@ export async function getFirstUnreadMessageId(channelId: string): Promise<string
   return json.messageId;
 }
 
-export async function sendMessage(channelId: string, content: string, attachments?: ChatMessage["attachments"], parentId?: string): Promise<ChatMessage> {
+export async function sendMessage(channelId: string, content: string, attachments?: ChatMessage["attachments"], parentId?: string, replyToId?: string): Promise<ChatMessage> {
   // Send structured mediaAttachments so the server preserves the exact contentType.
   // This is essential for Synapse media URLs which have no file extension to infer from.
   const mediaAttachments = attachments?.length
@@ -411,7 +411,7 @@ export async function sendMessage(channelId: string, content: string, attachment
   return apiFetch(`/v1/channels/${encodeURIComponent(channelId)}/messages`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ content, mediaAttachments, parentId })
+    body: JSON.stringify({ content, mediaAttachments, parentId, replyToId })
   });
 }
 
