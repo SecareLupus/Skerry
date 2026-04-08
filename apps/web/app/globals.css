@@ -191,6 +191,28 @@ body {
   align-items: center;
 }
 
+.topbar-id {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.masquerade-indicator {
+  font-style: italic;
+  font-size: 0.85rem;
+}
+
+.masquerade-role {
+  color: var(--warning);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.masquerade-badges {
+  color: var(--accent);
+  font-weight: 600;
+}
+
 .topbar-meta .icon-button {
   background: var(--surface-alt);
   color: var(--text);

@@ -13,6 +13,15 @@ interface ClientTopbarProps {
   error: string | null;
 }
 
+function formatRole(role?: string): string {
+  if (!role) return "User";
+  return role
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ")
+    .replace("Space Moderator", "Moderator");
+}
+
 export function ClientTopbar({
   dispatch,
   viewer,
@@ -22,6 +31,10 @@ export function ClientTopbar({
   handleLogout,
   error
 }: ClientTopbarProps) {
+  const isMasquerading = viewer?.isMasquerading;
+  const masqRole = formatRole(viewer?.masqueradeRole);
+  const badgeCount = viewer?.masqueradeBadgeIds?.length ?? 0;
+
   return (
     <>
       <header className="topbar">
@@ -53,8 +66,14 @@ export function ClientTopbar({
           <span className="status-pill" data-state={realtimeState}>
             {realtimeState === "live" ? "Live" : realtimeState === "polling" ? "Polling" : "Offline"}
           </span>
-          <span aria-live="polite">
+          <span aria-live="polite" className="topbar-id">
             Signed in as {viewer?.identity?.preferredUsername ?? "Guest"}
+            {isMasquerading && (
+              <span className="masquerade-indicator">
+                {" "}(Masquerading as <span className="masquerade-role">{masqRole}</span>
+                {badgeCount > 0 && <span className="masquerade-badges"> + {badgeCount} Badges</span>})
+              </span>
+            )}
           </span>
           {viewer ? (
             <button type="button" className="ghost" onClick={handleLogout}>
