@@ -30,6 +30,13 @@ export function useTheme() {
     useEffect(() => {
         if (typeof window === "undefined") return;
         
+        // Skip applying if we are in the initial 'light' state but the DOM already has a theme
+        // set by the blocking ThemeScript. This prevents the "flash" back to light.
+        const currentDomTheme = document.documentElement.getAttribute("data-theme");
+        if (theme === "light" && currentDomTheme && currentDomTheme !== "light") {
+            return;
+        }
+
         document.documentElement.setAttribute("data-theme", theme);
         localStorage.setItem("theme", theme);
     }, [theme]);

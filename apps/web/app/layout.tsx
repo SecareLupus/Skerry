@@ -11,12 +11,14 @@ import { ToastProvider } from "../components/toast-provider";
 import { ChatProvider } from "../context/chat-context";
 import { ModalManager } from "../components/modal-manager";
 import { AppInitializer } from "../components/app-initializer";
+import { ThemeScript } from "../components/theme-script";
 import { MasqueradeBanner } from "../components/masquerade-banner";
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <body>
+        <ThemeScript />
         <ToastProvider>
           <ChatProvider>
             <MasqueradeBanner />
