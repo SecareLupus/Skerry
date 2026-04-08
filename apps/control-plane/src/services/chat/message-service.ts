@@ -12,6 +12,7 @@ import {
   mapChatMessage, 
   randomId 
 } from "./mapping-helpers.js";
+import { enrichContentWithEmojis } from "./emoji-service.js";
 
 export async function listMessages(input: {
   channelId: string;
@@ -243,6 +244,19 @@ export async function createMessage(input: {
     const authorDisplayName = profile?.preferred_username ?? fallbackName;
     const avatarUrl = profile?.avatar_url ?? undefined;
 
+    // 1. Resolve Server ID for shortcode enrichment
+    const channelInfo = await db.query<{ server_id: string }>(
+      "select server_id from channels where id = $1 limit 1",
+      [input.channelId]
+    );
+    const targetServerId = channelInfo.rows[0]?.server_id;
+
+    // 2. Enrich content with emojis if it's a native message or contains potential shortcodes
+    let processedContent = input.content;
+    if (targetServerId && processedContent.includes(":")) {
+      processedContent = await enrichContentWithEmojis(targetServerId, processedContent);
+    }
+
     if (!input.parentId && input.externalThreadId) {
       const parentCandidate = await db.query<{ id: string, parent_id: string | null }>(
         `select id, parent_id from chat_messages 
@@ -285,7 +299,7 @@ export async function createMessage(input: {
         input.channelId,
         input.actorUserId,
         authorDisplayName,
-        input.content,
+        processedContent,
         JSON.stringify(input.attachments ?? []),
         JSON.stringify(embeds),
         Boolean(input.isRelay),
