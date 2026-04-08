@@ -75,33 +75,33 @@ export async function listChannels(
       `select ch.* 
        from channels ch
        join servers s on s.id = ch.server_id
-       where ch.server_id = $1 
+       where ch.server_id = $1::text 
          and (
            ch.visitor_access != 'hidden'
-           or ($4 = true)
+           or ($4::boolean = true)
            or (
              ch.visitor_access = 'hidden' and (
                -- Masquerade check
-               ($3 = true and (
-                 exists (select 1 from channel_badge_rules cbr where cbr.channel_id = ch.id and cbr.badge_id = any($5) and cbr.access_level != 'hidden')
-                 or exists (select 1 from server_badge_rules sbr where sbr.server_id = s.id and sbr.badge_id = any($5) and sbr.access_level != 'hidden')
+               ($3::boolean = true and (
+                 exists (select 1 from channel_badge_rules cbr where cbr.channel_id = ch.id and cbr.badge_id = any($5::text[]) and cbr.access_level != 'hidden')
+                 or exists (select 1 from server_badge_rules sbr where sbr.server_id = s.id and sbr.badge_id = any($5::text[]) and sbr.access_level != 'hidden')
                ))
                -- Standard check
-               or ($3 = false and (
-                 exists (select 1 from channel_badge_rules cbr join user_badges ub on ub.badge_id = cbr.badge_id where cbr.channel_id = ch.id and ub.product_user_id = $2 and cbr.access_level != 'hidden')
-                 or exists (select 1 from server_badge_rules sbr join user_badges ub on ub.badge_id = sbr.badge_id where sbr.server_id = s.id and ub.product_user_id = $2 and sbr.access_level != 'hidden')
+               or ($3::boolean = false and (
+                 exists (select 1 from channel_badge_rules cbr join user_badges ub on ub.badge_id = cbr.badge_id where cbr.channel_id = ch.id and ub.product_user_id = $2::text and cbr.access_level != 'hidden')
+                 or exists (select 1 from server_badge_rules sbr join user_badges ub on ub.badge_id = sbr.badge_id where sbr.server_id = s.id and ub.product_user_id = $2::text and sbr.access_level != 'hidden')
                ))
              )
            )
-           or ($3 = false and s.owner_user_id = $2)
-           or ($3 = false and exists (select 1 from role_bindings where (server_id = $1 or (hub_id = s.hub_id and hub_id is not null)) and product_user_id = $2 and role in ('hub_owner', 'hub_admin', 'space_owner')))
-           or ($3 = false and exists (select 1 from channel_members where channel_id = ch.id and product_user_id = $2))
-           or (ch.hub_member_access != 'hidden' and $3 = false and exists (select 1 from hub_members where hub_id = s.hub_id and product_user_id = $2))
-           or (ch.space_member_access != 'hidden' and $3 = false and exists (select 1 from server_members where server_id = s.id and product_user_id = $2))
-           or ($3 = false and exists (
+           or ($3::boolean = false and s.owner_user_id = $2::text)
+           or ($3::boolean = false and exists (select 1 from role_bindings where (server_id = $1::text or (hub_id = s.hub_id and hub_id is not null)) and product_user_id = $2::text and role in ('hub_owner', 'hub_admin', 'space_owner')))
+           or ($3::boolean = false and exists (select 1 from channel_members where channel_id = ch.id and product_user_id = $2::text))
+           or (ch.hub_member_access != 'hidden' and $3::boolean = false and exists (select 1 from hub_members where hub_id = s.hub_id and product_user_id = $2::text))
+           or (ch.space_member_access != 'hidden' and $3::boolean = false and exists (select 1 from server_members where server_id = s.id and product_user_id = $2::text))
+           or ($3::boolean = false and exists (
              select 1 from space_admin_assignments saa 
              where saa.server_id = s.id 
-               and saa.assigned_user_id = $2 
+               and saa.assigned_user_id = $2::text 
                and saa.status = 'active' 
                and (saa.expires_at is null or saa.expires_at > now())
            ))

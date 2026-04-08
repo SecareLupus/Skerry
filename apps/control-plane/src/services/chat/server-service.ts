@@ -16,39 +16,39 @@ export async function listServers(
     const badgeIds = isMasquerading ? (authContext?.masqueradeBadgeIds || []) : null;
 
     let query = `select s.*, 
-              (exists (select 1 from server_members where server_id = s.id and product_user_id = $1)) as is_member
+              (exists (select 1 from server_members where server_id = s.id and product_user_id = $1::text)) as is_member
        from servers s
        where (s.type = 'dm'
-          or ($3 = false and s.owner_user_id = $1)
-          or ($4 = true)
-          or ($3 = false and exists (select 1 from role_bindings where (hub_id = s.hub_id or hub_id is null) and product_user_id = $1 and role in ('hub_owner', 'hub_admin')))
-          or (s.space_member_access != 'hidden' and $3 = false and exists (select 1 from server_members where server_id = s.id and product_user_id = $1))
-          or (s.hub_member_access != 'hidden' and $3 = false and exists (select 1 from hub_members where hub_id = s.hub_id and product_user_id = $1))
+          or ($2::boolean = false and s.owner_user_id = $1::text)
+          or ($3::boolean = true)
+          or ($2::boolean = false and exists (select 1 from role_bindings where (hub_id = s.hub_id or hub_id is null) and product_user_id = $1::text and role in ('hub_owner', 'hub_admin')))
+          or (s.space_member_access != 'hidden' and $2::boolean = false and exists (select 1 from server_members where server_id = s.id and product_user_id = $1::text))
+          or (s.hub_member_access != 'hidden' and $2::boolean = false and exists (select 1 from hub_members where hub_id = s.hub_id and product_user_id = $1::text))
           or (s.visitor_access != 'hidden')
           or (s.visitor_access = 'hidden' and (
-              ($3 = true and exists (select 1 from server_badge_rules sbr where sbr.server_id = s.id and sbr.badge_id = any($5) and sbr.access_level != 'hidden'))
-              or ($3 = false and exists (select 1 from server_badge_rules sbr join user_badges ub on ub.badge_id = sbr.badge_id where sbr.server_id = s.id and ub.product_user_id = $1 and sbr.access_level != 'hidden'))
+              ($2::boolean = true and exists (select 1 from server_badge_rules sbr where sbr.server_id = s.id and sbr.badge_id = any($4::text[]) and sbr.access_level != 'hidden'))
+              or ($2::boolean = false and exists (select 1 from server_badge_rules sbr join user_badges ub on ub.badge_id = sbr.badge_id where sbr.server_id = s.id and ub.product_user_id = $1::text and sbr.access_level != 'hidden'))
           ))
           or exists (select 1 from channels c where c.server_id = s.id and (
               c.visitor_access != 'hidden' 
               or (c.visitor_access = 'hidden' and (
-                  ($3 = true and exists (select 1 from channel_badge_rules cbr where cbr.channel_id = c.id and cbr.badge_id = any($5) and cbr.access_level != 'hidden'))
-                  or ($3 = false and exists (select 1 from channel_badge_rules cbr join user_badges ub on ub.badge_id = cbr.badge_id where cbr.channel_id = c.id and ub.product_user_id = $1 and cbr.access_level != 'hidden'))
+                  ($2::boolean = true and exists (select 1 from channel_badge_rules cbr where cbr.channel_id = c.id and cbr.badge_id = any($4::text[]) and cbr.access_level != 'hidden'))
+                  or ($2::boolean = false and exists (select 1 from channel_badge_rules cbr join user_badges ub on ub.badge_id = cbr.badge_id where cbr.channel_id = c.id and ub.product_user_id = $1::text and cbr.access_level != 'hidden'))
               ))
-              or (c.hub_member_access != 'hidden' and $3 = false and exists (select 1 from hub_members where hub_id = s.hub_id and product_user_id = $1))
-              or (c.space_member_access != 'hidden' and $3 = false and exists (select 1 from server_members where server_id = s.id and product_user_id = $1))
+              or (c.hub_member_access != 'hidden' and $2::boolean = false and exists (select 1 from hub_members where hub_id = s.hub_id and product_user_id = $1::text))
+              or (c.space_member_access != 'hidden' and $2::boolean = false and exists (select 1 from server_members where server_id = s.id and product_user_id = $1::text))
           ))
-          or ($3 = false and exists (
+          or ($2::boolean = false and exists (
             select 1 from space_admin_assignments saa 
             where saa.server_id = s.id 
-              and saa.assigned_user_id = $1 
+              and saa.assigned_user_id = $1::text 
               and saa.status = 'active' 
               and (saa.expires_at is null or saa.expires_at > now())
           )))`;
           
-    const params: any[] = [productUserId, hubId, isMasquerading, isAdminMasquerade, badgeIds];
+    const params: any[] = [productUserId, isMasquerading, isAdminMasquerade, badgeIds];
     if (hubId) {
-      query += ` and s.hub_id = $2`;
+      query += ` and s.hub_id = $5::text`;
       params.push(hubId);
     }
 
