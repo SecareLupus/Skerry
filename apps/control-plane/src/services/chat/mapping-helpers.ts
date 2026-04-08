@@ -171,6 +171,7 @@ export function mapChatMessage(
     }
     reaction.count++;
     reaction.userIds.push(r.user_id);
+    if (!reaction.displayNames) reaction.displayNames = [];
     reaction.displayNames.push(r.display_name);
     if (viewerUserId && r.user_id === viewerUserId) {
       reaction.me = true;
