@@ -614,7 +614,7 @@ export async function updateRelayedDiscordMessage(input: {
   });
 
   if (message) {
-    publishChannelMessage(message, "message.updated");
+    await publishChannelMessage(message, "message.updated");
   }
 }
 
@@ -631,7 +631,7 @@ export async function deleteRelayedDiscordMessage(input: {
   });
 
   if (result) {
-    publishChannelMessage({
+    await publishChannelMessage({
       id: result.id,
       channelId: result.channelId,
       parentId: result.parentId
@@ -720,7 +720,7 @@ export async function relayDiscordMessageToMappedChannel(input: {
     externalMessageId: input.messageId
   });
 
-  publishChannelMessage(message);
+  await publishChannelMessage(message);
 
   return {
     relayed: true,

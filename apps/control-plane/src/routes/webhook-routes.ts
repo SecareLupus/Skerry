@@ -98,7 +98,7 @@ export async function registerWebhookRoutes(app: FastifyInstance): Promise<void>
       externalAuthorAvatarUrl: payload.avatar_url ?? webhook.avatarUrl ?? undefined
     });
 
-    publishChannelMessage(message);
+    await publishChannelMessage(message);
 
     reply.code(204).send();
   });

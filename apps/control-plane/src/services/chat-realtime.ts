@@ -6,6 +6,9 @@ type ChatListener = (event: ChatEvent, payload: any) => void;
 const channelListeners = new Map<string, Set<ChatListener>>();
 const hubListeners = new Map<string, Set<ChatListener>>();
 
+// Cache for mapping channelId -> hubId to avoid constant DB lookups
+const channelToHubCache = new Map<string, string>();
+
 export function subscribeToChannelMessages(channelId: string, listener: ChatListener): () => void {
   const listeners = channelListeners.get(channelId) ?? new Set<ChatListener>();
   listeners.add(listener);
@@ -19,6 +22,14 @@ export function subscribeToChannelMessages(channelId: string, listener: ChatList
       channelListeners.delete(channelId);
     }
   };
+}
+
+/**
+ * Manually populate or refresh the channel-to-hub mapping cache.
+ * Useful when we already have the hub context in a route handler.
+ */
+export function warmChannelHubCache(channelId: string, hubId: string): void {
+  channelToHubCache.set(channelId, hubId);
 }
 
 export function subscribeToHubEvents(hubId: string, listener: ChatListener): () => void {
@@ -36,7 +47,7 @@ export function subscribeToHubEvents(hubId: string, listener: ChatListener): () 
   };
 }
 
-export function publishChannelMessage(message: ChatMessage, event: ChatEvent = "message.created"): void {
+export async function publishChannelMessage(message: ChatMessage, event: ChatEvent = "message.created"): Promise<void> {
   // Notify channel subscribers
   const listeners = channelListeners.get(message.channelId);
   if (listeners) {
@@ -45,10 +56,30 @@ export function publishChannelMessage(message: ChatMessage, event: ChatEvent = "
     }
   }
 
-  // Also notify hub subscribers if we can find the hub context
-  // This requires the message to carry hubId or we look it up.
-  // For now, most messages flow through routes where we know the hubId or can find it via channel.
-  // In domain-routes.ts, we'll need to pass hubId to publish functions or ensure it's in the message object.
+  // Also notify hub subscribers.
+  // We need to know which hub this channel belongs to.
+  let hubId = channelToHubCache.get(message.channelId);
+
+  if (!hubId) {
+    // If not in cache, we must perform a lookup.
+    // We import withDb lazily to avoid circular dependencies if any, though it should be fine here.
+    const { withDb } = await import("../db/client.js");
+    hubId = await withDb(async (db) => {
+      const row = await db.query<{ hub_id: string }>(
+        "select s.hub_id from channels c join servers s on s.id = c.server_id where c.id = $1",
+        [message.channelId]
+      );
+      return row.rows[0]?.hub_id;
+    });
+
+    if (hubId) {
+      channelToHubCache.set(message.channelId, hubId);
+    }
+  }
+
+  if (hubId) {
+    publishHubEvent(hubId, event, message);
+  }
 }
 
 export function publishHubEvent(hubId: string, event: ChatEvent, payload: any): void {
