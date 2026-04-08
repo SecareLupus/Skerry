@@ -785,7 +785,7 @@ export async function listDiscordGuildChannels(guildId: string): Promise<Array<{
     ];
 
     return channels
-      .filter((c) => c && allowedTypes.includes(c.type as any))
+      .filter((c: any) => c && allowedTypes.includes(c.type as any))
       .map((c: any) => {
         let prefix = "";
         if (c.type === ChannelType.GuildForum) prefix = "[Forum] ";

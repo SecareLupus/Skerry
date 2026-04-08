@@ -437,7 +437,7 @@ export async function startDiscordBot() {
 // Keep track of channels where the bot is currently typing
 const typingActivity = new Map<string, number>();
 
-export function getDiscordClient() {
+export function getDiscordBotClient() {
     return client;
 }
 
