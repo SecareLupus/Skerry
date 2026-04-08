@@ -681,6 +681,38 @@ export async function relayDiscordMessageToMappedChannel(input: {
 
   let finalContent = input.content.trim();
 
+  // --- Transform Block Quotes ---
+  // Discord uses >>> at the start of a message for a block quote that includes everything after.
+  // Standard Markdown uses > per line.
+  if (finalContent.startsWith(">>>")) {
+    finalContent = finalContent.replace(/^>>>\s*/, "> ").split("\n").join("\n> ");
+  }
+
+  // --- Transform Discord Emojis & Discovery ---
+  const emojiMatches = Array.from(finalContent.matchAll(/<(a?):(\w+):(\d+)>/g));
+  if (emojiMatches.length > 0) {
+    for (const match of emojiMatches) {
+      const [fullMatch, animated, name, id] = match;
+      const isAnimated = animated === "a";
+      const ext = isAnimated ? "gif" : "webp";
+      const emojiUrl = `https://cdn.discordapp.com/emojis/${id}.${ext}?size=48&quality=lossless`;
+      
+      // Discovery: Register seen emoji in DB
+      await withDb(async (db) => {
+        await db.query(
+          `insert into discord_seen_emojis (id, name, is_animated, last_seen_at) 
+           values ($1, $2, $3, now())
+           on conflict (id) do update set name = $2, is_animated = $3, last_seen_at = now()`,
+          [id, name, isAnimated]
+        );
+      });
+
+      // Transform to Markdown image for Skerry frontend
+      // We use the '![emoji](url)' format which our frontend can identify as a small inline image
+      finalContent = finalContent.replace(fullMatch, `![${name}](${emojiUrl})`);
+    }
+  }
+
   // --- Resolve Mentions ---
   const mentionMatches = finalContent.match(/<@!?(\d+)>/g);
   if (mentionMatches) {

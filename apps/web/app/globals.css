@@ -2100,6 +2100,33 @@ textarea:focus-visible,
   background: black;
 }
 
+/* Markdown Specifics */
+.markdown-content blockquote {
+  border-left: 4px solid var(--border);
+  padding: 0.1rem 0.85rem;
+  margin: 0.5rem 0;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 0 6px 6px 0;
+  color: var(--text-muted);
+}
+
+[data-theme="dark"] .markdown-content blockquote {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.markdown-content img[src*="cdn.discordapp.com/emojis"] {
+  display: inline-block;
+  vertical-align: middle;
+  height: 1.375em;
+  width: auto;
+  margin: 0 0.05em 0.125em 0.05em;
+  cursor: default;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+}
+
 .embed-video-container iframe {
   position: absolute;
   top: 0;

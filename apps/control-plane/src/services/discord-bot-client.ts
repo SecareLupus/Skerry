@@ -1,4 +1,4 @@
-import { Client, GatewayIntentBits, Events, Message, TextChannel, WebhookClient, ChannelType, Partials, MessageReaction } from "discord.js";
+import { Client, GatewayIntentBits, Events, Message, TextChannel, WebhookClient, ChannelType, Partials, MessageReaction, Guild } from "discord.js";
 import { config } from "../config.js";
 import { relayDiscordMessageToMappedChannel } from "./discord-bridge-service.js";
 import { logEvent } from "./observability-service.js";
@@ -578,6 +578,7 @@ export async function relayMatrixMessageToDiscord(input: {
 
         // --- Emoji Mirroring ---
         if (guild) {
+            // 1. Handle Skerry Emojis (:emo_id:)
             const skerryEmojiMatches = content.match(/:emo_[a-zA-Z0-9_-]+:/g);
             if (skerryEmojiMatches) {
                 for (const match of skerryEmojiMatches) {
@@ -585,6 +586,21 @@ export async function relayMatrixMessageToDiscord(input: {
                     const discordEmojiFound = await getOrMirrorEmoji(input.serverId, guild.id, skerryEmojiId);
                     if (discordEmojiFound) {
                         content = content.replace(match, `<:${discordEmojiFound.name}:${discordEmojiFound.id}>`);
+                    }
+                }
+            }
+
+            // 2. Handle External Discord Emojis (Markdown images ![name](url))
+            // Pattern: ![name](https://cdn.discordapp.com/emojis/id.ext?...)
+            const externalEmojiMatches = Array.from(content.matchAll(/!\[(.+?)\]\(https:\/\/cdn\.discordapp\.com\/emojis\/(\d+)\.(webp|gif|png).*?\)/g));
+            if (externalEmojiMatches.length > 0) {
+                for (const match of externalEmojiMatches) {
+                    const [fullMatch, name, id] = match;
+                    if (typeof name !== "string" || typeof id !== "string") continue;
+                    const discordEmojiFound = await getOrMirrorExternalEmoji(input.serverId, guild.id, id, name);
+                    if (discordEmojiFound) {
+                        const prefix = discordEmojiFound.isAnimated ? "a" : "";
+                        content = content.replace(fullMatch, `<${prefix}:${discordEmojiFound.name}:${discordEmojiFound.id}>`);
                     }
                 }
             }
@@ -927,6 +943,8 @@ async function getOrMirrorEmoji(serverId: string, guildId: string, skerryEmojiId
             [serverId, skerryEmojiId]
         );
         if (mappingRow.rows[0]) {
+            // Update last_used_at for LRU
+            await db.query("update discord_emoji_mappings set last_used_at = now() where server_id = $1 and skerry_emoji_id = $2", [serverId, skerryEmojiId]);
             return {
                 id: mappingRow.rows[0].discord_emoji_id,
                 name: mappingRow.rows[0].discord_emoji_name
@@ -944,20 +962,22 @@ async function getOrMirrorEmoji(serverId: string, guildId: string, skerryEmojiId
 
         try {
             const guild = await client!.guilds.fetch(guildId);
+            
+            // Ensure slot availability with LRU rotation
+            await ensureEmojiSlot(guild, serverId);
+
+            // Fetch after rotation to be sure
             const emojis = await guild.emojis.fetch();
 
             // Check if it's already there but not in our mapping
             const existing = emojis.find(e => e.name === name);
             if (existing) {
                 await db.query(
-                    "insert into discord_emoji_mappings (id, server_id, skerry_emoji_id, discord_emoji_id, discord_emoji_name) values ($1, $2, $3, $4, $5)",
+                    "insert into discord_emoji_mappings (id, server_id, skerry_emoji_id, discord_emoji_id, discord_emoji_name, last_used_at) values ($1, $2, $3, $4, $5, now())",
                     [`dem_${crypto.randomUUID().replaceAll("-", "")}`, serverId, skerryEmojiId, existing.id, existing.name]
                 );
                 return { id: existing.id, name: existing.name };
             }
-
-            // Check guild limits (simple check, 50 is base)
-            if (emojis.size >= 50) return null;
 
             // 3. Upload to Discord
             const discordEmoji = await guild.emojis.create({
@@ -968,7 +988,7 @@ async function getOrMirrorEmoji(serverId: string, guildId: string, skerryEmojiId
 
             // 4. Save mapping
             await db.query(
-                "insert into discord_emoji_mappings (id, server_id, skerry_emoji_id, discord_emoji_id, discord_emoji_name) values ($1, $2, $3, $4, $5)",
+                "insert into discord_emoji_mappings (id, server_id, skerry_emoji_id, discord_emoji_id, discord_emoji_name, last_used_at) values ($1, $2, $3, $4, $5, now())",
                 [`dem_${crypto.randomUUID().replaceAll("-", "")}`, serverId, skerryEmojiId, discordEmoji.id, discordEmoji.name]
             );
 
@@ -976,6 +996,130 @@ async function getOrMirrorEmoji(serverId: string, guildId: string, skerryEmojiId
         } catch (error) {
             console.error("[Discord Bridge] Failed to mirror emoji:", error);
             return null;
+        }
+    });
+}
+
+/**
+ * Mirror an external Discord emoji to the target server, or use natively if possible.
+ * Implements LRU rotation if slots are full.
+ */
+async function getOrMirrorExternalEmoji(serverId: string, guildId: string, externalEmojiId: string, preferredName: string): Promise<{ id: string, name: string, isAnimated: boolean } | null> {
+    if (!client || !client.isReady()) return null;
+
+    return withDb(async (db) => {
+        // 1. Check discovery registry for metadata
+        const seenRow = await db.query<{ name: string, is_animated: boolean }>(
+            "select name, is_animated from discord_seen_emojis where id = $1",
+            [externalEmojiId]
+        );
+        const isAnimated = seenRow.rows[0]?.is_animated ?? false;
+        const name = seenRow.rows[0]?.name ?? preferredName;
+
+        // 2. Native Check: Is it already in the target guild?
+        try {
+            const guild = await client!.guilds.fetch(guildId);
+            const emojis = await guild.emojis.fetch();
+            
+            const native = emojis.get(externalEmojiId);
+            if (native) {
+                return { id: native.id, name: native.name!, isAnimated: native.animated || false };
+            }
+
+            // 3. Check Mirroring Cache
+            const mirrorRow = await db.query<{ discord_emoji_id: string, discord_emoji_name: string }>(
+                "select discord_emoji_id, discord_emoji_name from discord_external_emoji_mirrors where server_id = $1 and external_emoji_id = $2",
+                [serverId, externalEmojiId]
+            );
+            if (mirrorRow.rows[0]) {
+                // Update last_used_at for LRU
+                await db.query("update discord_external_emoji_mirrors set last_used_at = now() where server_id = $1 and external_emoji_id = $2", [serverId, externalEmojiId]);
+                return {
+                    id: mirrorRow.rows[0].discord_emoji_id,
+                    name: mirrorRow.rows[0].discord_emoji_name,
+                    isAnimated
+                };
+            }
+
+            // 4. Mirroring required. Ensure slot availability.
+            await ensureEmojiSlot(guild, serverId);
+
+            const ext = isAnimated ? "gif" : "png";
+            const url = `https://cdn.discordapp.com/emojis/${externalEmojiId}.${ext}?size=128&quality=lossless`;
+
+            // Upload to Discord
+            const discordEmoji = await guild.emojis.create({
+                attachment: url,
+                name: name,
+                reason: "Mirrored external Discord emoji"
+            });
+
+            // Save mapping
+            await db.query(
+                "insert into discord_external_emoji_mirrors (id, server_id, external_emoji_id, discord_emoji_id, discord_emoji_name, last_used_at) values ($1, $2, $3, $4, $5, now())",
+                [`dex_${crypto.randomUUID().replaceAll("-", "")}`, serverId, externalEmojiId, discordEmoji.id, discordEmoji.name]
+            );
+
+            return { id: discordEmoji.id, name: discordEmoji.name, isAnimated };
+        } catch (error) {
+            console.error("[Discord Bridge] Failed to mirror external emoji:", error);
+            return null;
+        }
+    });
+}
+
+/**
+ * Handles LRU rotation of mirrored emojis if the guild is at its slot limit.
+ */
+async function ensureEmojiSlot(guild: Guild, serverId: string): Promise<void> {
+    const emojis = await guild.emojis.fetch();
+    // Default limit is 50 for non-boosted guilds.
+    if (emojis.size < 50) return;
+
+    console.log(`[Discord Bridge] Guild ${guild.id} is at emoji limit (50). Rotating oldest mirrored emoji.`);
+
+    await withDb(async (db) => {
+        // Find stalest from both internal and external tables
+        const stalestInternal = await db.query<{ id: string, discord_emoji_id: string, last_used_at: Date }>(
+            "select id, discord_emoji_id, last_used_at from discord_emoji_mappings where server_id = $1 order by last_used_at asc limit 1",
+            [serverId]
+        );
+        const stalestExternal = await db.query<{ id: string, discord_emoji_id: string, last_used_at: Date }>(
+            "select id, discord_emoji_id, last_used_at from discord_external_emoji_mirrors where server_id = $1 order by last_used_at asc limit 1",
+            [serverId]
+        );
+
+        let toDelete: { id: string, discord_emoji_id: string, table: string } | null = null;
+        
+        const internal = stalestInternal.rows[0];
+        const external = stalestExternal.rows[0];
+
+        if (internal && external) {
+            if (internal.last_used_at < external.last_used_at) {
+                toDelete = { id: internal.id, discord_emoji_id: internal.discord_emoji_id, table: "discord_emoji_mappings" };
+            } else {
+                toDelete = { id: external.id, discord_emoji_id: external.discord_emoji_id, table: "discord_external_emoji_mirrors" };
+            }
+        } else if (internal) {
+            toDelete = { id: internal.id, discord_emoji_id: internal.discord_emoji_id, table: "discord_emoji_mappings" };
+        } else if (external) {
+            toDelete = { id: external.id, discord_emoji_id: external.discord_emoji_id, table: "discord_external_emoji_mirrors" };
+        }
+
+        if (toDelete) {
+            try {
+                console.log(`[Discord Bridge] Deleting stalest mirrored emoji ${toDelete.discord_emoji_id} from guild ${guild.id}`);
+                const emoji = guild.emojis.cache.get(toDelete.discord_emoji_id) || await guild.emojis.fetch(toDelete.discord_emoji_id);
+                if (emoji) {
+                    await emoji.delete("LRU rotation for new mirrored emoji");
+                }
+                // Remove from DB
+                await db.query(`delete from ${toDelete.table} where id = $1`, [toDelete.id]);
+            } catch (err) {
+                console.warn(`[Discord Bridge] Failed to delete stale emoji ${toDelete.discord_emoji_id}:`, err);
+                // If it failed (maybe someone already deleted it), still remove from DB to be safe
+                await db.query(`delete from ${toDelete.table} where id = $1`, [toDelete.id]);
+            }
         }
     });
 }
