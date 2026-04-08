@@ -1,4 +1,4 @@
-import { Client, GatewayIntentBits, Events, Message, TextChannel, WebhookClient, ChannelType, Partials } from "discord.js";
+import { Client, GatewayIntentBits, Events, Message, TextChannel, WebhookClient, ChannelType, Partials, MessageReaction } from "discord.js";
 import { config } from "../config.js";
 import { relayDiscordMessageToMappedChannel } from "./discord-bridge-service.js";
 import { logEvent } from "./observability-service.js";
@@ -950,11 +950,13 @@ export async function relayMatrixReactionToDiscord(input: {
     externalMessageId: string;
     emoji: string;
     action: "add" | "remove";
+    discordUserId?: string;
 }) {
     if (!client || !client.isReady()) return;
+    const bot = client;
 
     try {
-        const channel = await client.channels.fetch(input.discordChannelId);
+        const channel = await bot.channels.fetch(input.discordChannelId);
         if (!channel || !("messages" in channel)) return;
 
         const message = await (channel as any).messages.fetch(input.externalMessageId);
@@ -965,10 +967,24 @@ export async function relayMatrixReactionToDiscord(input: {
                 console.warn(`[Discord Bridge] Failed to react with ${input.emoji}:`, err.message);
             });
         } else {
-            const reaction = message.reactions.cache.get(input.emoji);
+            // Find the reaction by name or ID or toString
+            const reaction = message.reactions.cache.find((r: MessageReaction) => 
+                r.emoji.name === input.emoji || 
+                r.emoji.id === input.emoji || 
+                r.emoji.toString() === input.emoji
+            );
+
             if (reaction) {
-                await reaction.users.remove(client.user!.id).catch((err: any) => {
-                    console.warn(`[Discord Bridge] Failed to remove reaction ${input.emoji}:`, err.message);
+                const targetId = input.discordUserId || bot.user!.id;
+                await reaction.users.remove(targetId).catch((err: any) => {
+                    if (err.code === 50013) {
+                        console.warn(`[Discord Bridge] Bot lacks "Manage Messages" permission to remove reaction for user ${targetId}. Falling back to removing self.`);
+                        if (targetId !== bot.user!.id) {
+                            reaction.users.remove(bot.user!.id).catch(() => {});
+                        }
+                    } else {
+                        console.warn(`[Discord Bridge] Failed to remove reaction ${input.emoji} for user ${targetId}:`, err.message);
+                    }
                 });
             }
         }

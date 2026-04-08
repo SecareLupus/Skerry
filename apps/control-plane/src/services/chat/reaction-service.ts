@@ -34,12 +34,17 @@ export async function addReaction(input: {
             const mappings = await listDiscordChannelMappings(serverId);
             const mapping = mappings.find(m => m.matrixChannelId === msg.channel_id && m.enabled);
             if (mapping) {
+              const { listIdentitiesByProductUserId } = await import("../identity-service.js");
+              const identities = await listIdentitiesByProductUserId(input.userId);
+              const discordIdentity = identities.find(id => id.provider === "discord");
+
               await relayMatrixReactionToDiscord({
                 serverId,
                 discordChannelId: mapping.discordChannelId,
                 externalMessageId: msg.external_message_id,
                 emoji: input.emoji,
-                action: "add"
+                action: "add",
+                discordUserId: discordIdentity?.oidcSubject
               });
             }
           }
@@ -91,12 +96,17 @@ export async function removeReaction(input: {
             const mappings = await listDiscordChannelMappings(serverId);
             const mapping = mappings.find(m => m.matrixChannelId === msg.channel_id && m.enabled);
             if (mapping) {
+              const { listIdentitiesByProductUserId } = await import("../identity-service.js");
+              const identities = await listIdentitiesByProductUserId(input.userId);
+              const discordIdentity = identities.find(id => id.provider === "discord");
+
               await relayMatrixReactionToDiscord({
                 serverId,
                 discordChannelId: mapping.discordChannelId,
                 externalMessageId: msg.external_message_id,
                 emoji: input.emoji,
-                action: "remove"
+                action: "remove",
+                discordUserId: discordIdentity?.oidcSubject
               });
             }
           }
