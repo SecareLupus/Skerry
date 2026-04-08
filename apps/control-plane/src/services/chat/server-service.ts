@@ -2,32 +2,51 @@ import crypto from "node:crypto";
 import type { Server, HubInvite } from "@skerry/shared";
 import { withDb } from "../../db/client.js";
 import { ServerRow } from "./mapping-helpers.js";
+import type { ScopedAuthContext } from "../../auth/middleware.js";
 
-export async function listServers(productUserId?: string, hubId?: string): Promise<Server[]> {
+export async function listServers(
+  productUserId?: string, 
+  hubId?: string,
+  authContext?: ScopedAuthContext
+): Promise<Server[]> {
   return withDb(async (db) => {
+    const isMasquerading = Boolean(authContext?.isMasquerading);
+    const masqueradeRole = authContext?.masqueradeRole;
+    const isAdminMasquerade = masqueradeRole && ["hub_owner", "hub_admin", "space_owner", "space_admin"].includes(masqueradeRole);
+    const badgeIds = isMasquerading ? (authContext?.masqueradeBadgeIds || []) : null;
+
     let query = `select s.*, 
               (exists (select 1 from server_members where server_id = s.id and product_user_id = $1)) as is_member
        from servers s
        where (s.type = 'dm'
-          or s.owner_user_id = $1
-          or exists (select 1 from role_bindings where (hub_id = s.hub_id or hub_id is null) and product_user_id = $1 and role in ('hub_owner', 'hub_admin'))
-          or (s.space_member_access != 'hidden' and exists (select 1 from server_members where server_id = s.id and product_user_id = $1))
-          or (s.hub_member_access != 'hidden' and exists (select 1 from hub_members where hub_id = s.hub_id and product_user_id = $1))
+          or ($3 = false and s.owner_user_id = $1)
+          or ($4 = true)
+          or ($3 = false and exists (select 1 from role_bindings where (hub_id = s.hub_id or hub_id is null) and product_user_id = $1 and role in ('hub_owner', 'hub_admin')))
+          or (s.space_member_access != 'hidden' and $3 = false and exists (select 1 from server_members where server_id = s.id and product_user_id = $1))
+          or (s.hub_member_access != 'hidden' and $3 = false and exists (select 1 from hub_members where hub_id = s.hub_id and product_user_id = $1))
           or (s.visitor_access != 'hidden')
+          or (s.visitor_access = 'hidden' and (
+              ($3 = true and exists (select 1 from server_badge_rules sbr where sbr.server_id = s.id and sbr.badge_id = any($5) and sbr.access_level != 'hidden'))
+              or ($3 = false and exists (select 1 from server_badge_rules sbr join user_badges ub on ub.badge_id = sbr.badge_id where sbr.server_id = s.id and ub.product_user_id = $1 and sbr.access_level != 'hidden'))
+          ))
           or exists (select 1 from channels c where c.server_id = s.id and (
               c.visitor_access != 'hidden' 
-              or (c.hub_member_access != 'hidden' and exists (select 1 from hub_members where hub_id = s.hub_id and product_user_id = $1))
-              or (c.space_member_access != 'hidden' and exists (select 1 from server_members where server_id = s.id and product_user_id = $1))
+              or (c.visitor_access = 'hidden' and (
+                  ($3 = true and exists (select 1 from channel_badge_rules cbr where cbr.channel_id = c.id and cbr.badge_id = any($5) and cbr.access_level != 'hidden'))
+                  or ($3 = false and exists (select 1 from channel_badge_rules cbr join user_badges ub on ub.badge_id = cbr.badge_id where cbr.channel_id = c.id and ub.product_user_id = $1 and cbr.access_level != 'hidden'))
+              ))
+              or (c.hub_member_access != 'hidden' and $3 = false and exists (select 1 from hub_members where hub_id = s.hub_id and product_user_id = $1))
+              or (c.space_member_access != 'hidden' and $3 = false and exists (select 1 from server_members where server_id = s.id and product_user_id = $1))
           ))
-          or exists (
+          or ($3 = false and exists (
             select 1 from space_admin_assignments saa 
             where saa.server_id = s.id 
               and saa.assigned_user_id = $1 
               and saa.status = 'active' 
               and (saa.expires_at is null or saa.expires_at > now())
-          ))`;
+          )))`;
           
-    const params: any[] = [productUserId];
+    const params: any[] = [productUserId, hubId, isMasquerading, isAdminMasquerade, badgeIds];
     if (hubId) {
       query += ` and s.hub_id = $2`;
       params.push(hubId);

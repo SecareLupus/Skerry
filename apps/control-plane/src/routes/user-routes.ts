@@ -72,7 +72,8 @@ export async function registerUserRoutes(app: FastifyInstance): Promise<void> {
   app.get("/v1/me/roles", initializedAuthHandlers, async (request) => {
     return {
       items: await listRoleBindings({
-        productUserId: request.auth!.productUserId
+        productUserId: request.auth!.productUserId,
+        authContext: request.auth
       })
     };
   });
@@ -102,7 +103,8 @@ export async function registerUserRoutes(app: FastifyInstance): Promise<void> {
       // If previewing someone else, must have manage scope for that context
       const allowed = await canManageServer({
         productUserId: request.auth!.productUserId,
-        serverId: query.serverId
+        serverId: query.serverId,
+        authContext: request.auth
       });
       if (!allowed) {
         reply.code(403).send({ message: "Forbidden: insufficient scope to preview permissions." });
@@ -116,7 +118,8 @@ export async function registerUserRoutes(app: FastifyInstance): Promise<void> {
         scope: {
           serverId: query.serverId,
           channelId: query.channelId
-        }
+        },
+        authContext: request.auth
       })
     };
   });

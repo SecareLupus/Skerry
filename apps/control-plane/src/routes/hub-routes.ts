@@ -29,7 +29,7 @@ export async function registerHubRoutes(app: FastifyInstance): Promise<void> {
   const initializedAuthHandlers = { preHandler: [requireAuth, requireInitialized] };
 
   app.get("/v1/hubs", initializedAuthHandlers, async (request) => {
-    return { items: await listHubsForUser(request.auth!.productUserId) };
+    return { items: await listHubsForUser(request.auth!.productUserId, request.auth) };
   });
 
   app.get("/v1/hubs/:hubId/federation-policy", initializedAuthHandlers, async (request, reply) => {
@@ -140,7 +140,8 @@ export async function registerHubRoutes(app: FastifyInstance): Promise<void> {
       .parse(request.body ?? {});
     const allowed = await canManageHub({
       productUserId: request.auth!.productUserId,
-      hubId: params.hubId
+      hubId: params.hubId,
+      authContext: request.auth
     });
     if (!allowed) {
       reply.code(403).send({ message: "Forbidden: insufficient hub management scope." });
@@ -160,7 +161,8 @@ export async function registerHubRoutes(app: FastifyInstance): Promise<void> {
     const params = z.object({ hubId: z.string().min(1) }).parse(request.params);
     const allowed = await canManageHub({
       productUserId: request.auth!.productUserId,
-      hubId: params.hubId
+      hubId: params.hubId,
+      authContext: request.auth
     });
     if (!allowed) {
       reply.code(403).send({ message: "Forbidden: insufficient hub management scope." });
@@ -178,7 +180,8 @@ export async function registerHubRoutes(app: FastifyInstance): Promise<void> {
     const params = z.object({ hubId: z.string().min(1) }).parse(request.params);
     const allowed = await canManageHub({
       productUserId: request.auth!.productUserId,
-      hubId: params.hubId
+      hubId: params.hubId,
+      authContext: request.auth
     });
     if (!allowed) {
       reply.code(403).send({ message: "Forbidden: insufficient hub management scope." });
@@ -198,7 +201,8 @@ export async function registerHubRoutes(app: FastifyInstance): Promise<void> {
 
     const allowed = await canManageHub({
       productUserId: request.auth!.productUserId,
-      hubId: params.hubId
+      hubId: params.hubId,
+      authContext: request.auth
     });
     if (!allowed) {
       reply.code(403).send({ message: "Forbidden: insufficient hub management scope." });
@@ -279,7 +283,8 @@ export async function registerHubRoutes(app: FastifyInstance): Promise<void> {
     const params = z.object({ hubId: z.string().min(1) }).parse(request.params);
     const allowed = await canManageHub({
       productUserId: request.auth!.productUserId,
-      hubId: params.hubId
+      hubId: params.hubId,
+      authContext: request.auth
     });
     if (!allowed) {
       reply.code(403).send({ message: "Forbidden: insufficient hub management scope." });
@@ -293,7 +298,8 @@ export async function registerHubRoutes(app: FastifyInstance): Promise<void> {
     const params = z.object({ hubId: z.string().min(1) }).parse(request.params);
     const allowed = await canManageHub({
       productUserId: request.auth!.productUserId,
-      hubId: params.hubId
+      hubId: params.hubId,
+      authContext: request.auth
     });
     if (!allowed) {
       reply.code(403).send({ message: "Forbidden: insufficient hub management scope." });

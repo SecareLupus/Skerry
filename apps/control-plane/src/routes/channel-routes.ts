@@ -54,7 +54,8 @@ export async function registerChannelRoutes(app: FastifyInstance): Promise<void>
 
     const allowed = await canManageServer({
       productUserId: request.auth!.productUserId,
-      serverId: payload.serverId
+      serverId: payload.serverId,
+      authContext: request.auth
     });
     if (!allowed) {
       reply.code(403).send({ message: "Forbidden: insufficient server management scope." });
@@ -73,7 +74,7 @@ export async function registerChannelRoutes(app: FastifyInstance): Promise<void>
 
   app.get("/v1/servers/:serverId/channels", initializedAuthHandlers, async (request) => {
     const params = z.object({ serverId: z.string().min(1) }).parse(request.params);
-    return { items: await listChannels(params.serverId, request.auth!.productUserId) };
+    return { items: await listChannels(params.serverId, request.auth!.productUserId, request.auth) };
   });
 
   app.get("/v1/servers/:serverId/categories", initializedAuthHandlers, async (request) => {
@@ -87,14 +88,15 @@ export async function registerChannelRoutes(app: FastifyInstance): Promise<void>
 
     const allowed = await canManageServer({
       productUserId: request.auth!.productUserId,
-      serverId: query.serverId
+      serverId: query.serverId,
+      authContext: request.auth
     });
     if (!allowed) {
       reply.code(403).send({ message: "Forbidden: insufficient server management scope." });
       return;
     }
 
-    const channels = await listChannels(query.serverId, request.auth!.productUserId);
+    const channels = await listChannels(query.serverId, request.auth!.productUserId, request.auth);
     const existing = channels.find((channel) => channel.id === params.channelId);
     if (!existing) {
       reply.code(404).send({ message: "Channel not found." });
@@ -113,7 +115,8 @@ export async function registerChannelRoutes(app: FastifyInstance): Promise<void>
     const query = z.object({ serverId: z.string().min(1) }).parse(request.query);
     const allowed = await canManageServer({
       productUserId: request.auth!.productUserId,
-      serverId: query.serverId
+      serverId: query.serverId,
+      authContext: request.auth
     });
     if (!allowed) {
       reply.code(403).send({ message: "Forbidden: insufficient server management scope." });
@@ -136,7 +139,8 @@ export async function registerChannelRoutes(app: FastifyInstance): Promise<void>
 
     const allowed = await canManageServer({
       productUserId: request.auth!.productUserId,
-      serverId: payload.serverId
+      serverId: payload.serverId,
+      authContext: request.auth
     });
     if (!allowed) {
       reply.code(403).send({ message: "Forbidden: insufficient server management scope." });
@@ -244,7 +248,8 @@ export async function registerChannelRoutes(app: FastifyInstance): Promise<void>
 
     const allowed = await canManageServer({
       productUserId: request.auth!.productUserId,
-      serverId: payload.serverId
+      serverId: payload.serverId,
+      authContext: request.auth
     });
     if (!allowed) {
       reply.code(403).send({ message: "Forbidden: insufficient server management scope." });
@@ -292,7 +297,8 @@ export async function registerChannelRoutes(app: FastifyInstance): Promise<void>
 
     const allowed = await canManageServer({
       productUserId: request.auth!.productUserId,
-      serverId: payload.serverId
+      serverId: payload.serverId,
+      authContext: request.auth
     });
     if (!allowed) {
       reply.code(403).send({ message: "Forbidden: insufficient server management scope." });
@@ -316,7 +322,8 @@ export async function registerChannelRoutes(app: FastifyInstance): Promise<void>
 
     const allowed = await canManageServer({
       productUserId: request.auth!.productUserId,
-      serverId: payload.serverId
+      serverId: payload.serverId,
+      authContext: request.auth
     });
     if (!allowed) {
       reply.code(403).send({ message: "Forbidden: insufficient server management scope." });
@@ -345,7 +352,8 @@ export async function registerChannelRoutes(app: FastifyInstance): Promise<void>
 
     const allowed = await canManageServer({
       productUserId: request.auth!.productUserId,
-      serverId: query.serverId
+      serverId: query.serverId,
+      authContext: request.auth
     });
     if (!allowed) {
       reply.code(403).send({ message: "Forbidden: insufficient server management scope." });
@@ -376,7 +384,8 @@ export async function registerChannelRoutes(app: FastifyInstance): Promise<void>
 
     const allowed = await canManageServer({
       productUserId: request.auth!.productUserId,
-      serverId: payload.serverId
+      serverId: payload.serverId,
+      authContext: request.auth
     });
     if (!allowed) {
       reply.code(403).send({ message: "Forbidden: insufficient server management scope." });
@@ -420,7 +429,8 @@ export async function registerChannelRoutes(app: FastifyInstance): Promise<void>
 
     const allowed = await canManageServer({
       productUserId: request.auth!.productUserId,
-      serverId: payload.serverId
+      serverId: payload.serverId,
+      authContext: request.auth
     });
     if (!allowed) {
       reply.code(403).send({ message: "Forbidden: insufficient server management scope." });

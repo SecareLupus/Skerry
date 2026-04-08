@@ -8,8 +8,13 @@ import {
   mapCategory, 
   validateChannelStyle 
 } from "./mapping-helpers.js";
+import type { ScopedAuthContext } from "../../auth/middleware.js";
 
-export async function listChannels(serverId: string, productUserId?: string): Promise<Channel[]> {
+export async function listChannels(
+  serverId: string, 
+  productUserId?: string,
+  authContext?: ScopedAuthContext
+): Promise<Channel[]> {
   return withDb(async (db) => {
     const srvRow = await db.query<{ type: string }>("select type from servers where id = $1", [serverId]);
     const isDmServer = srvRow.rows[0]?.type === 'dm';
@@ -61,6 +66,11 @@ export async function listChannels(serverId: string, productUserId?: string): Pr
       return channels;
     }
 
+    const isMasquerading = Boolean(authContext?.isMasquerading);
+    const masqueradeRole = authContext?.masqueradeRole;
+    const isAdminMasquerade = masqueradeRole && ['hub_owner', 'hub_admin', 'space_owner', 'space_admin'].includes(masqueradeRole);
+    const badgeIds = isMasquerading ? (authContext?.masqueradeBadgeIds || []) : null;
+
     const rows = await db.query<ChannelRow>(
       `select ch.* 
        from channels ch
@@ -68,21 +78,36 @@ export async function listChannels(serverId: string, productUserId?: string): Pr
        where ch.server_id = $1 
          and (
            ch.visitor_access != 'hidden'
-           or s.owner_user_id = $2
-           or exists (select 1 from role_bindings where (server_id = $1 or (hub_id = s.hub_id and hub_id is not null)) and product_user_id = $2 and role in ('hub_owner', 'hub_admin', 'space_owner'))
-           or exists (select 1 from channel_members where channel_id = ch.id and product_user_id = $2)
-           or (ch.hub_member_access != 'hidden' and exists (select 1 from hub_members where hub_id = s.hub_id and product_user_id = $2))
-           or (ch.space_member_access != 'hidden' and exists (select 1 from server_members where server_id = s.id and product_user_id = $2))
-           or exists (
+           or ($4 = true)
+           or (
+             ch.visitor_access = 'hidden' and (
+               -- Masquerade check
+               ($3 = true and (
+                 exists (select 1 from channel_badge_rules cbr where cbr.channel_id = ch.id and cbr.badge_id = any($5) and cbr.access_level != 'hidden')
+                 or exists (select 1 from server_badge_rules sbr where sbr.server_id = s.id and sbr.badge_id = any($5) and sbr.access_level != 'hidden')
+               ))
+               -- Standard check
+               or ($3 = false and (
+                 exists (select 1 from channel_badge_rules cbr join user_badges ub on ub.badge_id = cbr.badge_id where cbr.channel_id = ch.id and ub.product_user_id = $2 and cbr.access_level != 'hidden')
+                 or exists (select 1 from server_badge_rules sbr join user_badges ub on ub.badge_id = sbr.badge_id where sbr.server_id = s.id and ub.product_user_id = $2 and sbr.access_level != 'hidden')
+               ))
+             )
+           )
+           or ($3 = false and s.owner_user_id = $2)
+           or ($3 = false and exists (select 1 from role_bindings where (server_id = $1 or (hub_id = s.hub_id and hub_id is not null)) and product_user_id = $2 and role in ('hub_owner', 'hub_admin', 'space_owner')))
+           or ($3 = false and exists (select 1 from channel_members where channel_id = ch.id and product_user_id = $2))
+           or (ch.hub_member_access != 'hidden' and $3 = false and exists (select 1 from hub_members where hub_id = s.hub_id and product_user_id = $2))
+           or (ch.space_member_access != 'hidden' and $3 = false and exists (select 1 from server_members where server_id = s.id and product_user_id = $2))
+           or ($3 = false and exists (
              select 1 from space_admin_assignments saa 
              where saa.server_id = s.id 
                and saa.assigned_user_id = $2 
                and saa.status = 'active' 
                and (saa.expires_at is null or saa.expires_at > now())
-           )
+           ))
          )
        order by ch.position asc, ch.created_at asc`,
-      [serverId, productUserId ?? null]
+      [serverId, productUserId ?? null, isMasquerading, isAdminMasquerade, badgeIds]
     );
     return rows.rows.map(mapChannel);
   });

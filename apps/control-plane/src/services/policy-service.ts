@@ -144,7 +144,7 @@ async function hasActiveSpaceOwnerAssignmentInDb(
 
 async function getEffectiveRoleBindings(
   db: Parameters<Parameters<typeof withDb>[0]>[0],
-  input: { productUserId: string; scope: Scope; authContext?: ScopedAuthContext }
+  input: { productUserId: string; scope?: Scope; authContext?: ScopedAuthContext }
 ): Promise<RoleBinding[]> {
   // If we are simulating a specific role, that becomes the ONLY binding
   if (input.authContext?.masqueradeRole) {
@@ -153,12 +153,12 @@ async function getEffectiveRoleBindings(
     
     // Validate that the simulated role matches the requested scope if server-scoped
     const isServerRole = ["space_owner", "space_admin", "space_moderator"].includes(role);
-    const scopeMatch = !isServerRole || !input.scope.serverId || input.scope.serverId === masqueradeServerId;
+    const scopeMatch = !isServerRole || !input.scope?.serverId || input.scope.serverId === masqueradeServerId;
 
     if (scopeMatch) {
       return [{
         role,
-        hub_id: input.scope.hubId || null,
+        hub_id: input.scope?.hubId || null,
         server_id: masqueradeServerId || null,
         channel_id: null
       }];
@@ -182,7 +182,7 @@ async function getEffectiveRoleBindings(
   );
   const effective = [...rows.rows];
 
-  if (input.scope.hubId) {
+  if (input.scope?.hubId) {
     const hub = await db.query<{ owner_user_id: string; is_suspended: boolean; suspension_expires_at: string | null }>(
       "select owner_user_id, is_suspended, suspension_expires_at from hubs where id = $1 limit 1",
       [input.scope.hubId]
@@ -201,7 +201,7 @@ async function getEffectiveRoleBindings(
     }
   }
 
-  if (input.scope.serverId) {
+  if (input.scope?.serverId) {
     const server = await fetchServerScope(db, input.scope.serverId);
     if (server && server.ownerUserId === input.productUserId) {
       effective.push({
@@ -487,6 +487,7 @@ export async function isActionAllowed(input: {
       authContext: input.authContext
     });
 
+    const isMasquerading = Boolean(input.authContext?.isMasquerading);
     const isOwner = roles.some(b => b.role === "hub_owner");
     const isSuspended = roles.some(b => b.isOwnerSuspended);
 
@@ -516,21 +517,30 @@ export async function isActionAllowed(input: {
     if (isAdmin) {
       relation = "admin";
     } else {
-      const isSpaceMember = await db.query(
-        "select 1 from server_members where server_id = $1 and product_user_id = $2",
-        [input.scope.serverId, input.productUserId]
-      );
-      if (isSpaceMember.rows.length > 0) {
-        relation = "space_member";
+      // If masquerading, we MUST NOT check the database for actual membership
+      // because the user is specifically trying to emulate a different profile.
+      if (isMasquerading) {
+         // In masquerade mode, if you aren't an admin, you fall back to visitor
+         // unless we implement "masquerade as member" which isn't currently in the payload.
+         // For now, most masquerades are "Role" based.
+         relation = "visitor";
       } else {
-        const hubId = input.scope.hubId || (await db.query<{ hub_id: string }>("select hub_id from servers where id = $1", [input.scope.serverId])).rows[0]?.hub_id;
-        if (hubId) {
-          const isHubMember = await db.query(
-            "select 1 from hub_members where hub_id = $1 and product_user_id = $2",
-            [hubId, input.productUserId]
-          );
-          if (isHubMember.rows.length > 0) {
-            relation = "hub_member";
+        const isSpaceMember = await db.query(
+          "select 1 from server_members where server_id = $1 and product_user_id = $2",
+          [input.scope.serverId, input.productUserId]
+        );
+        if (isSpaceMember.rows.length > 0) {
+          relation = "space_member";
+        } else {
+          const hubId = input.scope.hubId || (await db.query<{ hub_id: string }>("select hub_id from servers where id = $1", [input.scope.serverId])).rows[0]?.hub_id;
+          if (hubId) {
+            const isHubMember = await db.query(
+              "select 1 from hub_members where hub_id = $1 and product_user_id = $2",
+              [hubId, input.productUserId]
+            );
+            if (isHubMember.rows.length > 0) {
+              relation = "hub_member";
+            }
           }
         }
       }
@@ -679,7 +689,11 @@ export async function listAllowedActions(input: {
   });
 }
 
-export async function listRoleBindings(input: { productUserId: string }): Promise<
+export async function listRoleBindings(input: { 
+  productUserId: string,
+  authContext?: ScopedAuthContext,
+  scope?: Scope 
+}): Promise<
   Array<{
     role: Role;
     hubId: string | null;
@@ -688,53 +702,13 @@ export async function listRoleBindings(input: { productUserId: string }): Promis
   }>
 > {
   return withDb(async (db) => {
-    const rows = await db.query<RoleBinding>(
-      `select role, hub_id, server_id, channel_id
-       from role_bindings
-       where product_user_id = $1`,
-      [input.productUserId]
-    );
+    const roles = await getEffectiveRoleBindings(db, {
+      productUserId: input.productUserId,
+      scope: input.scope,
+      authContext: input.authContext
+    });
 
-    const effective = [...rows.rows];
-
-    // Add dynamic owner roles
-    const owners = await db.query<{ id: string; hub_id: string }>(
-      "select id, hub_id from servers where owner_user_id = $1",
-      [input.productUserId]
-    );
-    for (const row of owners.rows) {
-      if (!effective.some((b) => b.role === "space_owner" && b.server_id === row.id)) {
-        effective.push({
-          role: "space_owner",
-          hub_id: row.hub_id,
-          server_id: row.id,
-          channel_id: null
-        });
-      }
-    }
-
-    // Add delegated assignments
-    const delegated = await db.query<{ server_id: string; hub_id: string }>(
-      `select a.server_id, s.hub_id
-       from space_admin_assignments a
-       join servers s on s.id = a.server_id
-       where a.assigned_user_id = $1
-         and a.status = 'active'
-         and (a.expires_at is null or a.expires_at > now())`,
-      [input.productUserId]
-    );
-    for (const row of delegated.rows) {
-      if (!effective.some((b) => b.role === "space_owner" && b.server_id === row.server_id)) {
-        effective.push({
-          role: "space_owner",
-          hub_id: row.hub_id,
-          server_id: row.server_id,
-          channel_id: null
-        });
-      }
-    }
-
-    return effective.map((row) => ({
+    return roles.map((row) => ({
       role: row.role,
       hubId: row.hub_id,
       serverId: row.server_id,
@@ -773,16 +747,16 @@ export async function revokeRoleBindings(input: {
 export async function canManageHub(input: {
   productUserId: string;
   hubId: string;
+  authContext?: ScopedAuthContext;
 }): Promise<boolean> {
   return withDb(async (db) => {
-    const rows = await db.query<RoleBinding>(
-      `select role, hub_id, server_id, channel_id
-       from role_bindings
-       where product_user_id = $1`,
-      [input.productUserId]
-    );
+    const rows = await getEffectiveRoleBindings(db, {
+      productUserId: input.productUserId,
+      scope: { hubId: input.hubId },
+      authContext: input.authContext
+    });
 
-    return rows.rows.some(
+    return rows.some(
       (binding) =>
         HUB_MANAGER_ROLES.includes(binding.role) &&
         bindingMatchesScope(binding, {
@@ -795,25 +769,34 @@ export async function canManageHub(input: {
 export async function canManageServer(input: {
   productUserId: string;
   serverId: string;
+  authContext?: ScopedAuthContext;
 }): Promise<boolean> {
-  await expireSpaceOwnerAssignments({
-    serverId: input.serverId,
-    productUserId: input.productUserId
-  });
+  const isMasquerading = Boolean(input.authContext?.isMasquerading);
+
+  if (!isMasquerading) {
+    await expireSpaceOwnerAssignments({
+      serverId: input.serverId,
+      productUserId: input.productUserId
+    });
+  }
+
   return withDb(async (db) => {
     const serverRow = await fetchServerScope(db, input.serverId);
     if (!serverRow) {
       return false;
     }
-    if (serverRow.ownerUserId === input.productUserId) {
-      return true;
-    }
-    const isDelegated = await hasActiveSpaceOwnerAssignmentInDb(db, {
-      productUserId: input.productUserId,
-      serverId: input.serverId
-    });
-    if (isDelegated) {
-      return true;
+
+    if (!isMasquerading) {
+      if (serverRow.ownerUserId === input.productUserId) {
+        return true;
+      }
+      const isDelegated = await hasActiveSpaceOwnerAssignmentInDb(db, {
+        productUserId: input.productUserId,
+        serverId: input.serverId
+      });
+      if (isDelegated) {
+        return true;
+      }
     }
 
     const rows = await getEffectiveRoleBindings(db, {
@@ -821,7 +804,8 @@ export async function canManageServer(input: {
       scope: {
         hubId: serverRow.hubId,
         serverId: input.serverId
-      }
+      },
+      authContext: input.authContext
     });
 
     return rows.some(
@@ -838,6 +822,7 @@ export async function canManageServer(input: {
 export async function canManageDiscordBridge(input: {
   productUserId: string;
   serverId: string;
+  authContext?: ScopedAuthContext;
 }): Promise<boolean> {
   return withDb(async (db) => {
     const serverRow = await fetchServerScope(db, input.serverId);
@@ -856,7 +841,8 @@ export async function canManageDiscordBridge(input: {
       scope: {
         hubId: serverRow.hubId,
         serverId: input.serverId
-      }
+      },
+      authContext: input.authContext
     });
 
     const isHubManager = roles.some(

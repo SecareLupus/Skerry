@@ -5,6 +5,7 @@ import { config } from "../../config.js";
 import { listUserPresence } from "../presence-service.js";
 import { sendMentionNotification } from "../email-service.js";
 import { processMessageContentForLinks } from "../link-service.js";
+import { publishChannelMessage } from "../chat-realtime.js";
 import { 
   ChatMessageRow, 
   ReactionRow, 
@@ -300,7 +301,7 @@ export async function createMessage(input: {
     );
 
     const row = created.rows[0]!;
-    const message: ChatMessage = {
+    const message = {
       id: row.id,
       channelId: row.channel_id,
       authorUserId: row.author_user_id,
@@ -380,6 +381,8 @@ export async function createMessage(input: {
        } catch (err) { console.error("Relay error:", err); }
     }
 
+    await publishChannelMessage(message);
+
     return message;
   });
 }
@@ -437,6 +440,8 @@ export async function updateMessage(input: {
         console.error("[Discord Bridge] Failed to mirror message update:", err);
       }
     }
+
+    await publishChannelMessage(message, "message.updated");
 
     return message;
   });
@@ -497,6 +502,12 @@ export async function deleteMessage(input: {
       }
     }
 
+    await publishChannelMessage({
+      id: input.messageId,
+      channelId: msg.channel_id,
+      parentId: parentId || undefined
+    } as any, "message.deleted");
+
     return { parentId };
   });
 }
@@ -518,7 +529,10 @@ export async function updateMessageByExternalId(input: {
     const row = result.rows[0];
     if (!row) return null;
 
-    return mapChatMessage(row, {}, {}); // Basic mapping, real-time will handle the rest
+    const message = mapChatMessage(row, {}, {});
+    await publishChannelMessage(message, "message.updated");
+
+    return message;
   });
 }
 
@@ -544,6 +558,12 @@ export async function deleteMessageByExternalId(input: {
       [row.id]
     );
 
+    await publishChannelMessage({
+      id: row.id,
+      channelId: row.channel_id,
+      parentId: row.parent_id || undefined
+    } as any, "message.deleted");
+
     return {
       id: row.id,
       channelId: row.channel_id,
@@ -556,7 +576,11 @@ export async function pinMessage(input: { messageId: string; actorUserId: string
   return withDb(async (db) => {
     const res = await db.query("update chat_messages set is_pinned = true, updated_at = now() where id = $1 returning *", [input.messageId]);
     if (!res.rows[0]) throw new Error("Message not found");
-    return fetchMessage(res.rows[0].channel_id, res.rows[0].id, input.actorUserId) as any;
+    const message = await fetchMessage(res.rows[0].channel_id, res.rows[0].id, input.actorUserId);
+    if (message) {
+      await publishChannelMessage(message, "message.updated");
+    }
+    return message as any;
   });
 }
 
@@ -564,7 +588,11 @@ export async function unpinMessage(input: { messageId: string; actorUserId: stri
   return withDb(async (db) => {
     const res = await db.query("update chat_messages set is_pinned = false, updated_at = now() where id = $1 returning *", [input.messageId]);
     if (!res.rows[0]) throw new Error("Message not found");
-    return fetchMessage(res.rows[0].channel_id, res.rows[0].id, input.actorUserId) as any;
+    const message = await fetchMessage(res.rows[0].channel_id, res.rows[0].id, input.actorUserId);
+    if (message) {
+      await publishChannelMessage(message, "message.updated");
+    }
+    return message as any;
   });
 }
 

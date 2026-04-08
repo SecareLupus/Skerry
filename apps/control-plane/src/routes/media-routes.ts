@@ -23,7 +23,8 @@ export async function registerMediaRoutes(app: FastifyInstance): Promise<void> {
 
     const allowed = await canManageServer({
       productUserId: request.auth!.productUserId,
-      serverId: payload.serverId
+      serverId: payload.serverId,
+      authContext: request.auth
     });
 
     // We allow media upload if the user can manage the server OR if they are simply a registered user on the platform.

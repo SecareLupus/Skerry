@@ -25,7 +25,8 @@ export async function registerStickerRoutes(app: FastifyInstance): Promise<void>
 
     const allowed = await canManageServer({
       productUserId: request.auth!.productUserId,
-      serverId: params.serverId
+      serverId: params.serverId,
+      authContext: request.auth
     });
     if (!allowed) {
       reply.code(403).send({ message: "Forbidden" });
@@ -41,7 +42,8 @@ export async function registerStickerRoutes(app: FastifyInstance): Promise<void>
     const params = z.object({ serverId: z.string().min(1), stickerId: z.string().min(1) }).parse(request.params);
     const allowed = await canManageServer({
       productUserId: request.auth!.productUserId,
-      serverId: params.serverId
+      serverId: params.serverId,
+      authContext: request.auth
     });
     if (!allowed) {
       reply.code(403).send({ message: "Forbidden" });

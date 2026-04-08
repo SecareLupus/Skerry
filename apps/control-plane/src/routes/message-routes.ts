@@ -189,8 +189,6 @@ export async function registerMessageRoutes(app: FastifyInstance): Promise<void>
       replyToId: payload.replyToId
     });
 
-    await publishChannelMessage(message);
-
     reply.code(201);
     return message;
   });
@@ -213,7 +211,6 @@ export async function registerMessageRoutes(app: FastifyInstance): Promise<void>
         content: payload.content
       });
 
-      await publishChannelMessage(message, "message.updated");
       return message;
     } catch (error) {
       if (error instanceof Error && error.message === "Message not found or not authored by user.") {
@@ -241,17 +238,12 @@ export async function registerMessageRoutes(app: FastifyInstance): Promise<void>
       }
     });
 
-    const { parentId } = await deleteMessage({
+    await deleteMessage({
       messageId: params.messageId,
       actorUserId: request.auth!.productUserId,
       isModerator: allowed
     });
 
-    await publishChannelMessage({ 
-      id: params.messageId, 
-      channelId: params.channelId, 
-      parentId 
-    } as any, "message.deleted");
     reply.code(204).send();
   });
 
@@ -271,7 +263,6 @@ export async function registerMessageRoutes(app: FastifyInstance): Promise<void>
       actorUserId: request.auth!.productUserId
     });
 
-    await publishChannelMessage(message, "message.updated");
     return message;
   });
 
@@ -286,7 +277,6 @@ export async function registerMessageRoutes(app: FastifyInstance): Promise<void>
       actorUserId: request.auth!.productUserId
     });
 
-    await publishChannelMessage(message, "message.updated");
     return message;
   });
 
@@ -311,11 +301,6 @@ export async function registerMessageRoutes(app: FastifyInstance): Promise<void>
       emoji: payload.emoji
     });
 
-    const message = await fetchMessage(params.channelId, params.messageId, request.auth!.productUserId);
-    if (message) {
-      await publishChannelMessage(message, "message.updated");
-    }
-
     reply.code(204).send();
   });
 
@@ -331,11 +316,6 @@ export async function registerMessageRoutes(app: FastifyInstance): Promise<void>
       userId: request.auth!.productUserId,
       emoji: params.emoji
     });
-
-    const message = await fetchMessage(params.channelId, params.messageId, request.auth!.productUserId);
-    if (message) {
-      await publishChannelMessage(message, "message.updated");
-    }
 
     reply.code(204).send();
   });

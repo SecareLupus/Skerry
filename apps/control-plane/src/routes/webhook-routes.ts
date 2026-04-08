@@ -19,7 +19,8 @@ export async function registerWebhookRoutes(app: FastifyInstance): Promise<void>
     const params = z.object({ serverId: z.string().min(1) }).parse(request.params);
     const allowed = await canManageServer({
       productUserId: request.auth!.productUserId,
-      serverId: params.serverId
+      serverId: params.serverId,
+      authContext: request.auth
     });
     if (!allowed) {
       throw new Error("Forbidden");
@@ -46,7 +47,8 @@ export async function registerWebhookRoutes(app: FastifyInstance): Promise<void>
 
     const allowed = await canManageServer({
       productUserId: request.auth!.productUserId,
-      serverId: channelRow.server_id
+      serverId: channelRow.server_id,
+      authContext: request.auth
     });
     if (!allowed) {
       reply.code(403).send({ message: "Forbidden" });
@@ -62,7 +64,8 @@ export async function registerWebhookRoutes(app: FastifyInstance): Promise<void>
     const params = z.object({ serverId: z.string().min(1), webhookId: z.string().min(1) }).parse(request.params);
     const allowed = await canManageServer({
       productUserId: request.auth!.productUserId,
-      serverId: params.serverId
+      serverId: params.serverId,
+      authContext: request.auth
     });
     if (!allowed) {
       reply.code(403).send({ message: "Forbidden" });

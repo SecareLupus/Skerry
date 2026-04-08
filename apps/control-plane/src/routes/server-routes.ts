@@ -74,12 +74,12 @@ export async function registerServerRoutes(app: FastifyInstance): Promise<void> 
   });
 
   app.get("/v1/servers", initializedAuthHandlers, async (request) => {
-    return { items: await listServers(request.auth!.productUserId) };
+    return { items: await listServers(request.auth!.productUserId, undefined, request.auth) };
   });
 
   app.get("/v1/hubs/:hubId/servers", initializedAuthHandlers, async (request) => {
     const { hubId } = request.params as { hubId: string };
-    return { items: await listServers(request.auth!.productUserId, hubId) };
+    return { items: await listServers(request.auth!.productUserId, hubId, request.auth) };
   });
 
   app.patch("/v1/servers/:serverId", initializedAuthHandlers, async (request, reply) => {
@@ -88,7 +88,8 @@ export async function registerServerRoutes(app: FastifyInstance): Promise<void> 
 
     const canManage = await canManageServer({
       productUserId: request.auth!.productUserId,
-      serverId: params.serverId
+      serverId: params.serverId,
+      authContext: request.auth
     });
 
     if (!canManage) {
@@ -114,7 +115,8 @@ export async function registerServerRoutes(app: FastifyInstance): Promise<void> 
 
     const allowed = await canManageServer({
       productUserId: request.auth!.productUserId,
-      serverId: params.serverId
+      serverId: params.serverId,
+      authContext: request.auth
     });
     if (!allowed) {
       reply.code(403).send({ message: "Forbidden: insufficient server management scope." });
@@ -153,7 +155,8 @@ export async function registerServerRoutes(app: FastifyInstance): Promise<void> 
 
     const allowed = await canManageServer({
       productUserId: request.auth!.productUserId,
-      serverId: payload.serverId
+      serverId: payload.serverId,
+      authContext: request.auth
     });
     if (!allowed) {
       reply.code(403).send({ message: "Forbidden" });
@@ -221,7 +224,8 @@ export async function registerServerRoutes(app: FastifyInstance): Promise<void> 
     const params = z.object({ serverId: z.string().min(1) }).parse(request.params);
     const allowed = await canManageServer({
       productUserId: request.auth!.productUserId,
-      serverId: params.serverId
+      serverId: params.serverId,
+      authContext: request.auth
     });
     if (!allowed) {
       reply.code(403).send({ message: "Forbidden: insufficient server management scope." });
@@ -242,7 +246,8 @@ export async function registerServerRoutes(app: FastifyInstance): Promise<void> 
 
     const allowed = await canManageServer({
       productUserId: request.auth!.productUserId,
-      serverId: params.serverId
+      serverId: params.serverId,
+      authContext: request.auth
     });
     if (!allowed) {
       reply.code(403).send({ message: "Forbidden: insufficient server management scope." });
@@ -264,7 +269,8 @@ export async function registerServerRoutes(app: FastifyInstance): Promise<void> 
 
     const allowed = await canManageServer({
       productUserId: request.auth!.productUserId,
-      serverId: params.serverId
+      serverId: params.serverId,
+      authContext: request.auth
     });
     if (!allowed) {
       reply.code(403).send({
@@ -290,7 +296,8 @@ export async function registerServerRoutes(app: FastifyInstance): Promise<void> 
     await expireSpaceOwnerAssignments({ serverId: params.serverId });
     const allowed = await canManageServer({
       productUserId: request.auth!.productUserId,
-      serverId: params.serverId
+      serverId: params.serverId,
+      authContext: request.auth
     });
     if (!allowed) {
       reply.code(403).send({
@@ -314,7 +321,8 @@ export async function registerServerRoutes(app: FastifyInstance): Promise<void> 
 
     const canManage = await canManageServer({
       productUserId: request.auth!.productUserId,
-      serverId: params.serverId
+      serverId: params.serverId,
+      authContext: request.auth
     });
 
     if (!canManage) {
@@ -343,7 +351,8 @@ export async function registerServerRoutes(app: FastifyInstance): Promise<void> 
     const params = z.object({ serverId: z.string().min(1) }).parse(request.params);
     const allowed = await canManageServer({
       productUserId: request.auth!.productUserId,
-      serverId: params.serverId
+      serverId: params.serverId,
+      authContext: request.auth
     });
     if (!allowed) {
       reply.code(403).send({ message: "Forbidden: insufficient server management scope." });
@@ -374,7 +383,8 @@ export async function registerServerRoutes(app: FastifyInstance): Promise<void> 
 
     const allowed = await canManageServer({
       productUserId: request.auth!.productUserId,
-      serverId
+      serverId,
+      authContext: request.auth
     });
     if (!allowed) {
       reply.code(403).send({ message: "Forbidden: insufficient server management scope." });

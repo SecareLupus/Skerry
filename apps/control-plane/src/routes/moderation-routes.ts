@@ -98,7 +98,8 @@ export async function registerModerationRoutes(app: FastifyInstance): Promise<vo
     const allowed = await isActionAllowed({
       productUserId: request.auth!.productUserId,
       action: "reports.triage",
-      scope: { serverId: query.serverId }
+      scope: { serverId: query.serverId },
+      authContext: request.auth
     });
     if (!allowed) {
       reply.code(403).send({ message: "Forbidden: report access is outside assigned scope.", code: "forbidden_scope" });
@@ -118,7 +119,8 @@ export async function registerModerationRoutes(app: FastifyInstance): Promise<vo
     const allowed = await isActionAllowed({
       productUserId: request.auth!.productUserId,
       action: "audit.read",
-      scope: { serverId: query.serverId }
+      scope: { serverId: query.serverId },
+      authContext: request.auth
     });
     if (!allowed) {
       reply.code(403).send({ message: "Forbidden: audit access is outside assigned scope.", code: "forbidden_scope" });
@@ -138,7 +140,8 @@ export async function registerModerationRoutes(app: FastifyInstance): Promise<vo
 
     const allowed = await canManageServer({
       productUserId: request.auth!.productUserId,
-      serverId: params.serverId
+      serverId: params.serverId,
+      authContext: request.auth
     });
     if (!allowed) {
       reply.code(403).send({ message: "Forbidden: insufficient server management scope." });
