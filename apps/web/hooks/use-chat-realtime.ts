@@ -177,8 +177,12 @@ export function useChatRealtime() {
         dispatch({
           type: "UPDATE_MESSAGES",
           payload: (current: MessageItem[]) => {
+            const wasPresent = current.some(m => m.id === id);
             const filtered = current.filter((m) => m.id !== id);
-            if (parentId) {
+            
+            // Only decrement the parent's repliesCount if the message was actually in our state
+            // and removed, to avoid double-decrementing after an optimistic update.
+            if (parentId && wasPresent) {
               return filtered.map(item => {
                 if (item.id === parentId) {
                   return { ...item, repliesCount: Math.max(0, (item.repliesCount || 0) - 1) };

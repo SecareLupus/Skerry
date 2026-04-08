@@ -55,7 +55,7 @@ export async function listMessages(input: {
 
     if (messageIds.length > 0) {
       const counts = await db.query<{ parent_id: string; count: string }>(
-        "select parent_id, count(*) from chat_messages where parent_id = any($1) group by parent_id",
+        "select parent_id, count(*) from chat_messages where parent_id = any($1) and deleted_at is null group by parent_id",
         [messageIds]
       );
       for (const row of counts.rows) {
@@ -188,7 +188,7 @@ export async function fetchMessage(channelId: string, messageId: string, viewerU
 
     const row = rows.rows[0]!;
     const countsResult = await db.query<{ count: string }>(
-      "select count(*) from chat_messages where parent_id = $1",
+      "select count(*) from chat_messages where parent_id = $1 and deleted_at is null",
       [messageId]
     );
     const repliesCount = parseInt(countsResult.rows[0]?.count || "0", 10);

@@ -126,6 +126,17 @@ export function ThreadPanel() {
                 if (prev.some(r => r.id === sent.id)) return prev;
                 return [...prev, sent];
             });
+            
+            // Optimistically update the parent message's repliesCount in the main store
+            dispatch({
+                type: "UPDATE_MESSAGES",
+                payload: (current: MessageItem[]) => current.map(msg => 
+                    msg.id === threadParentId 
+                        ? { ...msg, repliesCount: (msg.repliesCount || 0) + 1 } 
+                        : msg
+                )
+            });
+
             setDraft("");
             setAttachments([]);
         } catch (err) {
@@ -538,7 +549,7 @@ export function ThreadPanel() {
                     <div className="loading" style={{ textAlign: "center", opacity: 0.5, padding: "2rem" }}>Loading replies...</div>
                 ) : (
                     <ol className="replies-list" style={{ listStyle: "none", padding: 0, margin: 0 }}>
-                        {replies.map(reply => (
+                        {replies.filter(r => !state.pendingActionIds.has(r.id)).map(reply => (
                             <li key={reply.id}>
                                 <article 
                                     className="message"
