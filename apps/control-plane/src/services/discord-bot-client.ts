@@ -434,8 +434,10 @@ export async function startDiscordBot() {
         isStarting = false;
     }
 }
+// Keep track of channels where the bot is currently typing
+const typingActivity = new Map<string, number>();
 
-export function getDiscordBotClient() {
+export function getDiscordClient() {
     return client;
 }
 
@@ -1024,13 +1026,41 @@ export async function relayMatrixReactionToDiscord(input: {
 export async function relayMatrixTypingToDiscord(input: {
     serverId: string;
     discordChannelId: string;
+    isTyping: boolean;
 }) {
     if (!client || !client.isReady()) return;
 
     try {
         const channel = await client.channels.fetch(input.discordChannelId);
         if (channel && "sendTyping" in channel) {
-            await (channel as any).sendTyping();
+            const now = Date.now();
+            const lastPulse = typingActivity.get(input.discordChannelId) || 0;
+
+            if (input.isTyping) {
+                // Only send pulse if it's been more than 9 seconds since last one (Discord timeout is 10s)
+                if (now - lastPulse > 9000) {
+                    await (channel as any).sendTyping();
+                    typingActivity.set(input.discordChannelId, now);
+                }
+            } else {
+                // If we were typing, send a ghost message to clear it
+                // We use a 11s window to account for the natural 10s timeout
+                if (now - lastPulse < 11000) {
+                    typingActivity.delete(input.discordChannelId);
+                    
+                    // Ghost message: Send a zero-width space and delete it immediately.
+                    // We use SuppressNotifications to avoid audible pops.
+                    try {
+                        const ghostMsg = await (channel as any).send({
+                            content: "\u200B",
+                            flags: [4096] // MessageFlags.SuppressNotifications
+                        });
+                        await ghostMsg.delete().catch(() => {});
+                    } catch (err) {
+                        // Ignore errors if we can't send/delete
+                    }
+                }
+            }
         }
     } catch (error) {
         logEvent("error", "discord_typing_mirror_failed", { error: String(error) });

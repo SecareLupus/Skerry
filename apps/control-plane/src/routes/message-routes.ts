@@ -335,28 +335,27 @@ export async function registerMessageRoutes(app: FastifyInstance): Promise<void>
       displayName: identity.displayName || identity.preferredUsername || `user-${request.auth!.productUserId.substring(0, 8)}`
     } as any, payload.isTyping ? "typing.start" : "typing.stop");
 
-    // Mirror typing to Discord if it's a start event
-    if (payload.isTyping) {
-      try {
-        const chInfo = await withDb(async (db) => {
-          const row = await db.query<{ server_id: string }>("select server_id from channels where id = $1", [params.channelId]);
-          return row.rows[0];
-        });
-        if (chInfo?.server_id) {
-          const { relayMatrixTypingToDiscord } = await import("../services/discord-bot-client.js");
-          const { listDiscordChannelMappings } = await import("../services/discord-bridge-service.js");
-          const mappings = await listDiscordChannelMappings(chInfo.server_id);
-          const mapping = mappings.find(m => m.matrixChannelId === params.channelId && m.enabled);
-          if (mapping) {
-            await relayMatrixTypingToDiscord({
-              serverId: chInfo.server_id,
-              discordChannelId: mapping.discordChannelId
-            });
-          }
+    // Mirror typing to Discord
+    try {
+      const chInfo = await withDb(async (db) => {
+        const row = await db.query<{ server_id: string }>("select server_id from channels where id = $1", [params.channelId]);
+        return row.rows[0];
+      });
+      if (chInfo?.server_id) {
+        const { relayMatrixTypingToDiscord } = await import("../services/discord-bot-client.js");
+        const { listDiscordChannelMappings } = await import("../services/discord-bridge-service.js");
+        const mappings = await listDiscordChannelMappings(chInfo.server_id);
+        const mapping = mappings.find(m => m.matrixChannelId === params.channelId && m.enabled);
+        if (mapping) {
+          await relayMatrixTypingToDiscord({
+            serverId: chInfo.server_id,
+            discordChannelId: mapping.discordChannelId,
+            isTyping: payload.isTyping
+          });
         }
-      } catch (err) {
-        console.error("[Discord Bridge] Failed to relay typing start:", err);
       }
+    } catch (err) {
+      console.error("[Discord Bridge] Failed to relay typing event:", err);
     }
 
     reply.code(204).send();

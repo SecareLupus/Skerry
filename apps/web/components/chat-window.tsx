@@ -1281,7 +1281,7 @@ export function ChatWindow({
                             } else {
                                 // Typing logic
                                 const now = Date.now();
-                                if (now - lastTypingSentAt > 3000) {
+                                if (now - lastTypingSentAt > 8000) {
                                     void sendTypingStatus(selectedChannelId!, true);
                                     setLastTypingSentAt(now);
                                 }
