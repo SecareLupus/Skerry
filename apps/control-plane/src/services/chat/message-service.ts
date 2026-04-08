@@ -397,7 +397,8 @@ export async function updateMessage(input: {
     );
     const row = result.rows[0];
     if (!row) throw new Error("Message not found or not authored by user.");
-    return {
+    
+    const message: ChatMessage = {
       id: row.id,
       channelId: row.channel_id,
       authorUserId: row.author_user_id,
@@ -406,9 +407,38 @@ export async function updateMessage(input: {
       attachments: row.attachments ?? undefined,
       embeds: row.embeds ?? undefined,
       reactions: [],
+      isRelay: row.is_relay,
+      externalProvider: row.external_provider ?? undefined,
+      externalMessageId: row.external_message_id ?? undefined,
       createdAt: row.created_at,
       updatedAt: row.updated_at
     };
+
+    // Mirror to Discord if applicable
+    if (!row.is_relay && row.external_message_id && row.external_provider === "discord") {
+      try {
+        const { updateDiscordRelayedMessage } = await import("../discord-bot-client.js");
+        const { listDiscordChannelMappings } = await import("../discord-bridge-service.js");
+        const chInfo = await db.query<{ server_id: string }>("select server_id from channels where id = $1", [row.channel_id]);
+        const serverId = chInfo.rows[0]?.server_id;
+        if (serverId) {
+          const mappings = await listDiscordChannelMappings(serverId);
+          const mappedChannels = mappings.filter(m => m.matrixChannelId === row.channel_id && m.enabled);
+          for (const m of mappedChannels) {
+            await updateDiscordRelayedMessage({
+              serverId,
+              discordChannelId: m.discordChannelId,
+              externalMessageId: row.external_message_id,
+              content: input.content
+            });
+          }
+        }
+      } catch (err) {
+        console.error("[Discord Bridge] Failed to mirror message update:", err);
+      }
+    }
+
+    return message;
   });
 }
 
@@ -418,12 +448,24 @@ export async function deleteMessage(input: {
   isModerator?: boolean;
 }): Promise<{ parentId: string | null }> {
   return withDb(async (db) => {
-    // 1. Fetch parentId before deletion
-    const fetchRes = await db.query("select parent_id from chat_messages where id = $1", [input.messageId]);
-    const parentId = fetchRes.rows[0]?.parent_id || null;
+    // 1. Fetch metadata before deletion
+    const fetchRes = await db.query<ChatMessageRow>(
+      "select channel_id, parent_id, is_relay, external_provider, external_message_id from chat_messages where id = $1", 
+      [input.messageId]
+    );
+    const msg = fetchRes.rows[0];
+    if (!msg) throw new Error("Message not found.");
+    
+    const parentId = msg.parent_id || null;
 
-    // 2. Perform deletion
-    let query = "update chat_messages set deleted_at = now() where id = $1";
+    // 2. Perform deletion and redaction
+    let query = `
+      update chat_messages 
+      set deleted_at = now(),
+          content = 'Message deleted',
+          attachments = '[]',
+          embeds = '[]'
+      where id = $1`;
     const params = [input.messageId];
     if (!input.isModerator) {
       query += " and author_user_id = $2";
@@ -432,7 +474,81 @@ export async function deleteMessage(input: {
     const result = await db.query(query, params);
     if (result.rowCount === 0) throw new Error("Message not found or permission denied.");
 
+    // 3. Mirror to Discord if applicable
+    if (!msg.is_relay && msg.external_message_id && msg.external_provider === "discord") {
+      try {
+        const { deleteDiscordRelayedMessage } = await import("../discord-bot-client.js");
+        const { listDiscordChannelMappings } = await import("../discord-bridge-service.js");
+        const chInfo = await db.query<{ server_id: string }>("select server_id from channels where id = $1", [msg.channel_id]);
+        const serverId = chInfo.rows[0]?.server_id;
+        if (serverId) {
+          const mappings = await listDiscordChannelMappings(serverId);
+          const mappedChannels = mappings.filter(m => m.matrixChannelId === msg.channel_id && m.enabled);
+          for (const m of mappedChannels) {
+            await deleteDiscordRelayedMessage({
+              serverId,
+              discordChannelId: m.discordChannelId,
+              externalMessageId: msg.external_message_id
+            });
+          }
+        }
+      } catch (err) {
+        console.error("[Discord Bridge] Failed to mirror message deletion:", err);
+      }
+    }
+
     return { parentId };
+  });
+}
+
+export async function updateMessageByExternalId(input: {
+  externalProvider: string;
+  externalMessageId: string;
+  content: string;
+}): Promise<ChatMessage | null> {
+  return withDb(async (db) => {
+    const embeds = await processMessageContentForLinks(input.content);
+    const result = await db.query<ChatMessageRow>(
+      `update chat_messages 
+       set content = $1, embeds = $4, updated_at = now() 
+       where external_provider = $2 and external_message_id = $3 
+       returning *`,
+      [input.content, input.externalProvider, input.externalMessageId, JSON.stringify(embeds)]
+    );
+    const row = result.rows[0];
+    if (!row) return null;
+
+    return mapChatMessage(row, {}, {}); // Basic mapping, real-time will handle the rest
+  });
+}
+
+export async function deleteMessageByExternalId(input: {
+  externalProvider: string;
+  externalMessageId: string;
+}): Promise<{ id: string; channelId: string; parentId: string | null } | null> {
+  return withDb(async (db) => {
+    const fetchRes = await db.query<ChatMessageRow>(
+      "select id, channel_id, parent_id from chat_messages where external_provider = $1 and external_message_id = $2 and deleted_at is null",
+      [input.externalProvider, input.externalMessageId]
+    );
+    const row = fetchRes.rows[0];
+    if (!row) return null;
+
+    await db.query(
+      `update chat_messages 
+       set deleted_at = now(),
+           content = 'Message deleted',
+           attachments = '[]',
+           embeds = '[]'
+       where id = $1`,
+      [row.id]
+    );
+
+    return {
+      id: row.id,
+      channelId: row.channel_id,
+      parentId: row.parent_id
+    };
   });
 }
 

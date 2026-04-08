@@ -1,4 +1,4 @@
-import { Client, GatewayIntentBits, Events, Message, TextChannel, WebhookClient, ChannelType } from "discord.js";
+import { Client, GatewayIntentBits, Events, Message, TextChannel, WebhookClient, ChannelType, Partials } from "discord.js";
 import { config } from "../config.js";
 import { relayDiscordMessageToMappedChannel } from "./discord-bridge-service.js";
 import { logEvent } from "./observability-service.js";
@@ -35,7 +35,8 @@ export async function startDiscordBot() {
                 GatewayIntentBits.MessageContent,
                 GatewayIntentBits.GuildPresences,
                 GatewayIntentBits.GuildMembers
-            ]
+            ],
+            partials: [Partials.Message, Partials.Channel, Partials.GuildMember, Partials.User]
         });
 
         client.on(Events.MessageCreate, async (message: Message) => {
@@ -84,6 +85,79 @@ export async function startDiscordBot() {
                     });
                 } catch (error) {
                     logEvent("error", "discord_relay_failed", { serverId, messageId: message.id, error: String(error) });
+                }
+            }
+        });
+
+        client.on(Events.MessageUpdate, async (oldMessage, newMessage) => {
+            if (newMessage.partial) {
+                try {
+                    await newMessage.fetch();
+                } catch (error) {
+                    console.error("[Discord Bridge] Failed to fetch partial updated message:", error);
+                    return;
+                }
+            }
+            if (newMessage.author?.bot) return;
+            if (oldMessage.content === newMessage.content) return;
+
+            const discordChannelIdForMapping = newMessage.channel.isThread() ? (newMessage.channel as any).parentId : newMessage.channelId;
+            const serverIds = await withDb(async (db) => {
+                const rows = await db.query<{ server_id: string }>(
+                    "select server_id from discord_bridge_channel_mappings where guild_id = $1 and discord_channel_id = $2 and enabled = true",
+                    [newMessage.guildId, discordChannelIdForMapping]
+                );
+                return rows.rows.map(r => r.server_id);
+            });
+
+            for (const serverId of serverIds) {
+                try {
+                    const { updateRelayedDiscordMessage } = await import("./discord-bridge-service.js");
+                    await updateRelayedDiscordMessage({
+                        serverId,
+                        discordChannelId: String(discordChannelIdForMapping),
+                        externalMessageId: newMessage.id,
+                        content: newMessage.content || ""
+                    });
+                } catch (error) {
+                    logEvent("error", "discord_update_relay_failed", { serverId, messageId: newMessage.id, error: String(error) });
+                }
+            }
+        });
+
+        client.on(Events.MessageDelete, async (message) => {
+            // We need guildId even for partial messages
+            let guildId = message.guildId;
+            let channelId = message.channelId;
+
+            if (message.partial && !guildId) {
+                try {
+                    // If we don't have guildId, we might not even be able to fetch it if it's already deleted
+                    // but we can try fetching the channel if we have channelId
+                } catch (err) {}
+            }
+
+            if (message.author?.bot) return;
+
+            const discordChannelIdForMapping = message.channel.isThread() ? (message.channel as any).parentId : channelId;
+            const serverIds = await withDb(async (db) => {
+                const rows = await db.query<{ server_id: string }>(
+                    "select server_id from discord_bridge_channel_mappings where guild_id = $1 and discord_channel_id = $2 and enabled = true",
+                    [guildId, discordChannelIdForMapping]
+                );
+                return rows.rows.map(r => r.server_id);
+            });
+
+            for (const serverId of serverIds) {
+                try {
+                    const { deleteRelayedDiscordMessage } = await import("./discord-bridge-service.js");
+                    await deleteRelayedDiscordMessage({
+                        serverId,
+                        discordChannelId: String(discordChannelIdForMapping),
+                        externalMessageId: message.id
+                    });
+                } catch (error) {
+                    logEvent("error", "discord_delete_relay_failed", { serverId, messageId: message.id, error: String(error) });
                 }
             }
         });
@@ -407,6 +481,51 @@ export async function relayMatrixMessageToDiscord(input: {
         } catch (fallbackError) {
             console.error("Discord fallback relay failed:", fallbackError);
         }
+    }
+}
+
+export async function updateDiscordRelayedMessage(input: {
+    serverId: string;
+    discordChannelId: string;
+    externalMessageId: string;
+    content: string;
+}) {
+    if (!client || !client.isReady()) return;
+
+    try {
+        const channel = await client.channels.fetch(input.discordChannelId);
+        if (!channel) return;
+
+        const webhook = await getWebhookForChannel(channel as any);
+        if (!webhook) return;
+
+        await webhook.editMessage(input.externalMessageId, {
+            content: input.content
+        });
+        console.log(`[Discord Bridge] Updated message ${input.externalMessageId} on Discord`);
+    } catch (error) {
+        logEvent("error", "discord_webhook_update_failed", { error: String(error) });
+    }
+}
+
+export async function deleteDiscordRelayedMessage(input: {
+    serverId: string;
+    discordChannelId: string;
+    externalMessageId: string;
+}) {
+    if (!client || !client.isReady()) return;
+
+    try {
+        const channel = await client.channels.fetch(input.discordChannelId);
+        if (!channel) return;
+
+        const webhook = await getWebhookForChannel(channel as any);
+        if (!webhook) return;
+
+        await webhook.deleteMessage(input.externalMessageId);
+        console.log(`[Discord Bridge] Deleted message ${input.externalMessageId} on Discord`);
+    } catch (error) {
+        logEvent("error", "discord_webhook_delete_failed", { error: String(error) });
     }
 }
 

@@ -599,6 +599,46 @@ export async function retryDiscordBridgeSync(serverId: string): Promise<DiscordB
   });
 }
 
+export async function updateRelayedDiscordMessage(input: {
+  serverId: string;
+  discordChannelId: string;
+  externalMessageId: string;
+  content: string;
+}): Promise<void> {
+  const { updateMessageByExternalId } = await import("./chat/message-service.js");
+  
+  const message = await updateMessageByExternalId({
+    externalProvider: "discord",
+    externalMessageId: input.externalMessageId,
+    content: input.content
+  });
+
+  if (message) {
+    publishChannelMessage(message, "message.updated");
+  }
+}
+
+export async function deleteRelayedDiscordMessage(input: {
+  serverId: string;
+  discordChannelId: string;
+  externalMessageId: string;
+}): Promise<void> {
+  const { deleteMessageByExternalId } = await import("./chat/message-service.js");
+
+  const result = await deleteMessageByExternalId({
+    externalProvider: "discord",
+    externalMessageId: input.externalMessageId
+  });
+
+  if (result) {
+    publishChannelMessage({
+      id: result.id,
+      channelId: result.channelId,
+      parentId: result.parentId
+    } as any, "message.deleted");
+  }
+}
+
 export async function relayDiscordMessageToMappedChannel(input: {
   serverId: string;
   discordChannelId: string;

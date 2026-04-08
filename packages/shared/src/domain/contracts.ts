@@ -427,6 +427,7 @@ export interface ChatMessage {
     parentId?: string;
     replyToId?: string;
     externalThreadId?: string;
+    externalMessageId?: string;
     repliesCount?: number;
     isPinned?: boolean;
     createdAt: string;

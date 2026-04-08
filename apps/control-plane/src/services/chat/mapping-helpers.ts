@@ -175,19 +175,21 @@ export function mapChatMessage(
     }
   }
 
+  const isDeleted = Boolean(row.deleted_at);
+
   return {
     id: row.id,
     channelId: row.channel_id,
-    authorUserId: row.author_user_id,
-    authorDisplayName: row.author_display_name,
-    content: row.content,
-    attachments: row.attachments ?? undefined,
-    embeds: row.embeds ?? undefined,
-    reactions: Object.values(reactionsByEmoji),
+    authorUserId: isDeleted ? "deleted" : row.author_user_id,
+    authorDisplayName: isDeleted ? "Deleted User" : row.author_display_name,
+    content: isDeleted ? "Message deleted" : row.content,
+    attachments: isDeleted ? undefined : (row.attachments ?? undefined),
+    embeds: isDeleted ? undefined : (row.embeds ?? undefined),
+    reactions: isDeleted ? [] : Object.values(reactionsByEmoji),
     isRelay: row.is_relay,
     externalProvider: row.external_provider ?? undefined,
-    externalAuthorName: row.external_author_name ?? undefined,
-    externalAuthorAvatarUrl: row.external_author_avatar_url ?? undefined,
+    externalAuthorName: isDeleted ? undefined : (row.external_author_name ?? undefined),
+    externalAuthorAvatarUrl: isDeleted ? undefined : (row.external_author_avatar_url ?? undefined),
     parentId: row.parent_id ?? undefined,
     replyToId: row.reply_to_id ?? undefined,
     externalThreadId: row.external_thread_id ?? undefined,
