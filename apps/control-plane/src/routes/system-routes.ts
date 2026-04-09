@@ -110,6 +110,7 @@ export async function registerSystemRoutes(app: FastifyInstance): Promise<void> 
             user_blocks, 
             hub_members, 
             server_members, 
+            role_bindings,
             categories, 
             channels, 
             servers, 

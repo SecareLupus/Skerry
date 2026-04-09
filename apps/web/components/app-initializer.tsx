@@ -21,6 +21,7 @@ export function AppInitializer({ children }: { children: React.ReactNode }) {
 
     const refreshGlobalState = useCallback(async (): Promise<void> => {
         try {
+            console.log("[AppInitializer] Refreshing global state...");
             const [providers, viewer, bootstrap, roles, hubs, servers] = await Promise.all([
                 fetchAuthProviders().catch(() => null),
                 fetchViewerSession().catch(() => null),
@@ -29,6 +30,11 @@ export function AppInitializer({ children }: { children: React.ReactNode }) {
                 listHubs().catch(() => []),
                 listServers().catch(() => [])
             ]);
+
+            console.log(`[AppInitializer] State fetched: viewer=${viewer?.productUserId || 'none'}, roles=${roles.length}, bootstrap=${bootstrap?.initialized}`);
+            if (roles.length > 0) {
+                console.log("[AppInitializer] Current Roles:", roles.map(r => `${r.role}@${r.serverId || 'global'}`).join(', '));
+            }
 
             if (providers) dispatch({ type: "SET_PROVIDERS", payload: providers });
             if (viewer) dispatch({ type: "SET_VIEWER", payload: viewer });

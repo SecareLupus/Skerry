@@ -694,6 +694,12 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         return () => clearInterval(interval);
     }, []);
 
+    React.useEffect(() => {
+        if (typeof window !== "undefined") {
+            (window as any).state = state;
+        }
+    }, [state]);
+
     return (
         <ChatContext.Provider value={{ state, dispatch }}>
             {children}

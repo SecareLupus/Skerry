@@ -121,7 +121,7 @@ function MessageContent({ message }: { message: MessageItem }) {
     };
 
     return (
-        <div className="message-text">
+        <div className="message-text" data-testid="message-content">
             {match ? (
                 <>
                     <blockquote className="message-quote">
@@ -975,7 +975,7 @@ export function ChatWindow({
                                 </div>
                             )}
 
-                            <article className="message-item-container" onContextMenu={(e) => handleContextMenu(e, message)}>
+                            <article data-testid="message-item" className="message-item-container" onContextMenu={(e) => handleContextMenu(e, message)}>
                                 {showHeader ? (
                                     <header>
                                         <strong
@@ -1178,6 +1178,7 @@ export function ChatWindow({
                                             {message.reactions.map((r: any) => (
                                                 <button
                                                     key={r.emoji}
+                                                    data-testid="reaction-badge"
                                                     title={r.displayNames ? r.displayNames.join(', ') : ''}
                                                     type="button"
                                                     className={`interaction-btn ${r.me ? "active" : ""}`}

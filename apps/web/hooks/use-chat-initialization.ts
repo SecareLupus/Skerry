@@ -175,6 +175,13 @@ export function useChatInitialization({
       nextChannelId = textChannels[0]?.id ?? channelItems[0]?.id ?? null;
     }
 
+    // Validate that the channel exists in this server (prevent stale localStorage hits)
+    if (nextChannelId && !channelItems.find(c => c.id === nextChannelId)) {
+      console.warn(`[useChatInitialization] Channel ${nextChannelId} not found in server ${nextServerId}. Resetting to default.`);
+      const textChannels = channelItems.filter((channel) => channel.type === "text" || channel.type === "announcement");
+      nextChannelId = textChannels[0]?.id ?? channelItems[0]?.id ?? null;
+    }
+
         // BOOTSTRAP: Load the entire room state in one atomic call
     if (nextChannelId) {
       try {
@@ -252,6 +259,18 @@ export function useChatInitialization({
         }, 50);
 
       } catch (err) {
+        // If it's a 404, the channel is gone (likely after a workspace reset)
+        // Recover by clearing stale state and retrying with the first available channel.
+        if (err instanceof Error && err.message.toLowerCase().includes("404") && nextChannelId) {
+          console.warn("[useChatInitialization] Channel 404'd. Clearing stale state and retrying fallback...", nextChannelId);
+          localStorage.removeItem("lastChannelId");
+          const textChannels = channelItems.filter((channel) => channel.type === "text" || channel.type === "announcement");
+          const fallbackId = textChannels[0]?.id ?? channelItems[0]?.id ?? null;
+          if (fallbackId && fallbackId !== nextChannelId) {
+            return void refreshChatState(nextServerId, fallbackId, preferredMessageId, force);
+          }
+        }
+
         console.error("Failed to bootstrap room:", err);
         dispatch({ type: "SET_SWITCHING_SERVER", payload: false });
         dispatch({ type: "SET_ERROR", payload: "Failed to load chat room." });

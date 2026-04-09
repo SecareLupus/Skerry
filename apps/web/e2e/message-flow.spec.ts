@@ -1,122 +1,132 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { resetTestEnvironment, setupAndLogin, createSpaceAndRoom } from './test-utils';
 
-test.beforeEach(async ({ page }) => {
-  await resetTestEnvironment(page);
-});
+// We use serial to ensure tests run in order and share the same environment state.
+test.describe.serial('Message Flow Sequences', () => {
+  
+  test.describe.serial('Message Lifecycle', () => {
+    let sharedPage: Page;
+    const roomName = 'flow-room';
 
-async function setup(page: any) {
-  const username = 'local-admin';
-  const spaceName = `Flow Space`;
-  const roomName = `flow-room`;
-  await setupAndLogin(page, username);
-  await createSpaceAndRoom(page, spaceName, roomName);
-  const messageInput = page.getByPlaceholder(new RegExp(`Message #${roomName}`));
-  return { messageInput, roomName };
-}
+    test.beforeAll(async ({ browser }) => {
+      sharedPage = await browser.newPage();
+      // Forward console logs for the shared page
+      sharedPage.on('console', msg => {
+        const text = msg.text();
+        if (msg.type() === 'error') console.error(`[BROWSER ERROR] ${text}`);
+        else if (msg.type() === 'warning') console.warn(`[BROWSER WARN] ${text}`);
+      });
 
-/**
- * TODO: Stabilize message-flow tests.
- * Currently failing due to:
- * 1. Strict mode violations on optimistic UI rendering (partially fixed with .first()).
- * 2. Synapse provisioning race: Matrix rooms are not always ready when the frontend tries to bootstrap them.
- * 3. Sidebar flakiness: "+" button visibility during view transitions.
- */
+      await resetTestEnvironment(sharedPage);
+      await setupAndLogin(sharedPage, 'local-admin');
+      await createSpaceAndRoom(sharedPage, 'Flow Space', roomName);
+    });
 
-test('user can send a message and it appears in the timeline', async ({ page }) => {
-  const { messageInput } = await setup(page);
+    test.afterAll(async () => {
+      await sharedPage.close();
+    });
 
-  const content = `Hello E2E ${Date.now()}`;
-  await messageInput.fill(content);
-  await messageInput.press('Enter');
+    test('can send a message', async () => {
+      const messageInput = sharedPage.getByPlaceholder(new RegExp(`Message #${roomName}`));
+      const content = `Hello E2E ${Date.now()}`;
+      await messageInput.fill(content);
+      
+      await Promise.all([
+        sharedPage.waitForResponse(res => res.url().includes('/_matrix/client/v3/rooms') && res.url().includes('/send/m.room.message') && res.status() === 200),
+        messageInput.press('Enter')
+      ]);
 
-  await expect(page.locator(`text="${content}"`).first()).toBeVisible({ timeout: 10000 });
-});
+      await expect(sharedPage.getByTestId('message-content').filter({ hasText: content }).first()).toBeVisible({ timeout: 10000 });
+    });
 
-test('user can edit their own message via context menu', async ({ page }) => {
-  const { messageInput } = await setup(page);
+    test('can edit the message', async () => {
+      const content = `Target ${Date.now()}`;
+      const messageInput = sharedPage.getByPlaceholder(new RegExp(`Message #${roomName}`));
+      await messageInput.fill(content);
+      await messageInput.press('Enter');
 
-  const original = `Original ${Date.now()}`;
-  await messageInput.fill(original);
-  await messageInput.press('Enter');
-  await expect(page.locator(`text="${original}"`).first()).toBeVisible({ timeout: 10000 });
+      const messageItem = sharedPage.getByTestId('message-item').filter({ hasText: content }).first();
+      const messageContent = messageItem.getByTestId('message-content');
+      await expect(messageContent).toBeVisible({ timeout: 10000 });
 
-  // Right-click the message to open the context menu
-  await page.locator(`text="${original}"`).first().click({ button: 'right' });
-  await expect(page.locator('text="Edit Message"')).toBeVisible({ timeout: 5000 });
-  await page.click('text="Edit Message"');
+      await messageContent.click({ button: 'right' });
+      await sharedPage.getByTestId('context-menu-item-edit-message').click();
 
-  // The inline edit textarea should appear
-  const editTextarea = page.locator('.edit-textarea');
-  await expect(editTextarea).toBeVisible({ timeout: 5000 });
+      const editTextarea = sharedPage.locator('.edit-textarea');
+      const edited = `Edited ${Date.now()}`;
+      await editTextarea.fill(edited);
+      
+      await Promise.all([
+        sharedPage.waitForResponse(res => res.url().includes('/send/m.room.message') && res.status() === 200),
+        editTextarea.press('Enter')
+      ]);
 
-  // Clear and type new content, submit with Enter
-  const edited = `Edited ${Date.now()}`;
-  await editTextarea.fill(edited);
-  await editTextarea.press('Enter');
+      await expect(sharedPage.getByTestId('message-content').filter({ hasText: edited }).first()).toBeVisible({ timeout: 10000 });
+    });
 
-  // The edited content should now appear in the timeline
-  await expect(page.locator(`text="${edited}"`).first()).toBeVisible({ timeout: 10000 });
-});
+    test('can react to the message', async () => {
+      const content = `React ${Date.now()}`;
+      const messageInput = sharedPage.getByPlaceholder(new RegExp(`Message #${roomName}`));
+      await messageInput.fill(content);
+      await messageInput.press('Enter');
 
-test('user can delete their own message via context menu', async ({ page }) => {
-  const { messageInput } = await setup(page);
+      const messageItem = sharedPage.getByTestId('message-item').filter({ hasText: content }).first();
+      const messageContent = messageItem.getByTestId('message-content');
+      
+      await messageContent.click({ button: 'right' });
+      await sharedPage.getByTestId('context-menu-item-add-reaction').click();
 
-  const content = `To Delete ${Date.now()}`;
-  await messageInput.fill(content);
-  await messageInput.press('Enter');
-  await expect(page.locator(`text="${content}"`).first()).toBeVisible({ timeout: 10000 });
-
-  // Trigger the delete context menu action
-  await page.locator(`text="${content}"`).first().click({ button: 'right' });
-  await expect(page.locator('text="Delete Message"')).toBeVisible({ timeout: 5000 });
-  await page.click('text="Delete Message"');
-
-  // Handle the custom ConfirmationModal
-  const confirmBtn = page.locator('.modal-card button:has-text("Delete")');
-  await expect(confirmBtn).toBeVisible({ timeout: 10000 });
-  await confirmBtn.click();
-
-  // The message should disappear from the timeline
-  await expect(page.locator(`text="${content}"`).first()).not.toBeVisible({ timeout: 12000 });
-});
-
-test('user can react to a message and the reaction count increments', async ({ page }) => {
-  const { messageInput } = await setup(page);
-
-  const content = `React Me ${Date.now()}`;
-  await messageInput.fill(content);
-  await messageInput.press('Enter');
-  await expect(page.locator(`text="${content}"`).first()).toBeVisible({ timeout: 10000 });
-
-  // Right-click to open context menu and choose "Add Reaction"
-  await page.locator(`text="${content}"`).first().click({ button: 'right' });
-
-  // The context menu may show "Add Reaction" or an emoji picker trigger
-  const addReactionItem = page.locator('text="Add Reaction"');
-  if (await addReactionItem.isVisible({ timeout: 5000 })) {
-    await addReactionItem.click();
-    // Pick an emoji from the picker — look for thumbs-up
-    const thumbsUp = page.locator('[data-emoji="👍"]').or(page.locator('button:has-text("👍")'));
-    if (await thumbsUp.isVisible({ timeout: 5000 })) {
+      const thumbsUp = sharedPage.locator('.emoji-picker-container').locator('button:has-text("👍")').or(sharedPage.locator('.emoji-picker-container').locator('[data-emoji="👍"]'));
       await thumbsUp.click();
-      // Confirm reaction count appears
-      await expect(page.locator('.reaction-count, .reaction-badge').first()).toBeVisible({ timeout: 12000 });
-    }
-  }
-});
 
+      await expect(messageItem.getByTestId('reaction-badge').first()).toBeVisible({ timeout: 10000 });
+    });
 
-test('SSE delivers the sent message without a page refresh', async ({ page }) => {
-  const { messageInput } = await setup(page);
+    test('can delete the message', async () => {
+      const content = `Delete ${Date.now()}`;
+      const messageInput = sharedPage.getByPlaceholder(new RegExp(`Message #${roomName}`));
+      await messageInput.fill(content);
+      await messageInput.press('Enter');
 
-  // Send a message and verify the timeline updates in-place (no reload)
-  const content = `SSE Live ${Date.now()}`;
-  await messageInput.fill(content);
-  await messageInput.press('Enter');
+      const messageItem = sharedPage.getByTestId('message-item').filter({ hasText: content }).first();
+      const messageContent = messageItem.getByTestId('message-content');
+      
+      await messageContent.click({ button: 'right' });
+      await sharedPage.getByTestId('context-menu-item-delete-message').click();
 
-  // The message should appear in the existing DOM without navigating
-  await expect(page.locator(`text="${content}"`).first()).toBeVisible({ timeout: 10000 });
-  // Confirm we are still on the same URL (no reload redirect)
-  expect(page.url()).not.toContain('/login');
+      const confirmBtn = sharedPage.locator('.modal-card button:has-text("Delete")');
+      await confirmBtn.click();
+
+      await expect(messageContent).not.toBeVisible({ timeout: 10000 });
+    });
+  });
+
+  test.describe.serial('Realtime & Stability', () => {
+    let sharedPage: Page;
+    const roomName = 'realtime-room';
+
+    test.beforeAll(async ({ browser }) => {
+      sharedPage = await browser.newPage();
+      await setupAndLogin(sharedPage, 'local-admin');
+      await createSpaceAndRoom(sharedPage, 'Realtime Space', roomName);
+    });
+
+    test.afterAll(async () => {
+      await sharedPage.close();
+    });
+
+    test('SSE delivers message without refresh', async () => {
+      const messageInput = sharedPage.getByPlaceholder(new RegExp(`Message #${roomName}`));
+      const content = `SSE ${Date.now()}`;
+      await messageInput.fill(content);
+      
+      await Promise.all([
+        sharedPage.waitForResponse(res => res.url().includes('/send/m.room.message') && res.status() === 200),
+        messageInput.press('Enter')
+      ]);
+
+      await expect(sharedPage.getByTestId('message-content').filter({ hasText: content }).first()).toBeVisible({ timeout: 10000 });
+      expect(sharedPage.url()).not.toContain('/login');
+    });
+  });
 });

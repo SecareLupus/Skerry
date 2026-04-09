@@ -72,6 +72,7 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
           <button
             key={index}
             className={`context-menu-item ${item.danger ? "danger" : ""}`}
+            data-testid={`context-menu-item-${item.label?.toLowerCase().replace(/\s+/g, "-")}`}
             onClick={() => {
               item.onClick?.();
               onClose();

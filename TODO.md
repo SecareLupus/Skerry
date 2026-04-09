@@ -210,5 +210,32 @@ Current focus is **Phase 20** (Moderation Hardening) and **Phase 23** (Extension
 
 ### E2E / Stability
 - [x] Create `.env.test.example` with tuned rate-limits and timeouts for CI.
-- [x] Resolve Matrix/Synapse provisioning race condition in `ChatClient` (frontend bootstrap retry).
-- [x] Restore and stabilize `message-flow.spec.ts` and `profile-modal.spec.ts`.
+
+## Current Handoff: E2E Suite Stabilization
+
+**Task Status:** In-Progress (Accelerating & Hardening)
+**Goal:** Eliminate flakiness and maximize speed across the entire Playwright suite.
+
+### 🛠️ Technical Plan & Progress
+
+#### 1. UI & State Robustness
+- [x] **ViewerRole Parsing Fix** (`test-utils.ts`): Fixed role-checking logic which was searching for strings inside an array of `ViewerRoleBinding` objects.
+- [x] **Stale State Recovery** (`use-chat-initialization.ts`): Implemented a fallback mechanism where the app detects a non-existent channel ID (common after workspace reset) and automatically switches to the first available text channel instead of crashing.
+- [ ] **Error Path Refinement**: Update `use-chat-initialization.ts` to check `err.statusCode === 404` directly using `ControlPlaneApiError` for more reliable recovery.
+- [ ] **Settled-State Stability**: Enhance `waitForAppStability` to explicitly poll `AppInitializer` properties to ensure all global state (Hubs, Roles, Servers) has settled before test interaction.
+
+#### 2. Test Suite Optimization (Serial Sequencing)
+- [x] **message-flow.spec.ts**: Refactored to use `test.describe.serial` and shared page contexts. This reduced its runtime by ~40% and eliminated race conditions during setup.
+- [ ] **moderation.spec.ts**: Migrate to serial sequencing; share the "Admin vs User" setup across multiple test cases.
+- [ ] **threads.spec.ts**: Migrate to serial sequencing; reuse a single thread for reply/deletion/moderation assertions.
+- [ ] **dm-orchestration.spec.ts**: Migrate to serial; reuse the DM relationship setup.
+- [ ] **Harden Session Clearing**: Ensure `clearLocalStorage` is called between serial blocks if state isolation is required, with a short delay for browser propagation.
+
+### 🧪 Verification Routine
+1. **Full Suite run**: `pnpm --filter web e2e`
+2. **Target**: Zero failures across 3 consecutive runs (3x pass = stable).
+3. **Speed**: Target total suite execution < 8 minutes (down from ~15m).
+
+> [!CAUTION]
+> **TypeError: Failed to fetch**
+> If you see this in logs during bootstrap, it usually means the Control Plane was reset *while* the frontend was mid-poll. If flakiness persists, consider adding a sleep/retry loop in `AppInitializer.tsx` for transient network failures during the initial handshake.

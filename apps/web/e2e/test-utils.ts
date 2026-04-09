@@ -18,7 +18,6 @@ export async function resetTestEnvironment(page: Page) {
  * Standard login and setup flow for E2E tests.
  */
 export async function setupAndLogin(page: Page, username: string = 'local-admin') {
-  console.log(`[setupAndLogin] Starting for user: ${username}`);
   // Forward console messages with type info
   page.on('console', msg => {
     const text = msg.text();
@@ -33,10 +32,16 @@ export async function setupAndLogin(page: Page, username: string = 'local-admin'
   });
 
   await page.goto('/');
+  
+  // 0. Ensure clean state (now that we have an origin)
+  console.log('[setupAndLogin] Clearing cookies and localStorage...');
+  await page.context().clearCookies();
+  await page.evaluate(() => localStorage.clear());
+  await page.reload();
 
   // 1. Initial Login
   console.log('[setupAndLogin] Waiting for dev login form...');
-  await page.waitForSelector('input[id="dev-username"]');
+  await page.waitForSelector('input[id="dev-username"]', { timeout: 15000 });
   await page.fill('input[id="dev-username"]', username);
   
   console.log('[setupAndLogin] Clicking Dev Login...');
@@ -86,28 +91,102 @@ export async function setupAndLogin(page: Page, username: string = 'local-admin'
 
   // 5. Final stability check
   console.log('[setupAndLogin] Finalizing login...');
-  await page.waitForSelector('.unified-sidebar', { timeout: 30000 });
-  // Safety wait for state transition to settle
-  await page.waitForTimeout(1000);
+  await waitForAppStability(page);
   console.log('[setupAndLogin] Login flow complete.');
 }
 
 /**
- * Waits for the app to be in a stable "Live" or "Polling" state.
+ * Wait for the user to have specific roles or permissions.
+ */
+export async function waitForPermissions(page: Page, options: { roles?: string[], actions?: string[] } = {}) {
+  console.log(`[permissions] Waiting for roles: ${options.roles?.join(',')} actions: ${options.actions?.join(',')}`);
+  
+  await page.waitForFunction((opts) => {
+    const state = (window as any).state;
+    if (!state) return false;
+    
+    if (opts.roles && opts.roles.length > 0) {
+      const hasAllRoles = opts.roles.every(role => 
+        state.viewerRoles?.some((r: any) => r.role === role)
+      );
+      if (!hasAllRoles) return false;
+    }
+    
+    if (opts.actions && opts.actions.length > 0) {
+      const hasAllActions = opts.actions.every(action => state.allowedActions?.includes(action));
+      if (!hasAllActions) return false;
+    }
+    
+    return true;
+  }, options, { timeout: 30000 });
+  
+  console.log('[permissions] Required permissions detected.');
+}
+
+/**
+ * Waits for the app to be in a stable "Live" or "Polling" state, 
+ * or "Disconnected" if it's a fresh workspace with no servers.
  */
 export async function waitForAppStability(page: Page) {
-  console.log('[stability] Waiting for sidebar and status pill...');
-  await page.waitForSelector('.unified-sidebar', { timeout: 30000 });
+  console.log('[stability] Waiting for sidebar or onboarding...');
   
-  const statusPill = page.locator('.status-pill');
+  // Wait for either the sidebar OR a known major loading/onboarding component
   await page.waitForFunction(() => {
-    const pill = document.querySelector('.status-pill');
-    const state = pill?.getAttribute('data-state');
-    return state === 'live' || state === 'polling';
+    return document.querySelector('.unified-sidebar') || 
+           document.querySelector('input#onboarding-username') ||
+           document.querySelector('input#hub-name');
+  }, { timeout: 30000 });
+  
+  // 1. Wait for ChatContext to be initialized and loading to stop
+  console.log('[stability] Waiting for ChatContext loading to finish...');
+  await page.waitForFunction(() => {
+    const state = (window as any).state;
+    return state && state.loading === false;
   }, { timeout: 30000 });
 
-  console.log('[stability] State reached live/polling, pausing for layout settle.');
-  await page.waitForTimeout(1500);
+  // 2. Wait for status pill state reconciliation
+  console.log('[stability] ChatContext initialized. Checking status pill...');
+  
+  await page.waitForFunction(() => {
+    const state = (window as any).state;
+    if (!state) return false;
+
+    // If we have no servers, the app stays "disconnected" by design
+    if (state.servers?.length === 0) {
+      console.log('[stability] No servers detected, allowing disconnected state.');
+      return true;
+    }
+
+    const pill = document.querySelector('[data-testid="status-pill"]');
+    if (!pill) return false;
+    
+    const pillState = pill.getAttribute('data-state');
+    return pillState === 'live' || pillState === 'polling';
+  }, { timeout: 30000 });
+
+  console.log('[stability] App reached a stable state.');
+}
+
+/**
+ * Wait for the Hubs list to be populated in the global state.
+ */
+export async function waitForHubs(page: Page, count: number = 1) {
+    console.log(`[stability] Waiting for at least ${count} hub(s) in state...`);
+    await page.waitForFunction((expectedCount) => {
+        const state = (window as any).state;
+        return state && state.hubs && state.hubs.length >= expectedCount;
+    }, count, { timeout: 30000 });
+}
+
+/**
+ * Wait for the Servers list to be populated in the global state.
+ */
+export async function waitForServers(page: Page, count: number = 1) {
+    console.log(`[stability] Waiting for at least ${count} server(s) in state...`);
+    await page.waitForFunction((expectedCount) => {
+        const state = (window as any).state;
+        return state && state.servers && state.servers.length >= expectedCount;
+    }, count, { timeout: 30000 });
 }
 
 /**
@@ -138,18 +217,12 @@ export async function createSpaceAndRoom(
     }
     
     // Open Create Space modal
+    console.log('[createSpaceAndRoom] Waiting for hub_admin permissions reach...');
+    await waitForPermissions(page, { roles: ['hub_admin'] });
+
     console.log('[createSpaceAndRoom] Opening Create Space modal...');
     const createBtn = page.locator('button[aria-label="Create Space"]');
-    if (!(await createBtn.isVisible())) {
-        console.error('[createSpaceAndRoom] Create Space button (+) NOT VISIBLE.');
-        console.log('DEBUG: Dumping all buttons with aria-label:');
-        const labels = await page.evaluate(() => Array.from(document.querySelectorAll('button[aria-label]')).map(b => b.getAttribute('aria-label')));
-        console.log('Available labels:', labels);
-        
-        // Take diagnostic screenshot
-        await page.screenshot({ path: `playwright-report/missing-create-btn-${Date.now()}.png` });
-        throw new Error('Create Space button not found - User may lack hub_admin permissions.');
-    }
+    await createBtn.waitFor({ state: 'visible', timeout: 10000 });
     
     await createBtn.click();
     console.log('[createSpaceAndRoom] Clicked Create Space. Waiting for modal form...');
