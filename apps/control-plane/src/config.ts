@@ -8,6 +8,7 @@ const appBaseUrl = (process.env.APP_BASE_URL || webBaseUrl).replace(/\/+$/, "");
 export const config = {
   port: Number(process.env.PORT ?? "4000"),
   baseDomain,
+  isLocal,
   appBaseUrl,
   webBaseUrl,
   databaseUrl: process.env.DATABASE_URL ?? "postgres://postgres:postgres@postgres:5432/skerry",
@@ -17,7 +18,7 @@ export const config = {
   setupBootstrapEnabled: process.env.SETUP_BOOTSTRAP_ENABLED !== "false",
   setupBootstrapToken: process.env.SETUP_BOOTSTRAP_TOKEN ?? "",
   logFilePath: process.env.LOG_FILE_PATH ?? "",
-  rateLimitPerMinute: Number(process.env.RATE_LIMIT_PER_MINUTE ?? "600"),
+  rateLimitPerMinute: Number(process.env.RATE_LIMIT_PER_MINUTE ?? "1000"),
   oidc: {
     keycloakIssuer: process.env.OIDC_KEYCLOAK_ISSUER ?? (baseDomain ? `https://keycloak.${baseDomain}/realms/skerry` : "http://keycloak:8080/realms/skerry"),
     keycloakClientId: process.env.OIDC_KEYCLOAK_CLIENT_ID,
