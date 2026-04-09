@@ -145,12 +145,14 @@ export function AuthOverlay() {
                     <label htmlFor="onboarding-username">Username</label>
                     <input
                         id="onboarding-username"
+                        autoFocus
                         value={onboardingUsername}
-                        onChange={(event) => setOnboardingUsername(event.target.value)}
+                        onChange={(e) => setOnboardingUsername(e.target.value)}
                         minLength={3}
                         maxLength={40}
-                        pattern="^[a-zA-Z0-9._-]+$"
                         required
+                        className="onboarding-input"
+                        placeholder="e.g. jamie_smith"
                     />
                     <button type="submit" disabled={savingOnboarding}>
                         {savingOnboarding ? "Saving..." : "Save Username"}

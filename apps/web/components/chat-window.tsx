@@ -482,6 +482,15 @@ export function ChatWindow({
                     const clipboardContent = rawContent.replace(/!\[(:.+?:)\]\(https?:\/\/[^\)]+\)/g, "$1");
                     void navigator.clipboard.writeText(clipboardContent);
                 }
+            },
+            {
+                label: "Reply in Thread",
+                icon: "💬",
+                onClick: () => {
+                    if (contextMenu.message) {
+                        dispatch({ type: "SET_THREAD_PARENT_ID", payload: contextMenu.message.id });
+                    }
+                }
             }
         ];
 

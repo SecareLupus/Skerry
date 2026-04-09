@@ -74,10 +74,7 @@ export function RoomModals({
 }: RoomModalsProps) {
   if (activeModal === "create-room") {
     return (
-      <form className="constrained-stack" onSubmit={(event) => {
-        void handleCreateRoom(event);
-        dispatch({ type: "SET_ACTIVE_MODAL", payload: null });
-      }}>
+      <form className="constrained-stack" onSubmit={handleCreateRoom}>
         <p>
           Target Category: <strong>
             {selectedCategoryIdForCreate ? categories.find(c => c.id === selectedCategoryIdForCreate)?.name : "Uncategorized"}
