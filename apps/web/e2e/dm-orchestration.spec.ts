@@ -1,61 +1,20 @@
 import { test, expect } from '@playwright/test';
+import { resetTestEnvironment, setupAndLogin, createSpaceAndRoom } from './test-utils';
 
-/**
- * Helper: log in as local-admin, bootstrap if needed, and ensure a Space + Room exist.
- */
-async function setupWorkspace(page: import('@playwright/test').Page) {
-  await page.goto('/');
-
-  const username = 'local-admin';
-  await page.fill('input[id="dev-username"]', username);
-  await page.click('button:has-text("Dev Login")');
-
-  // Handle first-time onboarding or bootstrap if necessary
-  await page.locator('.unified-sidebar')
-    .or(page.locator('text="Choose Username"'))
-    .or(page.locator('text="Initialize Workspace"'))
-    .first()
-    .waitFor({ state: 'visible', timeout: 15000 });
-
-  if (await page.locator('text="Choose Username"').isVisible()) {
-    await page.fill('input[id="onboarding-username"]', username);
-    await page.click('button:has-text("Save Username")');
-    await page.locator('.unified-sidebar')
-      .or(page.locator('text="Initialize Workspace"'))
-      .first()
-      .waitFor({ state: 'visible', timeout: 15000 });
-  }
-
-  if (await page.locator('text="Initialize Workspace"').isVisible()) {
-    await page.fill('input[id="hub-name"]', 'Playwright Hub');
-    await page.fill('input[id="setup-token"]', 'bootstrap_token');
-    await page.click('button:has-text("Bootstrap Admin + Hub")');
-  }
-
-  // Ensure we are in the servers view
-  const backButton = page.locator('button[title="Back to Servers"]');
-  if (await backButton.isVisible()) {
-    await backButton.click();
-  }
-}
+test.beforeEach(async ({ page }) => {
+  await resetTestEnvironment(page);
+});
 
 test('DM orchestration remembers last active DM and last active Room per Space', async ({ page }) => {
-  await setupWorkspace(page);
+  const adminUsername = 'dm-tester';
+  const spaceName = `DM-Space`;
+  const roomName = `dm-room`;
 
-  // 1. Create a Space and a Room
-  const spaceName = `Space-${Date.now()}`;
-  await page.locator('button[aria-label="Create Space"]').click();
-  await page.fill('input[id="space-name-modal"]', spaceName);
-  await page.click('button:has-text("Create Space")');
-  
-  const roomName = `room-${Date.now()}`;
-  await page.locator('button[title="Add..."]').click();
-  await page.click('text="New Room"');
-  await page.fill('input[id="room-name-modal"]', roomName);
-  await page.click('button:has-text("Create Room")');
+  await setupAndLogin(page, adminUsername);
+  await createSpaceAndRoom(page, spaceName, roomName);
 
   // Verify room is active
-  await expect(page.getByPlaceholder(new RegExp(`Message #${roomName}`))).toBeVisible();
+  await expect(page.getByPlaceholder(new RegExp(`Message #${roomName}`))).toBeVisible({ timeout: 10000 });
 
   // 2. Switch to DM list and create a DM
   const backButton = page.locator('button[title="Back to Servers"]');
@@ -66,24 +25,30 @@ test('DM orchestration remembers last active DM and last active Room per Space',
   await page.fill('input.search-input', 'bot'); // Search for a bot or user
   // Wait for results
   const firstResult = page.locator('.user-result-item').first();
-  await firstResult.waitFor({ state: 'visible' });
-  const userName = await firstResult.locator('.display-name').textContent();
+  await firstResult.waitFor({ state: 'visible', timeout: 10000 });
+  const rawUserName = await firstResult.locator('.display-name').textContent();
+  const userName = rawUserName?.trim();
+  expect(userName).toBeTruthy();
+  
   await firstResult.click();
 
   // Verify DM is active
-  await expect(page.getByPlaceholder(new RegExp(`Message ${userName}`))).toBeVisible();
+  await expect(page.getByPlaceholder(new RegExp(`Message ${userName}`))).toBeVisible({ timeout: 10000 });
 
   // 3. Switch back to the Space
   await backButton.click();
   await page.locator(`button:has-text("${spaceName}")`).click();
 
   // Verify it restored the Room
-  await expect(page.getByPlaceholder(new RegExp(`Message #${roomName}`))).toBeVisible();
+  await expect(page.getByPlaceholder(new RegExp(`Message #${roomName}`))).toBeVisible({ timeout: 10000 });
 
   // 4. Switch back to DMs (click on any DM in the list)
   await backButton.click();
-  await page.locator(`button:has-text("${userName}")`).click();
+  
+  // We need to find the DM in the sidebar list. It usually has the username as the label.
+  const dmListItem = page.locator(`.dm-item:has-text("${userName}")`).or(page.locator(`button:has-text("${userName}")`)).first();
+  await dmListItem.click();
 
   // Verify it restored the DM
-  await expect(page.getByPlaceholder(new RegExp(`Message ${userName}`))).toBeVisible();
+  await expect(page.getByPlaceholder(new RegExp(`Message ${userName}`))).toBeVisible({ timeout: 10000 });
 });

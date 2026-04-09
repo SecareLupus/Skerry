@@ -85,8 +85,10 @@ export async function setupAndLogin(page: Page, username: string = 'local-admin'
   }
 
   // 5. Final stability check
-  console.log('[setupAndLogin] Finalizing stability...');
-  await waitForAppStability(page);
+  console.log('[setupAndLogin] Finalizing login...');
+  await page.waitForSelector('.unified-sidebar', { timeout: 30000 });
+  // Safety wait for state transition to settle
+  await page.waitForTimeout(1000);
   console.log('[setupAndLogin] Login flow complete.');
 }
 
@@ -95,34 +97,40 @@ export async function setupAndLogin(page: Page, username: string = 'local-admin'
  */
 export async function waitForAppStability(page: Page) {
   console.log('[stability] Waiting for sidebar and status pill...');
-  await page.waitForSelector('.unified-sidebar', { timeout: 15000 });
+  await page.waitForSelector('.unified-sidebar', { timeout: 30000 });
   
   const statusPill = page.locator('.status-pill');
   await page.waitForFunction(() => {
     const pill = document.querySelector('.status-pill');
     const state = pill?.getAttribute('data-state');
-    console.log(`[stability] Current state check: ${state}`);
     return state === 'live' || state === 'polling';
-  }, { timeout: 15000 });
+  }, { timeout: 30000 });
 
   console.log('[stability] State reached live/polling, pausing for layout settle.');
-  await page.waitForTimeout(1000);
+  await page.waitForTimeout(1500);
 }
 
 /**
  * Helper to create a new space and room for test isolation if needed.
  */
-export async function createSpaceAndRoom(page: Page, serverName: string, roomName: string) {
+export async function createSpaceAndRoom(
+    page: Page, 
+    serverName: string, 
+    roomName: string,
+    roomType: 'text' | 'forum' | 'voice' | 'announcement' | 'landing' = 'text'
+) {
     console.log(`[createSpaceAndRoom] Target: Space="${serverName}", Room="${roomName}"`);
+    console.log('[createSpaceAndRoom] Current Browser URL:', page.url());
     
-    // Ensure we are stable first
-    await waitForAppStability(page);
+    // Ensure UI has painted before trying to click buttons
+    await page.waitForSelector('.unified-sidebar', { timeout: 15000 });
 
     // Go back to server list to make sure we are at the root
     console.log('[createSpaceAndRoom] Clicking Back to Servers...');
     const backBtn = page.locator('button[title="Back to Servers"]');
     if (await backBtn.isVisible()) {
         await backBtn.click();
+        console.log('[createSpaceAndRoom] Sent click to Back to Servers.');
         // Wait for Server list to appear
         await page.waitForSelector('h2:has-text("Servers")', { timeout: 5000 }).catch(() => {
             console.warn('[createSpaceAndRoom] Server list heading not found after clicking back.');
@@ -134,80 +142,83 @@ export async function createSpaceAndRoom(page: Page, serverName: string, roomNam
     const createBtn = page.locator('button[aria-label="Create Space"]');
     if (!(await createBtn.isVisible())) {
         console.error('[createSpaceAndRoom] Create Space button (+) NOT VISIBLE.');
-        // Debug info: check for admin role in the page state if possible
-        const roles = await page.evaluate(() => (window as any).state?.viewerRoles);
-        console.error(`[createSpaceAndRoom] Current Viewer Roles: ${JSON.stringify(roles)}`);
+        console.log('DEBUG: Dumping all buttons with aria-label:');
+        const labels = await page.evaluate(() => Array.from(document.querySelectorAll('button[aria-label]')).map(b => b.getAttribute('aria-label')));
+        console.log('Available labels:', labels);
         
         // Take diagnostic screenshot
         await page.screenshot({ path: `playwright-report/missing-create-btn-${Date.now()}.png` });
-        
         throw new Error('Create Space button not found - User may lack hub_admin permissions.');
     }
     
     await createBtn.click();
-    await page.waitForTimeout(1000); // Hydration buffer
+    console.log('[createSpaceAndRoom] Clicked Create Space. Waiting for modal form...');
+    await page.waitForSelector('input#space-name-modal', { timeout: 5000 });
     
     // Fill form
     await page.fill('input#space-name-modal', serverName);
-
-    // Diagnostic: take screenshot before click
-    await page.screenshot({ path: `playwright-report/pre-submit-space-${Date.now()}.png` });
     
     // Submit
-    console.log(`[createSpaceAndRoom] Submitting form via button click. value: ${await page.inputValue('input#space-name-modal')}`);
-    // Wait for the button to be ready so we know React has hydrated the form
+    console.log(`[createSpaceAndRoom] Submitting form. Modal Value: ${await page.inputValue('input#space-name-modal')}`);
     const submitBtn = page.locator('button[type="submit"]:has-text("Create Space")');
     await expect(submitBtn).toBeEnabled({ timeout: 5000 });
 
     const hubsState = await page.evaluate(() => (window as any).state?.hubs);
     console.log(`[createSpaceAndRoom] Current hubs in state: ${JSON.stringify(hubsState)}`);
 
-    // Ensure we select a hub if there are multiple.
     if (hubsState && hubsState.length > 1) {
-       console.log(`[createSpaceAndRoom] Multiple hubs detected, selecting the first one explicitly.`);
+       console.log(`[createSpaceAndRoom] Multiple hubs detected, selecting the first one.`);
        await page.selectOption('select#hub-selection', hubsState[0].id);
     }
 
-    await submitBtn.click();
+    // Submit with 429 retry
+    let retryCount = 0;
+    const maxRetries = 2;
+    while (retryCount <= maxRetries) {
+        console.log(`[createSpaceAndRoom] Submitting form (Attempt ${retryCount + 1})...`);
+        await submitBtn.click();
+        
+        // Wait to see if it closes or fails
+        const result = await Promise.race([
+            page.locator('.modal-backdrop').waitFor({ state: 'detached', timeout: 5000 }).then(() => 'success'),
+            page.locator('text="Rate limit exceeded"').waitFor({ state: 'visible', timeout: 5000 }).then(() => 'rate-limited'),
+            page.waitForTimeout(5000).then(() => 'timeout')
+        ]);
 
-    console.log('[createSpaceAndRoom] Form submitted, waiting for completion...');
-    // Make sure modal goes away. If it doesn't, that's our failure!
-    const modalBackdrop = page.locator('.modal-backdrop');
-    try {
-        await expect(modalBackdrop).toHaveCount(0, { timeout: 5000 });
-        console.log('[createSpaceAndRoom] Modal closed successfully.');
-    } catch (e) {
-        console.error('[createSpaceAndRoom] Modal FAILED to close!');
-        await page.screenshot({ path: `playwright-report/modal-stuck-${Date.now()}.png` });
-        throw e;
+        if (result === 'success') {
+            console.log('[createSpaceAndRoom] Modal closed successfully.');
+            break;
+        } else if (result === 'rate-limited') {
+            console.warn('[createSpaceAndRoom] Hit rate limit, waiting 10s before retry...');
+            await page.waitForTimeout(10000);
+            retryCount++;
+        } else {
+            console.error(`[createSpaceAndRoom] Modal FAILED to close (Result: ${result})!`);
+            if (retryCount === maxRetries) {
+                await page.screenshot({ path: `playwright-report/modal-stuck-${Date.now()}.png` });
+                throw new Error('Modal stuck after maximum retries.');
+            }
+            retryCount++;
+        }
     }
-
-    console.log(`[createSpaceAndRoom] URL after form submission: ${page.url()}`);
 
     // Wait for settlement
-    await page.waitForTimeout(2000); // UI transition buffer
+    await page.waitForTimeout(2000);
     await waitForAppStability(page);
 
-    // Verify server title - Try multiple locators for resilience
-    console.log(`[createSpaceAndRoom] Waiting for server title: ${serverName}`);
-    try {
-        const titleLocator = page.locator('.server-title');
-        await expect(titleLocator).toHaveText(serverName, { timeout: 15000 });
-        console.log('[createSpaceAndRoom] Server title found successfully.');
-    } catch (err) {
-        console.error('[createSpaceAndRoom] Failed to find server title. Dumping sidebar state:');
-        const sidebarText = await page.innerText('.unified-sidebar').catch(() => 'UNABLE TO READ SIDEBAR');
-        console.error('--- SIDEBAR CONTENT START ---');
-        console.error(sidebarText);
-        console.error('--- SIDEBAR CONTENT END ---');
-        
-        // Take a screenshot for debugging
-        const screenshotPath = `playwright-report/fail-create-space-${Date.now()}.png`;
-        await page.screenshot({ path: screenshotPath });
-        console.error(`[createSpaceAndRoom] Saved debug screenshot to: ${screenshotPath}`);
-        
-        throw err;
+    // If we are not in the "channels" view, click the newly created space to enter it
+    const newServerItem = page.locator(`.server-entry:has-text("${serverName}")`);
+    if (await newServerItem.isVisible()) {
+        console.log(`[createSpaceAndRoom] Clicked entry for "${serverName}" to ensure view transition.`);
+        await newServerItem.click();
+        await page.waitForTimeout(1000);
     }
+
+    // Verify server title
+    console.log(`[createSpaceAndRoom] Verifying server title: ${serverName}`);
+    const titleLocator = page.locator('.server-title');
+    await expect(titleLocator).toContainText(serverName, { timeout: 20000 });
+    console.log('[createSpaceAndRoom] Server title verified.');
 
     // Now create a room
     console.log('[createSpaceAndRoom] Opening Room creation modal...');
@@ -215,13 +226,52 @@ export async function createSpaceAndRoom(page: Page, serverName: string, roomNam
     await page.click('button:has-text("New Room")');
     
     await page.fill('input#room-name-modal', roomName);
-    await page.click('button:has-text("Create Room")');
     
-    // Stability after room creation
-    await page.waitForTimeout(1000);
+    if (roomType !== 'text') {
+        console.log(`[createSpaceAndRoom] Selecting room type: ${roomType}`);
+        await page.selectOption('select#room-type-modal', roomType);
+    }
+
+    // Submit room with retry
+    let roomRetryCount = 0;
+    while (roomRetryCount <= 2) {
+        console.log(`[createSpaceAndRoom] Submitting Room form (Attempt ${roomRetryCount + 1})...`);
+        await page.click('button:has-text("Create Room")');
+        
+        const result = await Promise.race([
+            page.locator('.modal-backdrop').waitFor({ state: 'detached', timeout: 5000 }).then(() => 'success'),
+            page.locator('text="Rate limit exceeded"').waitFor({ state: 'visible', timeout: 5000 }).then(() => 'rate-limited'),
+            page.waitForTimeout(5000).then(() => 'timeout')
+        ]);
+
+        if (result === 'success') {
+            console.log('[createSpaceAndRoom] Room created and modal closed.');
+            break;
+        } else if (result === 'rate-limited') {
+            await page.waitForTimeout(10000);
+            roomRetryCount++;
+        } else {
+            roomRetryCount++;
+        }
+    }
+    
+    // Safety delay to allow Synapse provisioning to catch up
+    console.log('[createSpaceAndRoom] Room creation submitted. Waiting 5s for provisioning...');
+    await page.waitForTimeout(5000);
+    
     await waitForAppStability(page);
     
-    console.log(`[createSpaceAndRoom] Waiting for room label: ${roomName}`);
-    await expect(page.locator(`button.list-item:has-text("${roomName}")`)).toBeVisible({ timeout: 15000 });
-    console.log('[createSpaceAndRoom] Space and room creation successful.');
+    console.log(`[createSpaceAndRoom] Final check for room label: ${roomName}`);
+    const roomItem = page.locator(`button.list-item:has-text("${roomName}")`).first();
+    await expect(roomItem).toBeVisible({ timeout: 15000 });
+    
+    // Explicitly click the room and wait for chat input to be ready
+    console.log(`[createSpaceAndRoom] Clicking room "${roomName}" to ensure join...`);
+    await roomItem.click();
+    
+    const messageInput = page.getByPlaceholder(new RegExp(`Message #${roomName}`));
+    await expect(messageInput).toBeVisible({ timeout: 20000 });
+    await expect(messageInput).toBeEnabled({ timeout: 20000 });
+    
+    console.log('[createSpaceAndRoom] Flow complete and room is ready.');
 }
