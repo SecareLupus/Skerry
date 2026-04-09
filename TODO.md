@@ -209,6 +209,6 @@ Current focus is **Phase 20** (Moderation Hardening) and **Phase 23** (Extension
 - [ ] Implement "Sing-along" Latency Monitoring Mode (Deferred) Implement Web Audio DelayNode loopback to allow synchronized singing/monitoring with network latency.
 
 ### E2E / Stability
-- [ ] Create `.env.test.example` with tuned rate-limits and timeouts for CI.
-- [ ] Resolve Matrix/Synapse provisioning race condition in `ChatClient` (frontend bootstrap retry).
-- [ ] Restore and stabilize `message-flow.spec.ts` and `profile-modal.spec.ts`.
+- [x] Create `.env.test.example` with tuned rate-limits and timeouts for CI.
+- [x] Resolve Matrix/Synapse provisioning race condition in `ChatClient` (frontend bootstrap retry).
+- [x] Restore and stabilize `message-flow.spec.ts` and `profile-modal.spec.ts`.

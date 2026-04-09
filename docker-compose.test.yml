@@ -1,0 +1,153 @@
+services:
+  postgres:
+    image: postgres:16
+    env_file:
+      - .env.test
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    # Use standard ports; isolation is handled by project name (-p skerry-test)
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data_test:/var/lib/postgresql/data
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  synapse:
+    image: matrixdotorg/synapse:latest
+    env_file:
+      - .env.test
+    depends_on:
+      - postgres
+    environment:
+      SYNAPSE_SERVER_NAME: hub-localhost
+      SYNAPSE_REPORT_STATS: "no"
+    volumes:
+      - synapse_data_test:/data
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  livekit:
+    image: livekit/livekit-server:v1.9.11
+    env_file:
+      - .env.test
+    command: [ "--dev", "--bind", "0.0.0.0" ]
+    ports:
+      - "7880:7880"
+      - "7881:7881"
+      - "7882:7882/udp"
+
+  coturn:
+    image: coturn/coturn:4.6
+    env_file:
+      - .env.test
+    command: [ "-n", "--log-file=stdout", "--realm=localhost", "--fingerprint" ]
+    ports:
+      - "3478:3478"
+      - "3478:3478/udp"
+
+  control-plane:
+    build:
+      context: .
+      target: control-plane
+      args:
+        NEXT_PUBLIC_BASE_DOMAIN: localhost
+    networks:
+      - default
+      - backend
+    env_file:
+      - .env.test
+    environment:
+      - PORT=4000
+      - DATABASE_URL=postgres://postgres:${POSTGRES_PASSWORD}@postgres:5432/escapehatch_test
+      - SYNAPSE_AS_REGISTRATION_PATH=/app/docker/synapse/skerry-appservice.yaml
+    depends_on:
+      - postgres
+      - synapse
+      - livekit
+    volumes:
+      - ./docker/synapse:/app/docker/synapse
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  web:
+    build:
+      context: .
+      target: web
+      args:
+        NEXT_PUBLIC_BASE_DOMAIN: localhost
+    networks:
+      - default
+      - backend
+    env_file:
+      - .env.test
+    environment:
+      - PORT=3000
+    depends_on:
+      - control-plane
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  caddy:
+    image: caddy:latest
+    restart: unless-stopped
+    networks:
+      - default
+      - backend
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data_test:/data
+      - caddy_config_test:/config
+    environment:
+      - NEXT_PUBLIC_BASE_DOMAIN=localhost
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+
+  minio:
+    image: minio/minio:latest
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data_test:/data
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+networks:
+  default:
+    name: skerry_test_default
+  backend:
+    name: skerry_test_backend
+
+volumes:
+  pg_data_test:
+  minio_data_test:
+  synapse_data_test:
+  caddy_data_test:
+  caddy_config_test:
