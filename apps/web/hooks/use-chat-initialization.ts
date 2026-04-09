@@ -79,6 +79,13 @@ export function useChatInitialization({
       console.error("Failed to load bootstrap status:", cause);
     }
 
+    if (!viewerData || viewerData.needsOnboarding) {
+      dispatch({ type: "SET_VIEWER_ROLES", payload: [] });
+      dispatch({ type: "SET_HUBS", payload: [] });
+      dispatch({ type: "SET_BLOCKED_USER_IDS", payload: [] });
+      return;
+    }
+
     void listViewerRoleBindings()
       .then((roleBindings) => dispatch({ type: "SET_VIEWER_ROLES", payload: roleBindings }))
       .catch(() => dispatch({ type: "SET_VIEWER_ROLES", payload: [] }));
