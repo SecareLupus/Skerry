@@ -126,16 +126,6 @@ export function ThreadPanel() {
                 if (prev.some(r => r.id === sent.id)) return prev;
                 return [...prev, sent];
             });
-            
-            // Optimistically update the parent message's repliesCount in the main store
-            dispatch({
-                type: "UPDATE_MESSAGES",
-                payload: (current: MessageItem[]) => current.map(msg => 
-                    msg.id === threadParentId 
-                        ? { ...msg, repliesCount: (msg.repliesCount || 0) + 1 } 
-                        : msg
-                )
-            });
 
             setDraft("");
             setAttachments([]);

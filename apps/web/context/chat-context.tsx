@@ -33,6 +33,7 @@ export interface ChatHandlers {
 export interface MessageItem extends ChatMessage {
     clientState?: "sending" | "failed";
     replyToId?: string;
+    countedReplyIds?: string[];
 }
 
 export interface ChatMember {

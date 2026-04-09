@@ -133,12 +133,9 @@ export function useChatRealtime() {
               return current;
             }
             if (message.parentId) {
-              return current.map(item => {
-                if (item.id === message.parentId) {
-                  return { ...item, repliesCount: (item.repliesCount || 0) + 1 };
-                }
-                return item;
-              });
+              // We rely on the authoritative backend broadcast (message.updated for the parent)
+              // to synchronize reply counts, preventing race conditions with local increments.
+              return current;
             }
             return [...current, message];
           }
@@ -165,7 +162,7 @@ export function useChatRealtime() {
         dispatch({
           type: "UPDATE_MESSAGES",
           payload: (current: MessageItem[]) => {
-            return current.map((item: MessageItem) => (item.id === updatedMessage.id ? updatedMessage : item));
+            return current.map((item: MessageItem) => (item.id === updatedMessage.id ? { ...item, ...updatedMessage } : item));
           }
         });
       }
