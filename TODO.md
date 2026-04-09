@@ -199,6 +199,7 @@ Current focus is **Phase 20** (Moderation Hardening) and **Phase 23** (Extension
 
 - [ ] **Deeper Client Isolation** — Maintain strict boundaries between `useChat` hooks and `<ChatClient />` DOM tree across all new features.
 - [ ] **E2E Testing Expansion** — Implement automated headless Cypress/Playwright assertions for isolated Modals and UI triggers.
+- [ ] **E2E Stabilization** — Resolve Matrix/Synapse provisioning race conditions and sidebar flakiness.
 - [x] **Video Chat Reliability** — Fix camera preview and subscription bugs (Event listener overhaul).
 ### Video Chat Enhancements
 - [x] Implement Track-based rendering in `VoiceRoom` (Camera + Screen)
@@ -206,3 +207,8 @@ Current focus is **Phase 20** (Moderation Hardening) and **Phase 23** (Extension
 - [x] Implement Stage Layout (Focus Mode)
 - [x] Add Picture-in-Picture (PiP) support
 - [ ] Implement "Sing-along" Latency Monitoring Mode (Deferred) Implement Web Audio DelayNode loopback to allow synchronized singing/monitoring with network latency.
+
+### E2E / Stability
+- [ ] Create `.env.test.example` with tuned rate-limits and timeouts for CI.
+- [ ] Resolve Matrix/Synapse provisioning race condition in `ChatClient` (frontend bootstrap retry).
+- [ ] Restore and stabilize `message-flow.spec.ts` and `profile-modal.spec.ts`.

@@ -53,7 +53,7 @@ export function setSessionCookie(
   const expiresAt = payload.expiresAt ?? (Date.now() + ttlSeconds * 1000);
   const token = createSessionToken({ ...payload, expiresAt });
   const cookieOptions = `; Path=/; HttpOnly; SameSite=Lax; Max-Age=${ttlSeconds}${
-    config.baseDomain && config.baseDomain !== "127.0.0.1" ? `; Domain=${config.baseDomain}` : ""
+    !config.isLocal && config.baseDomain ? `; Domain=${config.baseDomain}` : ""
   }`;
 
   console.log(`[AUTH DEBUG] setSessionCookie: id=${reply.request.id} for ${payload.oidcSubject}`);
@@ -62,14 +62,14 @@ export function setSessionCookie(
   reply.header("Set-Cookie", [
     `skerry_session=${token}${cookieOptions}`,
     `escapehatch_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${
-      config.baseDomain && config.baseDomain !== "127.0.0.1" ? `; Domain=${config.baseDomain}` : ""
+      !config.isLocal && config.baseDomain ? `; Domain=${config.baseDomain}` : ""
     }`
   ]);
 }
 
 export function clearSessionCookie(reply: FastifyReply): void {
   const cookieOptions = `; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${
-    config.baseDomain && config.baseDomain !== "127.0.0.1" ? `; Domain=${config.baseDomain}` : ""
+    !config.isLocal && config.baseDomain ? `; Domain=${config.baseDomain}` : ""
   }`;
   
   // Clear both current and legacy cookies
