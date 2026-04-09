@@ -30,7 +30,7 @@ async function setup(page: any) {
  * 1. "Create Space button (+) NOT VISIBLE": Sidebar state synchronization issues during rapid test setup.
  * 2. Synapse room provisioning race leading to 404/403 errors in the browser bootstrap.
  */
-/*
+
 test('clicking an author name opens the profile modal', async ({ page }) => {
   await setup(page);
 
@@ -78,4 +78,4 @@ test('profile modal shows joined provider badges or identity info', async ({ pag
   const modalText = await page.locator('.modal-card').innerText();
   expect(modalText.trim().length).toBeGreaterThan(0);
 });
-*/
+

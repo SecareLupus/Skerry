@@ -22,7 +22,7 @@ async function setup(page: any) {
  * 2. Synapse provisioning race: Matrix rooms are not always ready when the frontend tries to bootstrap them.
  * 3. Sidebar flakiness: "+" button visibility during view transitions.
  */
-/*
+
 test('user can send a message and it appears in the timeline', async ({ page }) => {
   const { messageInput } = await setup(page);
 
@@ -105,7 +105,7 @@ test('user can react to a message and the reaction count increments', async ({ p
     }
   }
 });
-*/
+
 
 test('SSE delivers the sent message without a page refresh', async ({ page }) => {
   const { messageInput } = await setup(page);

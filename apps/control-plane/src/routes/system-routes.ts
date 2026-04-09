@@ -9,6 +9,7 @@ import { logEvent } from "../services/observability-service.js";
 import { checkSynapseHealth } from "../matrix/synapse-adapter.js";
 import { withDb } from "../db/client.js";
 import { requireAuth, requireInitialized } from "../auth/middleware.js";
+import { S3Client, CreateBucketCommand } from "@aws-sdk/client-s3";
 
 export async function registerSystemRoutes(app: FastifyInstance): Promise<void> {
   const initializedAuthHandlers = { preHandler: [requireAuth, requireInitialized] };
@@ -145,6 +146,30 @@ export async function registerSystemRoutes(app: FastifyInstance): Promise<void> 
           expectedSetupToken: config.setupBootstrapToken || "test-reset-bypass",
           hubName: "Skerry Test Hub"
         });
+
+        // 3. Provision Minio Bucket for testing if configured
+        if (config.s3.endpoint && config.s3.bucket && config.devAuthBypass) {
+          try {
+            const s3 = new S3Client({
+              region: config.s3.region,
+              endpoint: config.s3.endpoint,
+              credentials: {
+                accessKeyId: config.s3.accessKeyId || "minioadmin",
+                secretAccessKey: config.s3.secretAccessKey || "minioadmin",
+              },
+              forcePathStyle: true,
+            });
+            await s3.send(new CreateBucketCommand({ Bucket: config.s3.bucket })).catch((err) => {
+              if (err.name !== "BucketAlreadyOwnedByYou" && err.name !== "BucketAlreadyExists") {
+                throw err;
+              }
+            });
+            console.log(`[system-routes] Ensured test bucket exists: ${config.s3.bucket}`);
+          } catch (err) {
+            console.error("[system-routes] Failed to provision test bucket:", err);
+            // Don't fail the whole reset if Minio is down/unreachable
+          }
+        }
       } catch (err) {
         await db.query("rollback");
         throw err;

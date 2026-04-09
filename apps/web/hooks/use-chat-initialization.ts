@@ -175,10 +175,27 @@ export function useChatInitialization({
       nextChannelId = textChannels[0]?.id ?? channelItems[0]?.id ?? null;
     }
 
-    // BOOTSTRAP: Load the entire room state in one atomic call
+        // BOOTSTRAP: Load the entire room state in one atomic call
     if (nextChannelId) {
       try {
-        const initData = await fetchChannelInit(nextChannelId);
+        let initData;
+        let retryCount = 0;
+        const maxRetries = 3;
+        
+        while (retryCount <= maxRetries) {
+          try {
+            initData = await fetchChannelInit(nextChannelId);
+            break;
+          } catch (err) {
+            if (retryCount === maxRetries) throw err;
+            retryCount++;
+            console.warn(`[useChatInitialization] fetchChannelInit failed, retrying (${retryCount}/${maxRetries})...`, err);
+            // Linear backoff: 1s, 2s, 3s
+            await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+          }
+        }
+
+        if (!initData) throw new Error("Failed to load channel data after retries.");
         if (requestId !== chatStateRequestIdRef.current) return;
 
         dispatch({

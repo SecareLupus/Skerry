@@ -75,7 +75,7 @@ export async function setupAndLogin(page: Page, username: string = 'local-admin'
   if (await hubNameInput.isVisible()) {
     console.log('[setupAndLogin] Detected bootstrap screen, completing...');
     await hubNameInput.fill('Test Hub');
-    await page.fill('input[id="setup-token"]', 'bootstrap_token');
+    await page.fill('input[id="setup-token"]', 'test_bootstrap_token');
     await Promise.all([
       page.waitForResponse(res => res.url().includes('/auth/bootstrap-admin') && res.status() === 201),
       page.click('button:has-text("Bootstrap Admin + Hub")')
