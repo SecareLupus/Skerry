@@ -59,7 +59,9 @@ interface ClientModalsProps {
   serverId: string;
   selectedChannelId: string | null;
   selectedCategoryIdForCreate: string | null;
-  
+  selectedHubIdForCreate: string | null;
+  setSelectedHubIdForCreate: (id: string | null) => void;
+  hubs: Hub[];
   activeServer?: Server;
   activeChannel?: Channel;
   servers: Server[];

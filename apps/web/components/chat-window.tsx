@@ -121,7 +121,7 @@ function MessageContent({ message }: { message: MessageItem }) {
     };
 
     return (
-        <div className="message-text">
+        <div className="message-text" data-testid="message-content">
             {match ? (
                 <>
                     <blockquote className="message-quote">
@@ -481,6 +481,15 @@ export function ChatWindow({
                     // Transform ![:name:](url) -> :name: for clipboard
                     const clipboardContent = rawContent.replace(/!\[(:.+?:)\]\(https?:\/\/[^\)]+\)/g, "$1");
                     void navigator.clipboard.writeText(clipboardContent);
+                }
+            },
+            {
+                label: "Reply in Thread",
+                icon: "💬",
+                onClick: () => {
+                    if (contextMenu.message) {
+                        dispatch({ type: "SET_THREAD_PARENT_ID", payload: contextMenu.message.id });
+                    }
                 }
             }
         ];
@@ -966,7 +975,7 @@ export function ChatWindow({
                                 </div>
                             )}
 
-                            <article className="message-item-container" onContextMenu={(e) => handleContextMenu(e, message)}>
+                            <article data-testid="message-item" className="message-item-container" onContextMenu={(e) => handleContextMenu(e, message)}>
                                 {showHeader ? (
                                     <header>
                                         <strong
@@ -1169,6 +1178,7 @@ export function ChatWindow({
                                             {message.reactions.map((r: any) => (
                                                 <button
                                                     key={r.emoji}
+                                                    data-testid="reaction-badge"
                                                     title={r.displayNames ? r.displayNames.join(', ') : ''}
                                                     type="button"
                                                     className={`interaction-btn ${r.me ? "active" : ""}`}

@@ -94,6 +94,44 @@ export async function listMessages(input: {
   });
 }
 
+/**
+ * Fetches a single message with its repliesCount and reactions.
+ * Used for broadcasting authoritative updates to parents/replies.
+ */
+export async function getMessageWithMetadata(messageId: string, viewerUserId?: string): Promise<ChatMessage | null> {
+  return withDb(async (db) => {
+    const rowResult = await db.query<ChatMessageRow>("select * from chat_messages where id = $1 and deleted_at is null", [messageId]);
+    if (rowResult.rows.length === 0) return null;
+    const row = rowResult.rows[0]!;
+
+    // Fetch reply count
+    const countResult = await db.query<{ count: string }>(
+      "select count(*) from chat_messages where parent_id = $1 and deleted_at is null",
+      [messageId]
+    );
+    const repliesCountMap = { [messageId]: parseInt(countResult.rows[0]?.count || "0", 10) };
+
+    // Fetch reactions
+    const reactionsResult = await db.query<ReactionRow>(
+      `select mr.message_id, mr.emoji, mr.user_id, 
+         coalesce(
+           (select coalesce(display_name, preferred_username) 
+            from identity_mappings 
+            where product_user_id = mr.user_id 
+            order by (display_name is not null or preferred_username is not null) desc, updated_at desc, created_at asc 
+            limit 1),
+           'user-' || substr(mr.user_id, 1, 8)
+         ) as display_name
+       from message_reactions mr 
+       where mr.message_id = $1`,
+      [messageId]
+    );
+    const reactionsMap = { [messageId]: reactionsResult.rows };
+
+    return mapChatMessage(row, repliesCountMap, reactionsMap, viewerUserId);
+  });
+}
+
 export async function searchMessages(input: {
   channelId?: string;
   serverId?: string;
@@ -397,6 +435,15 @@ export async function createMessage(input: {
 
     await publishChannelMessage(message);
 
+    // If this is a reply, broadcast an authoritative update for the parent message
+    // to ensure reply counts are synchronized across all clients.
+    if (input.parentId) {
+      const parent = await getMessageWithMetadata(input.parentId, input.actorUserId);
+      if (parent) {
+        await publishChannelMessage(parent, "message.updated");
+      }
+    }
+
     // Automatically stop typing when message is sent/received
     await publishChannelMessage({
       channelId: message.channelId,
@@ -528,6 +575,13 @@ export async function deleteMessage(input: {
       channelId: msg.channel_id,
       parentId: parentId || undefined
     } as any, "message.deleted");
+
+    if (parentId) {
+      const parent = await getMessageWithMetadata(parentId, input.actorUserId);
+      if (parent) {
+        await publishChannelMessage(parent, "message.updated");
+      }
+    }
 
     return { parentId };
   });

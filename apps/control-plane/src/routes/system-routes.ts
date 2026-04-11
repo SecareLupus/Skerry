@@ -1,5 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { DEFAULT_SERVER_BLUEPRINT } from "@skerry/shared";
+import { bootstrapAdmin } from "../services/bootstrap-service.js";
+import { upsertIdentityMapping } from "../services/identity-service.js";
 import { config } from "../config.js";
 import { getBootstrapStatus } from "../services/bootstrap-service.js";
 import { getMetrics } from "../services/observability-service.js";
@@ -7,6 +9,7 @@ import { logEvent } from "../services/observability-service.js";
 import { checkSynapseHealth } from "../matrix/synapse-adapter.js";
 import { withDb } from "../db/client.js";
 import { requireAuth, requireInitialized } from "../auth/middleware.js";
+import { S3Client, CreateBucketCommand } from "@aws-sdk/client-s3";
 
 export async function registerSystemRoutes(app: FastifyInstance): Promise<void> {
   const initializedAuthHandlers = { preHandler: [requireAuth, requireInitialized] };
@@ -83,5 +86,97 @@ export async function registerSystemRoutes(app: FastifyInstance): Promise<void> 
       defaultServerId: status.defaultServerId,
       defaultChannelId: status.defaultChannelId
     };
+  });
+
+  app.post("/v1/system/test-reset", async (request, reply) => {
+    if (config.baseDomain !== "localhost" && !config.devAuthBypass) {
+      reply.code(403).send({ error: "Forbidden", message: "Test reset only allowed in development." });
+      return;
+    }
+
+    console.log('[system-routes] Starting test-reset...');
+
+    await withDb(async (db) => {
+      await db.query("begin");
+      try {
+        // Truncate all identity, hub, server, and chat state
+        // cascaded to handle foreign key dependencies
+        await db.query(`
+          truncate 
+            chat_messages, 
+            message_reactions, 
+            mention_markers, 
+            channel_read_states, 
+            user_blocks, 
+            hub_members, 
+            server_members, 
+            role_bindings,
+            categories, 
+            channels, 
+            servers, 
+            hubs, 
+            identity_mappings 
+          cascade
+        `);
+
+        // Reset the bootstrap markers in platform_settings
+        await db.query(`
+          update platform_settings
+          set bootstrap_completed_at = null,
+              bootstrap_admin_user_id = null,
+              bootstrap_hub_id = null,
+              default_server_id = null,
+              default_channel_id = null
+          where id = 'global'
+        `);
+        
+        await db.query("commit");
+
+        // 2. Re-bootstrap for the test user
+        const testUser = await upsertIdentityMapping({
+          provider: "dev",
+          oidcSubject: "local-admin",
+          email: "local-admin@dev.local",
+          preferredUsername: "local-admin",
+          avatarUrl: null
+        });
+
+        await bootstrapAdmin({
+          productUserId: testUser.productUserId,
+          setupToken: config.setupBootstrapToken || "test-reset-bypass",
+          expectedSetupToken: config.setupBootstrapToken || "test-reset-bypass",
+          hubName: "Skerry Test Hub"
+        });
+
+        // 3. Provision Minio Bucket for testing if configured
+        if (config.s3.endpoint && config.s3.bucket && config.devAuthBypass) {
+          try {
+            const s3 = new S3Client({
+              region: config.s3.region,
+              endpoint: config.s3.endpoint,
+              credentials: {
+                accessKeyId: config.s3.accessKeyId || "minioadmin",
+                secretAccessKey: config.s3.secretAccessKey || "minioadmin",
+              },
+              forcePathStyle: true,
+            });
+            await s3.send(new CreateBucketCommand({ Bucket: config.s3.bucket })).catch((err) => {
+              if (err.name !== "BucketAlreadyOwnedByYou" && err.name !== "BucketAlreadyExists") {
+                throw err;
+              }
+            });
+            console.log(`[system-routes] Ensured test bucket exists: ${config.s3.bucket}`);
+          } catch (err) {
+            console.error("[system-routes] Failed to provision test bucket:", err);
+            // Don't fail the whole reset if Minio is down/unreachable
+          }
+        }
+      } catch (err) {
+        await db.query("rollback");
+        throw err;
+      }
+    });
+
+    return { success: true, message: "Workspace reset and bootstrapped for testing." };
   });
 }

@@ -938,6 +938,7 @@ export function ChatClient() {
 
       <ModalManager />
       <ClientModals 
+        {...state}
         activeModal={activeModal}
         dispatch={dispatch}
         spaceName={spaceName}
@@ -978,9 +979,12 @@ export function ChatClient() {
         lastInviteUrl={lastInviteUrl}
         setLastInviteUrl={setLastInviteUrl}
         mutatingStructure={mutatingStructure}
-        serverId={selectedServerId!}
+        serverId={selectedServerId || ""}
         selectedChannelId={selectedChannelId}
         selectedCategoryIdForCreate={selectedCategoryIdForCreate}
+        selectedHubIdForCreate={selectedHubIdForCreate}
+        setSelectedHubIdForCreate={setSelectedHubIdForCreate}
+        hubs={hubs}
         activeServer={activeServer}
         activeChannel={activeChannel!}
         servers={servers}

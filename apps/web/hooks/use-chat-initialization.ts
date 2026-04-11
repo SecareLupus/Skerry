@@ -79,6 +79,13 @@ export function useChatInitialization({
       console.error("Failed to load bootstrap status:", cause);
     }
 
+    if (!viewerData || viewerData.needsOnboarding) {
+      dispatch({ type: "SET_VIEWER_ROLES", payload: [] });
+      dispatch({ type: "SET_HUBS", payload: [] });
+      dispatch({ type: "SET_BLOCKED_USER_IDS", payload: [] });
+      return;
+    }
+
     void listViewerRoleBindings()
       .then((roleBindings) => dispatch({ type: "SET_VIEWER_ROLES", payload: roleBindings }))
       .catch(() => dispatch({ type: "SET_VIEWER_ROLES", payload: [] }));
@@ -168,10 +175,34 @@ export function useChatInitialization({
       nextChannelId = textChannels[0]?.id ?? channelItems[0]?.id ?? null;
     }
 
-    // BOOTSTRAP: Load the entire room state in one atomic call
+    // Validate that the channel exists in this server (prevent stale localStorage hits)
+    if (nextChannelId && !channelItems.find(c => c.id === nextChannelId)) {
+      console.warn(`[useChatInitialization] Channel ${nextChannelId} not found in server ${nextServerId}. Resetting to default.`);
+      const textChannels = channelItems.filter((channel) => channel.type === "text" || channel.type === "announcement");
+      nextChannelId = textChannels[0]?.id ?? channelItems[0]?.id ?? null;
+    }
+
+        // BOOTSTRAP: Load the entire room state in one atomic call
     if (nextChannelId) {
       try {
-        const initData = await fetchChannelInit(nextChannelId);
+        let initData;
+        let retryCount = 0;
+        const maxRetries = 3;
+        
+        while (retryCount <= maxRetries) {
+          try {
+            initData = await fetchChannelInit(nextChannelId);
+            break;
+          } catch (err) {
+            if (retryCount === maxRetries) throw err;
+            retryCount++;
+            console.warn(`[useChatInitialization] fetchChannelInit failed, retrying (${retryCount}/${maxRetries})...`, err);
+            // Linear backoff: 1s, 2s, 3s
+            await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+          }
+        }
+
+        if (!initData) throw new Error("Failed to load channel data after retries.");
         if (requestId !== chatStateRequestIdRef.current) return;
 
         dispatch({
@@ -228,6 +259,18 @@ export function useChatInitialization({
         }, 50);
 
       } catch (err) {
+        // If it's a 404, the channel is gone (likely after a workspace reset)
+        // Recover by clearing stale state and retrying with the first available channel.
+        if (err instanceof Error && err.message.toLowerCase().includes("404") && nextChannelId) {
+          console.warn("[useChatInitialization] Channel 404'd. Clearing stale state and retrying fallback...", nextChannelId);
+          localStorage.removeItem("lastChannelId");
+          const textChannels = channelItems.filter((channel) => channel.type === "text" || channel.type === "announcement");
+          const fallbackId = textChannels[0]?.id ?? channelItems[0]?.id ?? null;
+          if (fallbackId && fallbackId !== nextChannelId) {
+            return void refreshChatState(nextServerId, fallbackId, preferredMessageId, force);
+          }
+        }
+
         console.error("Failed to bootstrap room:", err);
         dispatch({ type: "SET_SWITCHING_SERVER", payload: false });
         dispatch({ type: "SET_ERROR", payload: "Failed to load chat room." });

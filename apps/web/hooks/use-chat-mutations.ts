@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useChat } from "../context/chat-context";
 import { useToast } from "../components/toast-provider";
 import type { ChannelType } from "@skerry/shared";
@@ -55,27 +55,51 @@ export function useChatMutations({
   } = state;
 
   // Local state for forms
+  const [selectedHubIdForCreate, setSelectedHubIdForCreate] = useState<string | null>(null);
   const [spaceName, setSpaceName] = useState("New Space");
   const [roomName, setRoomName] = useState("new-room");
   const [roomType, setRoomType] = useState<ChannelType>("text");
   const [roomIcon, setRoomIcon] = useState("");
-  const [selectedHubIdForCreate, setSelectedHubIdForCreate] = useState<string | null>(null);
   const [categoryName, setCategoryName] = useState("New Category");
   const [spaceSettingsTab, setSpaceSettingsTab] = useState<"general" | "permissions">("general");
   const [roomSettingsTab, setRoomSettingsTab] = useState<"general" | "permissions" | "preview">("general");
   const [iconFile, setIconFile] = useState<File | null>(null);
 
+  // Sync selectedHubIdForCreate when hubs are loaded
+  useEffect(() => {
+    const firstHub = hubs?.[0];
+    if (hubs && hubs.length === 1 && !selectedHubIdForCreate && firstHub) {
+      setSelectedHubIdForCreate(firstHub.id);
+    }
+  }, [hubs, selectedHubIdForCreate]);
+
   const handleCreateSpace = useCallback(async (event: React.FormEvent): Promise<void> => {
     event.preventDefault();
-    if (!selectedHubIdForCreate || !spaceName.trim()) {
+    
+    // Robust fallback: if only one hub exists, auto-select it if not already set
+    let effectiveHubId = selectedHubIdForCreate;
+    const firstHub = hubs?.[0];
+    if (!effectiveHubId && hubs && hubs.length === 1 && firstHub) {
+        effectiveHubId = firstHub.id;
+        console.log('[handleCreateSpace] Auto-selecting single available hub:', effectiveHubId);
+    }
+
+    console.log('[handleCreateSpace] Submitting...', { effectiveHubId, spaceName });
+    
+    if (!effectiveHubId || !spaceName.trim()) {
+      const errorMsg = !effectiveHubId ? "No hub selected" : "Space name is empty";
+      console.warn(`[handleCreateSpace] Aborting: ${errorMsg} (hubs count: ${hubs?.length ?? 0}, selectedHubId: ${selectedHubIdForCreate})`);
+      showToast(`Please select a hub and enter a space name (${errorMsg})`, "error");
       return;
     }
+
+    console.log(`[handleCreateSpace] Initiating creation on hub: ${effectiveHubId} name: ${spaceName}`);
 
     dispatch({ type: "SET_CREATING_SPACE", payload: true });
     dispatch({ type: "SET_ERROR", payload: null });
     try {
       const server = await createServer({
-        hubId: selectedHubIdForCreate,
+        hubId: effectiveHubId,
         name: spaceName.trim()
       });
       setSpaceName("New Space");
@@ -83,12 +107,13 @@ export function useChatMutations({
       showToast("Space created successfully", "success");
       await refreshChatState(server.id, undefined, undefined, true);
     } catch (cause) {
+      console.error('[handleCreateSpace] Creation failed:', cause);
       dispatch({ type: "SET_ERROR", payload: cause instanceof Error ? cause.message : "Failed to create space." });
       showToast(cause instanceof Error ? cause.message : "Failed to create space.", "error");
     } finally {
       dispatch({ type: "SET_CREATING_SPACE", payload: false });
     }
-  }, [selectedHubIdForCreate, spaceName, dispatch, showToast, refreshChatState]);
+  }, [selectedHubIdForCreate, spaceName, hubs, dispatch, showToast, refreshChatState]);
 
   const handleRenameSpace = useCallback(async (event: React.FormEvent): Promise<void> => {
     event.preventDefault();
