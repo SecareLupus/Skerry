@@ -1,0 +1,30 @@
+# Configuration file for Synapse.
+server_name: "hub-localhost"
+cors_allow_origins: ["*"]
+pid_file: /data/homeserver.pid
+listeners:
+  - port: 8008
+    resources:
+      - names: [client, federation, media]
+        compress: false
+    tls: false
+    type: http
+    x_forwarded: false
+database:
+  name: sqlite3
+  args:
+    database: /data/homeserver.db
+log_config: "/data/hub-localhost.log.config"
+media_store_path: /data/media_store
+registration_shared_secret: "JcOYCz8LxB_f+,N1e~Y#W^r.CKDb@:udYg3RZkCqc;Nl5Dn&jx"
+report_stats: false
+macaroon_secret_key: "l,gRdq;ARsYoaF~dBj9D0&s-BHlHv;m__RnPbhxwr=9VfpaC2D"
+form_secret: "2ekUjE_ngCMFb0UD41V^HG13rF^P.,m5FGVbL~HDVt4am79i&p"
+signing_key_path: "/data/hub-localhost.signing.key"
+trusted_key_servers:
+  - server_name: "matrix.org"
+
+enable_authenticated_media: false
+app_service_config_files:
+  - /data/skerry-appservice.yaml
+# vim:ft=yaml

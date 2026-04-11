@@ -1,0 +1,11 @@
+id: Skerry
+url: http://control-plane:4000
+as_token: test_as_token
+hs_token: test_hs_token
+sender_localpart: skerry-bot
+namespaces:
+  users:
+    - exclusive: false
+      regex: "@.*"
+  rooms: []
+  aliases: []
