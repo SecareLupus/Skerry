@@ -28,6 +28,8 @@ export async function buildApp() {
         "http://127.0.0.1:3000",
         "https://127.0.0.1",
         "https://127.0.0.1:3000",
+        "http://localhost:8080",
+        "https://localhost:8080",
         config.webBaseUrl
       ].filter(Boolean);
 
