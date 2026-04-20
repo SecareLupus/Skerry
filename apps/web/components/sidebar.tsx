@@ -201,6 +201,7 @@ export function Sidebar({
                                         type="button"
                                         className="icon-button"
                                         aria-label="Create Space"
+                                        data-testid="add-space-button"
                                         onClick={() => dispatch({ type: "SET_ACTIVE_MODAL", payload: "create-space" })}
                                     >
                                         +
@@ -256,6 +257,7 @@ export function Sidebar({
                                                     type="button"
                                                     className="icon-button"
                                                     title="Edit Server"
+                                                    data-testid="server-settings-button"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         dispatch({ type: "SET_RENAME_SPACE", payload: { id: server.id, name: server.name, iconUrl: (server as any).iconUrl } });

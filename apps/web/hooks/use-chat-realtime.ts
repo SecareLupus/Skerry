@@ -2,6 +2,7 @@
 
 import { useEffect, useCallback } from "react";
 import { useChat, MessageItem } from "../context/chat-context";
+import { useToast } from "../components/toast-provider";
 import { 
   connectHubStream, 
   listMessages, 
@@ -13,6 +14,7 @@ import { getChannelName } from "../lib/channel-utils";
 
 export function useChatRealtime() {
   const { state, dispatch } = useChat();
+  const { showToast } = useToast();
   const { 
     viewer, 
     bootstrapStatus, 
@@ -195,6 +197,57 @@ export function useChatRealtime() {
       }
     });
 
+    source.addEventListener("channel.created", (event: any) => {
+      const data = JSON.parse(event.data);
+      if (data.serverId === selectedServerId) {
+        dispatch({ type: "UPSERT_CHANNEL", payload: data });
+      }
+    });
+
+    source.addEventListener("channel.updated", (event: any) => {
+      const data = JSON.parse(event.data);
+      if (data.serverId === selectedServerId) {
+        dispatch({ type: "UPSERT_CHANNEL", payload: data });
+      }
+    });
+
+    source.addEventListener("channel.deleted", (event: any) => {
+      const data = JSON.parse(event.data);
+      if (data.serverId === selectedServerId) {
+        dispatch({ type: "DELETE_CHANNEL", payload: data.id });
+      }
+    });
+
+    source.addEventListener("category.created", (event: any) => {
+      const data = JSON.parse(event.data);
+      if (data.serverId === selectedServerId) {
+        dispatch({ type: "UPSERT_CATEGORY", payload: data });
+      }
+    });
+
+    source.addEventListener("category.updated", (event: any) => {
+      const data = JSON.parse(event.data);
+      if (data.serverId === selectedServerId) {
+        dispatch({ type: "UPSERT_CATEGORY", payload: data });
+      }
+    });
+
+    source.addEventListener("category.deleted", (event: any) => {
+      const data = JSON.parse(event.data);
+      if (data.serverId === selectedServerId) {
+        dispatch({ type: "DELETE_CATEGORY", payload: data.id });
+      }
+    });
+
+    source.addEventListener("membership.updated", (event: any) => {
+      const data = JSON.parse(event.data);
+      const isViewer = viewer?.productUserId === data.userId;
+      if (isViewer && data.state === "left") {
+        showToast("You were kicked from the server.", "error");
+        dispatch({ type: "SET_MEMBERSHIP_UPDATE", payload: Date.now() });
+      }
+    });
+
     source.addEventListener("typing.start", (event: any) => {
       const data = JSON.parse(event.data);
       dispatch({ type: "SET_TYPING_USER", payload: { ...data, isTyping: true } });
@@ -210,7 +263,7 @@ export function useChatRealtime() {
       source.close();
       stopPolling();
     };
-  }, [canAccessWorkspace, hubId, selectedChannelId, dispatch, markChannelAsRead, isNearBottom, viewer?.productUserId, channels]);
+  }, [canAccessWorkspace, hubId, selectedServerId, selectedChannelId, dispatch, markChannelAsRead, isNearBottom, viewer?.productUserId, channels, showToast]);
 
   return { markChannelAsRead };
 }

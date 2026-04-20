@@ -766,12 +766,13 @@ export function ChatClient() {
           <div className="details-drawer-container">
             {isDetailsOpen && (
               <ErrorBoundary>
-                <aside className="context panel scrollable-pane" aria-label="Channel context">
+                <aside className="context panel scrollable-pane" aria-label="Channel context" data-testid="details-drawer">
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
                     <h2 style={{ margin: 0 }}>Channel Details</h2>
                     {selectedServerId && activeServer?.type !== "dm" && (
                       <button
                         type="button"
+                        data-testid="create-hub-invite-button"
                         onClick={() => setIsCreatingHubInvite(true)}
                         title="Create Hub Invite"
                         style={{
@@ -856,6 +857,7 @@ export function ChatClient() {
                         {members.map((member) => (
                           <li
                             key={member.productUserId}
+                            data-testid="member-item"
                             className="member-item"
                             onContextMenu={(e) => handleUserContextMenu(e, { id: member.productUserId, displayName: member.displayName })}
                             title={member.isOnline ? "Online" : "Offline"}

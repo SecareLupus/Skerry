@@ -65,14 +65,21 @@ export async function listHubsForUser(
     );
 
     const ownedHubIds = new Set<string>();
+    const memberHubIds = new Set<string>();
     if (!isMasquerading) {
       const owned = await db.query<{ id: string }>("select id from hubs where owner_user_id = $1", [productUserId]);
       for (const row of owned.rows) {
         ownedHubIds.add(row.id);
       }
+      // A regular user (role='user') joins a hub via invite, which writes hub_members.
+      // listHubsForUser must include these so they can subscribe to the hub SSE stream.
+      const joined = await db.query<{ hub_id: string }>("select hub_id from hub_members where product_user_id = $1", [productUserId]);
+      for (const row of joined.rows) {
+        memberHubIds.add(row.hub_id);
+      }
     }
 
-    const ids = [...new Set([...scopedHubIds, ...ownedHubIds])];
+    const ids = [...new Set([...scopedHubIds, ...ownedHubIds, ...memberHubIds])];
     if (ids.length === 0) {
       return [];
     }

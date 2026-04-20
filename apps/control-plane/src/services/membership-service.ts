@@ -1,6 +1,7 @@
 import { withDb } from "../db/client.js";
 import { handleUserJoinedServer } from "./house-bot-service.js";
 import { getIdentityByProductUserId } from "./identity-service.js";
+import { publishHubEvent } from "./chat-realtime.js";
 
 export async function joinServer(serverId: string, productUserId: string): Promise<void> {
     await withDb(async (db) => {
@@ -15,6 +16,13 @@ export async function joinServer(serverId: string, productUserId: string): Promi
             if (identity) {
                 await handleUserJoinedServer(serverId, productUserId, identity.displayName || `user-${productUserId.slice(0, 8)}`);
             }
+
+            // Broadcast update
+            const hubRes = await db.query<{ hub_id: string }>("select hub_id from servers where id = $1", [serverId]);
+            const hubId = hubRes.rows[0]?.hub_id;
+            if (hubId) {
+                publishHubEvent(hubId, "membership.updated", { userId: productUserId, serverId, hubId, action: "join" });
+            }
         }
     });
 }
@@ -25,6 +33,13 @@ export async function leaveServer(serverId: string, productUserId: string): Prom
             "delete from server_members where server_id = $1 and product_user_id = $2",
             [serverId, productUserId]
         );
+
+        // Broadcast update
+        const hubRes = await db.query<{ hub_id: string }>("select hub_id from servers where id = $1", [serverId]);
+        const hubId = hubRes.rows[0]?.hub_id;
+        if (hubId) {
+            publishHubEvent(hubId, "membership.updated", { userId: productUserId, serverId, hubId, action: "leave" });
+        }
     });
 }
 
@@ -47,6 +62,9 @@ export async function joinHub(hubId: string, productUserId: string): Promise<voi
                 [server.id, productUserId]
             );
         }
+
+        // Broadcast update
+        publishHubEvent(hubId, "membership.updated", { userId: productUserId, hubId, action: "join" });
     });
 }
 
@@ -63,6 +81,9 @@ export async function leaveHub(hubId: string, productUserId: string): Promise<vo
                and server_id in (select id from servers where hub_id = $2)`,
             [productUserId, hubId]
         );
+
+        // Broadcast update
+        publishHubEvent(hubId, "membership.updated", { userId: productUserId, hubId, action: "leave" });
     });
 }
 

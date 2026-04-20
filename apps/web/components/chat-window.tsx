@@ -7,7 +7,7 @@ import { Category, Channel, ChatMessage, MentionMarker, ModerationAction, Modera
 import { getChannelName } from "../lib/channel-utils";
 import { ContextMenu, ContextMenuItem } from "./context-menu";
 import { useToast } from "./toast-provider";
-import { performModerationAction, createReport, uploadMedia, updateMessage, addReaction, removeReaction, deleteMessage, listChannelMembers, inviteToChannel, updateChannel, searchUsers, formatMessageTime, pinMessage, unpinMessage, sendTypingStatus, createHubInvite, getFirstUnreadMessageId } from "../lib/control-plane";
+import { performModerationAction, createReport, uploadMedia, updateMessage, addReaction, removeReaction, deleteMessage, listChannelMembers, inviteToChannel, updateChannel, searchUsers, formatMessageTime, pinMessage, unpinMessage, sendTypingStatus, getFirstUnreadMessageId } from "../lib/control-plane";
 import dynamic from "next/dynamic";
 
 // @ts-ignore - emoji-picker-react types mismatch with Next.js dynamic
@@ -263,8 +263,6 @@ export function ChatWindow({
     const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const [newTopic, setNewTopic] = useState("");
     const [isInviting, setIsInviting] = useState(false);
-    const [isCreatingHubInvite, setIsCreatingHubInvite] = useState(false);
-    const [lastInviteUrl, setLastInviteUrl] = useState<string | null>(null);
     const { showToast } = useToast();
 
     const handleQuoteReply = useCallback((message: MessageItem) => {
@@ -933,6 +931,7 @@ export function ChatWindow({
 
                     <button
                         type="button"
+                        data-testid="toggle-member-list"
                         className={`icon-button ${isDetailsOpen ? "active-toggle" : ""}`}
                         title={isDetailsOpen ? "Hide Member List" : "Show Member List"}
                         onClick={() => dispatch({ type: "SET_DETAILS_OPEN", payload: !isDetailsOpen })}
@@ -1499,71 +1498,6 @@ export function ChatWindow({
                             </div>
                             <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "1rem" }}>
                                 <button className="ghost" onClick={() => setIsInviting(false)}>Close</button>
-                            </div>
-                        </div>
-                    </div>
-                )
-            }
-            {/* Hub Invite Modal */}
-            {
-                isCreatingHubInvite && (
-                    <div className="modal-overlay" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }} onClick={() => setIsCreatingHubInvite(false)}>
-                        <div className="modal-content panel" style={{ width: "400px", padding: "1.5rem", borderRadius: "12px", boxShadow: "0 10px 30px rgba(0,0,0,0.3)" }} onClick={(e) => e.stopPropagation()}>
-                            <header style={{ marginBottom: "1.5rem", textAlign: "center" }}>
-                                <h3 style={{ margin: 0 }}>Invite to {activeServer?.name}</h3>
-                            </header>
-
-                            {!lastInviteUrl ? (
-                                <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-                                    <p style={{ fontSize: "0.9rem", opacity: 0.8, textAlign: "center" }}>
-                                        This will create a link that anyone can use to join this hub.
-                                    </p>
-                                    <button
-                                        className="primary"
-                                        onClick={async () => {
-                                            try {
-                                                const hubId = activeServer?.id;
-                                                if (!hubId) return;
-                                                const invite = await createHubInvite(hubId);
-                                                const url = `${window.location.origin}/invite/${invite.id}`;
-                                                setLastInviteUrl(url);
-                                            } catch (e) {
-                                                showToast("Failed to create invite", "error");
-                                            }
-                                        }}
-                                        style={{ width: "100%", padding: "0.8rem", borderRadius: "8px", background: "var(--accent)", color: "white", border: "none", fontWeight: 600, cursor: "pointer" }}
-                                    >
-                                        Generate Invite Link
-                                    </button>
-                                </div>
-                            ) : (
-                                <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-                                    <div style={{ background: "var(--surface-alt)", padding: "0.75rem", borderRadius: "8px", border: "1px solid var(--border)", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                                        <input
-                                            type="text"
-                                            readOnly
-                                            value={lastInviteUrl}
-                                            style={{ flex: 1, background: "transparent", border: "none", color: "var(--text)", fontSize: "0.9rem" }}
-                                        />
-                                        <button
-                                            onClick={() => {
-                                                navigator.clipboard.writeText(lastInviteUrl);
-                                                showToast("Copied to clipboard", "success");
-                                            }}
-                                            style={{ background: "var(--accent)", color: "white", border: "none", borderRadius: "4px", padding: "0.25rem 0.5rem", fontSize: "0.8rem", cursor: "pointer" }}
-                                        >
-                                            Copy
-                                        </button>
-                                    </div>
-                                    <p style={{ fontSize: "0.8rem", opacity: 0.6, textAlign: "center" }}>
-                                        Share this link with your friends!
-                                    </p>
-                                    <button className="ghost" onClick={() => { setIsCreatingHubInvite(false); setLastInviteUrl(null); }} style={{ padding: "0.5rem", color: "var(--accent)", border: "none", background: "none", cursor: "pointer" }}>Done</button>
-                                </div>
-                            )}
-
-                            <div style={{ marginTop: "1rem", display: "flex", justifyContent: "center" }}>
-                                <button className="ghost" onClick={() => { setIsCreatingHubInvite(false); setLastInviteUrl(null); }} style={{ opacity: 0.6, fontSize: "0.9rem", background: "none", border: "none", cursor: "pointer" }}>Close</button>
                             </div>
                         </div>
                     </div>

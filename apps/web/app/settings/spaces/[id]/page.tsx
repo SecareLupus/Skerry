@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { fetchServerSettings, updateServerSettings } from "../../../../lib/control-plane";
 import { useChat } from "../../../../context/chat-context";
@@ -18,6 +18,13 @@ export default function SpaceSettingsPage() {
     const [settings, setSettings] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    
+    const canManageCurrentSpace = useMemo(() => state.viewerRoles.some(
+        (binding) =>
+          (binding.role === "hub_admin" || binding.role === "space_owner") &&
+          (binding.serverId === serverId || !binding.serverId)
+      ), [state.viewerRoles, serverId]);
+
 
     const server = servers.find(s => s.id === serverId);
 
@@ -56,10 +63,19 @@ export default function SpaceSettingsPage() {
     if (loading) return <p>Loading space settings...</p>;
     if (!server) return <p>Space not found.</p>;
 
+    if (!canManageCurrentSpace) {
+        return (
+            <div className="settings-section">
+                <h1>Access Denied</h1>
+                <p>You do not have permission to manage this space.</p>
+            </div>
+        );
+    }
+
     return (
         <div className="settings-section">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h2>Space Settings: {server.name}</h2>
+                <h1>Space Settings: {server.name}</h1>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <label htmlFor="space-switcher" style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Switch Space:</label>
                     <select

@@ -49,6 +49,12 @@ export default function SettingsLayout({
       hidden: !canManageCurrentSpace || !selectedServerId 
     },
     { 
+      label: "Audit Log", 
+      href: `/settings/spaces/${selectedServerId}/audit-log`, 
+      icon: "📜", 
+      hidden: !canManageCurrentSpace || !selectedServerId 
+    },
+    { 
       label: "Room Settings", 
       href: `/settings/rooms/${selectedChannelId}`, 
       icon: "💬", 

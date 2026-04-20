@@ -6,6 +6,7 @@ import { RoomModals } from "./RoomModals";
 import { CategoryModals } from "./CategoryModals";
 import { InviteModals } from "./InviteModals";
 import { VoiceSettingsModal } from "./VoiceSettingsModal";
+import { ModerationModal } from "./ModerationModal";
 import { useToast } from "../toast-provider";
 import type { Server, Channel, Category, Hub, ChannelType } from "@skerry/shared";
 
@@ -80,6 +81,10 @@ interface ClientModalsProps {
   moveChannelPosition: (id: string, direction: "up" | "down") => Promise<void>;
   performDeleteRoom: (serverId: string, roomId: string) => Promise<void>;
   refreshChatState: (serverId?: string, channelId?: string, messageId?: string, force?: boolean) => Promise<void>;
+  
+  // Moderation state
+  moderationTargetUserId: string | null;
+  moderationTargetDisplayName: string | null;
 }
 
 export function ClientModals(props: ClientModalsProps) {
@@ -91,7 +96,8 @@ export function ClientModals(props: ClientModalsProps) {
     activeModal === "create-category" || 
     activeModal === "rename-category" || 
     activeModal === "create-room" || 
-    activeModal === "rename-room";
+    activeModal === "rename-room" ||
+    activeModal === "moderation";
 
   if (!isClientControlled && !props.isInviting && !props.isCreatingHubInvite) return null;
 
@@ -112,6 +118,7 @@ export function ClientModals(props: ClientModalsProps) {
                 {activeModal === "rename-category" && "Category Settings"}
                 {activeModal === "create-room" && "Create Room"}
                 {activeModal === "rename-room" && (renameRoomType === "landing" ? "Creator Suite" : "Room Settings")}
+                {activeModal === "moderation" && "Moderate User"}
               </h2>
               <button 
                 type="button" 
@@ -191,6 +198,18 @@ export function ClientModals(props: ClientModalsProps) {
               showToast={showToast}
               refreshChatState={props.refreshChatState}
             />
+
+            {activeModal === "moderation" && props.moderationTargetUserId && (
+              <ModerationModal
+                targetUserId={props.moderationTargetUserId}
+                targetDisplayName={props.moderationTargetDisplayName || "User"}
+                serverId={props.serverId}
+                hubId={props.activeServer?.hubId}
+                onClose={() => dispatch({ type: "SET_ACTIVE_MODAL", payload: null })}
+                showToast={showToast}
+                refreshChatState={() => props.refreshChatState(undefined, undefined, undefined, true)}
+              />
+            )}
           </div>
         </div>
       )}

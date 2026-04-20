@@ -164,11 +164,28 @@ export async function performModerationAction(
       if (input.action === "kick" && input.targetUserId) {
         if (!scope.roomId) throw new Error("Could not resolve Matrix room for kick");
         await kickUser({ roomId: scope.roomId, userId: input.targetUserId, reason: input.reason });
+        
+        // Sync membership state
+        const { leaveServer, leaveHub } = await import("./membership-service.js");
+        if (input.serverId) {
+          await leaveServer(input.serverId, input.targetUserId);
+        } else if (input.hubId) {
+          await leaveHub(input.hubId, input.targetUserId);
+        }
       }
 
       if (input.action === "ban" && input.targetUserId) {
         if (!scope.roomId) throw new Error("Could not resolve Matrix room for ban");
         await banUser({ roomId: scope.roomId, userId: input.targetUserId, reason: input.reason });
+
+        // Sync membership state
+        const { leaveServer, leaveHub } = await import("./membership-service.js");
+        if (input.serverId) {
+          await leaveServer(input.serverId, input.targetUserId);
+        }
+        if (input.hubId) {
+          await leaveHub(input.hubId, input.targetUserId);
+        }
       }
 
       if (input.action === "unban" && input.targetUserId) {

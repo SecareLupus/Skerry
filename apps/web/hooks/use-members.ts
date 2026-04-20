@@ -11,19 +11,16 @@ export function useMembers() {
   useEffect(() => {
     if (!selectedChannelId) return;
 
-    // Only fetch immediately if we have zero members (initial load sync)
-    if (state.members.length === 0) {
-      listChannelMembers(selectedChannelId)
-        .then((items) => dispatch({ type: "SET_MEMBERS", payload: items }))
-        .catch(() => { });
-    }
+    listChannelMembers(selectedChannelId)
+      .then((items) => dispatch({ type: "SET_MEMBERS", payload: items }))
+      .catch(() => { });
 
     const interval = setInterval(() => {
       listChannelMembers(selectedChannelId)
         .then((items) => dispatch({ type: "SET_MEMBERS", payload: items }))
         .catch(() => { });
-    }, 60000); // Relaxed to 60 seconds
+    }, 30000); // 30s polling for membership consistency
 
     return () => clearInterval(interval);
-  }, [selectedChannelId, dispatch, state.members.length]);
+  }, [selectedChannelId, dispatch, state.lastMembershipUpdate]);
 }

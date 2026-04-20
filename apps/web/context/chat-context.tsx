@@ -97,6 +97,8 @@ export interface ChatState {
     activeChannelData: Channel | null;
     discordMappings: DiscordBridgeChannelMapping[];
     discordConnection: DiscordBridgeConnection | null;
+    lastMembershipUpdate?: number;
+    switchingServer?: boolean;
     // UI states that might be useful globally
     lastReadByChannel: Record<string, string>;
     mentionCountByChannel: Record<string, number>;
@@ -168,7 +170,6 @@ export interface ChatState {
         scope: "hub" | "space";
         serverId?: string;
     } | null;
-    switchingServer: boolean;
 }
 
 type ChatAction =
@@ -225,12 +226,16 @@ type ChatAction =
     | { type: "SET_CREATING_ROOM"; payload: boolean }
     | { type: "SET_CREATING_CATEGORY"; payload: boolean }
     | { type: "SET_SAVING_ONBOARDING"; payload: boolean }
-    | { type: "SET_SENDING"; payload: boolean }
+    | {type: "SET_SENDING"; payload: boolean }
     | { type: "SET_UPDATING_CONTROLS"; payload: boolean }
     | { type: "SET_NOTIFICATIONS"; payload: Record<string, { unreadCount: number; mentionCount: number; isMuted: boolean }> }
     | { type: "CLEAR_NOTIFICATIONS"; payload: { channelId: string } }
     | { type: "SET_CHANNEL_SCROLL_POSITION"; payload: { channelId: string; position: number } }
     | { type: "SET_CHANNEL_DRAFT"; payload: { channelId: string; draft: string } }
+    | { type: "UPSERT_CHANNEL"; payload: Channel }
+    | { type: "DELETE_CHANNEL"; payload: string }
+    | { type: "UPSERT_CATEGORY"; payload: Category }
+    | { type: "DELETE_CATEGORY"; payload: string }
     | { type: "SET_PROFILE_USER_ID"; payload: string | null }
     | { type: "SET_BLOCKED_USER_IDS"; payload: string[] }
     | { type: "BLOCK_USER"; payload: string }
@@ -244,6 +249,8 @@ type ChatAction =
     | { type: "PRUNE_TYPING_USERS" }
     | { type: "SET_SEARCH_QUERY", payload: string }
     | { type: "SET_SEARCH_RESULTS", payload: ChatMessage[] }
+    | { type: "SET_SWITCHING_SERVER"; payload: boolean }
+    | { type: "SET_MEMBERSHIP_UPDATE"; payload: number }
     | { type: "SET_IS_SEARCHING", payload: boolean }
     | { type: "SET_HIGHLIGHTED_MESSAGE_ID", payload: string | null }
     | { type: "SET_MODERATION_TARGET", payload: { userId: string | null; displayName: string | null; messageId?: string | null } }
@@ -357,7 +364,8 @@ const initialState: ChatState = {
     confirmationContext: null,
     pendingActionIds: new Set(),
     roleContext: null,
-    switchingServer: false
+    switchingServer: false,
+    lastMembershipUpdate: 0
 };
 
 function chatReducer(state: ChatState, action: ChatAction): ChatState {
@@ -557,6 +565,24 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
                     [action.payload.channelId]: action.payload.draft
                 }
             };
+        case "UPSERT_CHANNEL": {
+            const exists = state.channels.some(c => c.id === action.payload.id);
+            const nextChannels = exists 
+                ? state.channels.map(c => c.id === action.payload.id ? action.payload : c)
+                : [...state.channels, action.payload];
+            return { ...state, channels: nextChannels };
+        }
+        case "DELETE_CHANNEL":
+            return { ...state, channels: state.channels.filter(c => c.id !== action.payload) };
+        case "UPSERT_CATEGORY": {
+            const exists = state.categories.some(c => c.id === action.payload.id);
+            const nextCategories = exists 
+                ? state.categories.map(c => c.id === action.payload.id ? action.payload : c)
+                : [...state.categories, action.payload];
+            return { ...state, categories: nextCategories };
+        }
+        case "DELETE_CATEGORY":
+            return { ...state, categories: state.categories.filter(c => c.id !== action.payload) };
         case "SET_PROFILE_USER_ID":
             return { ...state, profileUserId: action.payload };
         case "SET_BLOCKED_USER_IDS":
@@ -668,7 +694,7 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
                 ...(action.payload.activeChannelData !== undefined && { activeChannelData: action.payload.activeChannelData }),
                 ...(action.payload.messages !== undefined && { messages: action.payload.messages }),
                 ...(action.payload.members !== undefined && { members: action.payload.members }),
-                ...(action.payload.permissions !== undefined && { permissions: action.payload.permissions }),
+                ...(action.payload.permissions !== undefined && { allowedActions: action.payload.permissions }),
                 ...(action.payload.highlightedMessageId !== undefined && { highlightedMessageId: action.payload.highlightedMessageId }),
                 ...(action.payload.error !== undefined && { error: action.payload.error }),
                 ...(action.payload.hubs !== undefined && { hubs: action.payload.hubs })

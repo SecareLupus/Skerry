@@ -99,7 +99,7 @@ export async function registerSystemRoutes(app: FastifyInstance): Promise<void> 
     await withDb(async (db) => {
       await db.query("begin");
       try {
-        // Truncate all identity, hub, server, and chat state
+        // 1. Truncate all identity, hub, server, and chat state
         // cascaded to handle foreign key dependencies
         await db.query(`
           truncate 
@@ -119,7 +119,7 @@ export async function registerSystemRoutes(app: FastifyInstance): Promise<void> 
           cascade
         `);
 
-        // Reset the bootstrap markers in platform_settings
+        // 2. Reset the bootstrap markers in platform_settings
         await db.query(`
           update platform_settings
           set bootstrap_completed_at = null,
@@ -131,22 +131,6 @@ export async function registerSystemRoutes(app: FastifyInstance): Promise<void> 
         `);
         
         await db.query("commit");
-
-        // 2. Re-bootstrap for the test user
-        const testUser = await upsertIdentityMapping({
-          provider: "dev",
-          oidcSubject: "local-admin",
-          email: "local-admin@dev.local",
-          preferredUsername: "local-admin",
-          avatarUrl: null
-        });
-
-        await bootstrapAdmin({
-          productUserId: testUser.productUserId,
-          setupToken: config.setupBootstrapToken || "test-reset-bypass",
-          expectedSetupToken: config.setupBootstrapToken || "test-reset-bypass",
-          hubName: "Skerry Test Hub"
-        });
 
         // 3. Provision Minio Bucket for testing if configured
         if (config.s3.endpoint && config.s3.bucket && config.devAuthBypass) {
@@ -168,7 +152,6 @@ export async function registerSystemRoutes(app: FastifyInstance): Promise<void> 
             console.log(`[system-routes] Ensured test bucket exists: ${config.s3.bucket}`);
           } catch (err) {
             console.error("[system-routes] Failed to provision test bucket:", err);
-            // Don't fail the whole reset if Minio is down/unreachable
           }
         }
       } catch (err) {
@@ -177,6 +160,6 @@ export async function registerSystemRoutes(app: FastifyInstance): Promise<void> 
       }
     });
 
-    return { success: true, message: "Workspace reset and bootstrapped for testing." };
+    return { success: true, message: "Workspace reset to clean state (pre-onboarding)." };
   });
 }

@@ -362,8 +362,18 @@ export async function listChannelMembers(channelId: string, viewerUserId?: strin
       );
       localProductUserIds = rows.rows.map(r => r.product_user_id);
     } else {
+      // Membership sources, in order of increasing specificity:
+      //   1. role_bindings for management roles (hub_admin, space_owner, etc.) —
+      //      these users can moderate the server even if they aren't explicit members.
+      //      Exclude role='user' because that's a hub-wide binding (from invite-join)
+      //      and we don't want hub members to show up in unrelated server lists.
+      //   2. Server/hub owners, always visible in their own scopes.
+      //   3. channel_members (for DM-style channels).
+      //   4. server_members (the authoritative roster — gets cleared on kick).
       const rows = await db.query<{ product_user_id: string }>(
-        `select distinct product_user_id from role_bindings where server_id = $1 or channel_id = $2 or hub_id = $3
+        `select distinct product_user_id from role_bindings
+           where (server_id = $1 or channel_id = $2 or hub_id = $3)
+             and role != 'user'
          union
          select owner_user_id from servers where id = $1
          union
@@ -371,9 +381,7 @@ export async function listChannelMembers(channelId: string, viewerUserId?: strin
          union
          select product_user_id from channel_members where channel_id = $2
          union
-         select author_user_id from chat_messages where channel_id = $2 and is_relay = false
-         union
-         select distinct product_user_id from identity_mappings where product_user_id is not null`,
+         select product_user_id from server_members where server_id = $1`,
         [channel.server_id, channelId, server.hub_id]
       );
       localProductUserIds = rows.rows.map(m => m.product_user_id).filter(Boolean);

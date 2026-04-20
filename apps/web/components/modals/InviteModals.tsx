@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { createHubInvite, inviteToChannel } from "../../lib/control-plane";
 import type { Server, IdentityMapping } from "@skerry/shared";
 
@@ -30,6 +31,21 @@ export function InviteModals({
   setLastInviteUrl,
   showToast
 }: InviteModalsProps) {
+  useEffect(() => {
+    if (!isCreatingHubInvite && !isInviting) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (isCreatingHubInvite) {
+          setIsCreatingHubInvite(false);
+          setLastInviteUrl(null);
+        }
+        if (isInviting) setIsInviting(false);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isCreatingHubInvite, isInviting, setIsCreatingHubInvite, setIsInviting, setLastInviteUrl]);
+
   if (isInviting) {
     return (
       <div className="modal-backdrop" data-testid="modal-backdrop" onClick={() => setIsInviting(false)}>
@@ -81,11 +97,11 @@ export function InviteModals({
 
   if (isCreatingHubInvite) {
     return (
-      <div className="modal-backdrop" data-testid="modal-backdrop" onClick={() => { setIsCreatingHubInvite(false); setLastInviteUrl(null); }}>
+      <div className="modal-backdrop" data-testid="hub-invite-modal" onClick={() => { setIsCreatingHubInvite(false); setLastInviteUrl(null); }}>
         <div className="modal-panel" onClick={(e) => e.stopPropagation()} style={{ width: "400px" }}>
           <header className="modal-header">
             <h2>Invite to {activeServer?.name}</h2>
-            <button type="button" className="ghost" onClick={() => { setIsCreatingHubInvite(false); setLastInviteUrl(null); }}>×</button>
+            <button type="button" className="ghost" data-testid="close-invite-modal" onClick={() => { setIsCreatingHubInvite(false); setLastInviteUrl(null); }}>×</button>
           </header>
           <div className="stack" style={{ padding: "1.5rem", textAlign: "center" }}>
             {!lastInviteUrl ? (
@@ -123,10 +139,12 @@ export function InviteModals({
                     type="text"
                     readOnly
                     value={lastInviteUrl}
+                    data-testid="invite-url-input"
                     style={{ flex: 1, background: "transparent", border: "none", color: "var(--text)", fontSize: "0.9rem" }}
                   />
                   <button
                     className="ghost"
+                    data-testid="copy-invite-url"
                     onClick={() => {
                         if (lastInviteUrl) {
                             void navigator.clipboard.writeText(lastInviteUrl);
@@ -138,6 +156,14 @@ export function InviteModals({
                   </button>
                 </div>
                 <p style={{ fontSize: "0.8rem", opacity: 0.7 }}>Invite URL copied to clipboard.</p>
+                <button
+                  className="primary"
+                  data-testid="done-invite-modal"
+                  onClick={() => { setIsCreatingHubInvite(false); setLastInviteUrl(null); }}
+                  style={{ width: "100%" }}
+                >
+                  Done
+                </button>
               </div>
             )}
           </div>

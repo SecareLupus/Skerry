@@ -14,19 +14,28 @@ test('Sequence A: Community Lifecycle', async ({ page, browser }) => {
   // Shared Member B context to preserve state across steps
   let contextB: any = null;
   let pageB: any = null;
+
+  // Helper to wait for SSE "Live" status to ensure social state is ready
+  const waitForStatusLive = async (targetPage: any) => {
+    await expect(targetPage.locator('.status-pill[data-state="live"]')).toBeVisible({ timeout: 20000 });
+  };
   
   // -- A1: Onboarding & Core UI --
   
   await test.step('A1.1: Administrative Gateway', async () => {
+    console.log('[A1.1] Initiating Administrative Gateway and Workspace Reset...');
+    
+    // 1. Force a clean state via the test-reset API before doing anything else
+    // This ensures we start with an empty DB regardless of current UI state.
+    await page.request.post('/v1/system/test-reset');
     await page.goto('/');
 
-    // Check for idempotency: if already logged in/bootstrapped, trigger a soft reset via API
-    // This allows re-running the test against a persistent container without manually deleting volumes.
-    if (await page.locator('.sidebar-drawer-container').isVisible({ timeout: 5000 }).catch(() => false)) {
-      console.log('Detected existing session, triggering test-reset...');
-      await page.request.post('/v1/system/test-reset');
-      await page.goto('/');
-    }
+    // 2. Clear all local state to avoid session persistence issues
+    await page.evaluate(() => {
+      localStorage.clear();
+      sessionStorage.clear();
+    });
+    await page.reload();
     
     // 1. Login (Must happen first for any session)
     await expect(page.locator('.login-container')).toBeVisible({ timeout: 15000 });
@@ -67,21 +76,38 @@ test('Sequence A: Community Lifecycle', async ({ page, browser }) => {
   await test.step('A1.3: User Profile Verification', async () => {
     // Ensure we are in a text channel and the sidebar is reactive
     await expect(page.getByTestId('sidebar-container')).toBeVisible({ timeout: 15000 });
+    // Ensure we are in a text channel and the state has settled after click
+    await expect(page.locator('.timeline.panel')).toBeVisible({ timeout: 15000 });
     
-    // Send a message to create a clickable author name
     const composer = page.locator('textarea[placeholder*="Message"]');
-    await expect(composer).toBeEnabled({ timeout: 10000 });
+    await expect(composer).toBeEnabled({ timeout: 15000 });
     
-    // Using type() instead of fill() to better simulate user intent and handle React state sync
-    await composer.click();
-    await page.keyboard.type('Profile verification sequence initiated.');
+    // Robust typing with retry logic to handle background clearing
+    let typedSuccessfully = false;
+    for (let i = 0; i < 3; i++) {
+        await composer.fill('Profile verification sequence initiated.');
+        await page.waitForTimeout(500);
+        const val = await composer.inputValue();
+        if (val === 'Profile verification sequence initiated.') {
+            typedSuccessfully = true;
+            break;
+        }
+        console.warn(`[A1.3] Composer cleared by background update, retrying... (${i+1}/3)`);
+        await page.waitForTimeout(1000);
+    }
     
-    // Explicitly wait for the Send button to be enabled to confirm React state sync
+    if (!typedSuccessfully) {
+        throw new Error('Failed to stabilize composer input after 3 attempts');
+    }
+    
+    // Explicitly wait for the Send button to be enabled
     const sendBtn = page.getByRole('button', { name: 'Send' });
-    await expect(sendBtn).toBeEnabled({ timeout: 10000 });
-    await sendBtn.click();
+    await expect(sendBtn).toBeEnabled({ timeout: 15000 });
     
-    // Wait for the message to appear in the timeline
+    // Send via Enter key for extra stability
+    await composer.press('Enter');
+    
+    // Wait for the message to appear in the timeline (A1.3.1)
     const messageItem = page.locator('[data-testid="message-item"]').first();
     await expect(messageItem).toBeVisible({ timeout: 15000 });
     
@@ -225,39 +251,44 @@ test('Sequence A: Community Lifecycle', async ({ page, browser }) => {
   // -- A3: The Orientation Bridge --
 
   await test.step('A3.1: Invite Generation', async () => {
-    const detailsBtn = page.locator('button[title*="Toggle Details"]');
-    const detailsPanel = page.locator('.details-drawer-container');
-    
+    // Active server can drift back to the home-hub default after voice leave in A2.4.
+    // Navigate to Playwright Server explicitly — same pattern A4.1 uses.
+    if ((await page.locator('.server-title').textContent()) !== 'Playwright Server') {
+        const adminBack = page.getByTestId('back-to-servers');
+        if (await adminBack.isVisible()) await adminBack.click();
+        await expect(page.getByTestId('server-nav-item')).not.toHaveCount(0, { timeout: 15000 });
+        await page.getByTestId('server-nav-item').filter({ hasText: 'P' }).click();
+    }
+    await expect(page.locator('.server-title')).toHaveText('Playwright Server', { timeout: 10000 });
+
+    const detailsBtn = page.locator('button[data-testid="toggle-member-list"]');
+    const detailsPanel = page.getByTestId('details-drawer');
+
     if (!await detailsPanel.isVisible()) {
         await detailsBtn.click();
-        await expect(detailsPanel).toBeVisible({ timeout: 5000 });
+        await expect(detailsPanel).toBeVisible({ timeout: 10000 });
     }
 
-    const inviteBtn = page.locator('button[title="Create Hub Invite"]');
-    await expect(inviteBtn).toBeVisible({ timeout: 10000 });
+    const inviteBtn = page.getByTestId('create-hub-invite-button');
+    await expect(inviteBtn).toBeVisible({ timeout: 15000 });
     await inviteBtn.click();
-    
-    await expect(page.getByText(/Invite to/i)).toBeVisible();
-    const generateBtn = page.getByRole('button', { name: 'Generate Invite Link' });
-    await generateBtn.click();
-    
-    const inviteUrlInput = page.locator('input[readOnly]');
-    await expect(inviteUrlInput).toHaveValue(/invite\/[a-zA-Z0-9_-]+/);
+
+    const inviteModal = page.getByTestId('hub-invite-modal');
+    await expect(inviteModal).toBeVisible({ timeout: 10000 });
+    // Confirms the modal is scoped to Playwright Server, not the home hub
+    await expect(inviteModal.getByRole('heading', { name: /Invite to Playwright Server/i })).toBeVisible();
+
+    await inviteModal.getByRole('button', { name: 'Generate Invite Link' }).click();
+
+    const inviteUrlInput = page.getByTestId('invite-url-input');
+    await expect(inviteUrlInput).toHaveValue(/invite\/[a-zA-Z0-9_-]+/, { timeout: 10000 });
     inviteUrl = await inviteUrlInput.inputValue();
-    
-    await page.getByRole('button', { name: 'Copy' }).click();
-    // Corrected filter based on strict mode violation
+
+    await page.getByTestId('copy-invite-url').click();
     await expect(page.locator('.toast-success').filter({ hasText: 'Link copied!' }).last()).toBeVisible({ timeout: 5000 });
-    
-    // Close modal explicitly to prevent blocking A4.1
-    // Use a more specific locator for the modal close button
-    const closeModalBtn = page.locator('button').filter({ hasText: /^×$/ }).first();
-    if (await closeModalBtn.isVisible()) {
-        await closeModalBtn.click({ force: true });
-    } else {
-        await page.keyboard.press('Escape');
-    }
-    await expect(page.getByText(/Invite to/i)).not.toBeVisible({ timeout: 8000 });
+
+    await page.getByTestId('done-invite-modal').click();
+    await expect(inviteModal).not.toBeVisible({ timeout: 8000 });
   });
 
   await test.step('A3.2: Invitation Usage', async () => {
@@ -290,7 +321,7 @@ test('Sequence A: Community Lifecycle', async ({ page, browser }) => {
         // Accept and wait for redirect to Home
         console.log('[A3.2] Clicking Accept Invite...');
         await Promise.all([
-            pageB.waitForURL((url) => url.pathname === '/', { timeout: 20000 }),
+            pageB.waitForURL((url: URL) => new URL(url.toString()).pathname === '/', { timeout: 20000 }),
             pageB.getByRole('button', { name: 'Accept Invite & Join Hub' }).click()
         ]);
 
@@ -375,6 +406,19 @@ test('Sequence A: Community Lifecycle', async ({ page, browser }) => {
     await expect(page.getByTestId('server-nav-item')).not.toHaveCount(0, { timeout: 15000 });
     await page.getByTestId('server-nav-item').filter({ hasText: 'P' }).click();
     await page.getByTestId('channel-nav-item').filter({ hasText: /#?Text Lab/i }).click();
+    await expect(page.locator('.channel-header')).toContainText('Text Lab');
+    await waitForStatusLive(page); // Ensure Admin is live on the new channel
+    
+    // Open the member list if not already open so we can verify the member count
+    const memberToggle = page.getByTestId('toggle-member-list');
+    const detailsPanelA = page.getByTestId('details-drawer');
+    if (!await detailsPanelA.isVisible()) {
+        await memberToggle.click();
+        await expect(detailsPanelA).toBeVisible({ timeout: 5000 });
+    }
+    
+    // Wait for the member list to ensure the channel state is fully initialized
+    await expect(page.getByTestId('member-item')).not.toHaveCount(0, { timeout: 10000 });
 
     // 2. Ensure Member B is ready (Re-use existing context from A3.2)
     if (!contextB || !pageB) {
@@ -406,6 +450,7 @@ test('Sequence A: Community Lifecycle', async ({ page, browser }) => {
     console.log('[A4.1] Waiting for Member B channel header synchronization...');
     const channelHeaderB = pageB.locator('.channel-header');
     await expect(channelHeaderB).toContainText('Text Lab', { timeout: 15000 });
+    await waitForStatusLive(pageB); // Ensure Member B is live too
     
     // 4. Member B replies
     const composerB = pageB.locator('textarea[placeholder*="Message"]');
@@ -416,8 +461,7 @@ test('Sequence A: Community Lifecycle', async ({ page, browser }) => {
     await composerB.click();
     
     const msgContent = `Hello from Member B! ${Date.now()}`;
-    // Use pressSequentially for maximum robustness against state wipes
-    await composerB.pressSequentially(msgContent, { delay: 20 });
+    await composerB.fill(msgContent);
     await expect(composerB).toHaveValue(msgContent);
     
     // Use Enter for stable submission
@@ -425,35 +469,47 @@ test('Sequence A: Community Lifecycle', async ({ page, browser }) => {
     
     // 5. Verify synchronization
     console.log('[A4.1] Verifying message delivery...');
-    // Member B sees their own message
+    // Member B sees their own message — tolerate the optimistic + confirmed duplicate
+    // that briefly coexists (.first() picks whichever renders first)
     try {
-        await expect(pageB.locator(`text="${msgContent}"`)).toBeVisible({ timeout: 15000 });
+        await expect(pageB.locator(`text="${msgContent}"`).first()).toBeVisible({ timeout: 15000 });
     } catch (err) {
         console.error('A4.1 FAILURE FORENSICS (Member B):');
         console.error(`URL: ${pageB.url()}`);
         console.error(`CONTENT: ${(await pageB.content()).slice(0, 3000)}`);
         throw err;
     }
-    
-    // Admin (original page) should see the message arrive in real-time
-    await expect(page.locator(`text="${msgContent}"`)).toBeVisible({ timeout: 15000 });
+
+    // Admin sees the message arrive in real-time (only one copy since Admin didn't send it)
+    await expect(page.locator(`text="${msgContent}"`).first()).toBeVisible({ timeout: 15000 });
   });
 
   await test.step('A4.2: Markdown & Rich Text', async () => {
     console.log('[A4.2] Verifying Markdown rendering...');
-    // Ensure Admin is on Playwright Server
     if (await page.locator('.server-title').textContent() !== 'Playwright Server') {
         const adminBack = page.getByTestId('back-to-servers');
         if (await adminBack.isVisible()) await adminBack.click();
         await page.getByTestId('server-nav-item').filter({ hasText: 'P' }).click();
     }
+    await expect(page.locator('.channel-header')).toContainText('Text Lab');
+    await expect(page.getByTestId('member-item')).not.toHaveCount(0, { timeout: 10000 });
+    
+    // Brief stability wait before typing
+    await page.waitForTimeout(500);
     
     const composer = page.locator('textarea[placeholder*="Message"]');
-    const markdownMsg = '**Bold Text** and [Skerry Link](https://skerry.io)';
+    const ts = Date.now();
+    const markdownMsg = `**Bold Text** ${ts} and [Skerry Link](https://skerry.io)`;
+    
+    // Use fill to reliably enter markdown without triggering input formatting glitches
     await composer.fill(markdownMsg);
+    await expect(composer).toHaveValue(markdownMsg);
     await composer.press('Enter');
     
-    const lastMsg = page.locator('[data-testid="message-item"]').first();
+    // Wait for the message to appear in the DOM using the unique timestamp
+    const lastMsg = page.locator(`[data-testid="message-item"]:has-text("${ts}")`).first();
+    await expect(lastMsg).toBeVisible({ timeout: 15000 });
+    
     // Use precise locator to avoid strict mode violation with author-name
     await expect(lastMsg.locator('.message-content-wrapper strong')).toContainText('Bold Text');
     await expect(lastMsg.locator('a')).toHaveAttribute('href', 'https://skerry.io');
@@ -463,6 +519,12 @@ test('Sequence A: Community Lifecycle', async ({ page, browser }) => {
     console.log('[A4.3] Verifying Message Lifecycle (Edit/Delete)...');
     const originalContent = `Lifecycle test ${Date.now()}`;
     const composer = page.locator('textarea[placeholder*="Message"]');
+    
+    // Ensure UI is interactive
+    await expect(page.locator('.channel-header')).toContainText('Text Lab');
+    await expect(page.getByTestId('member-item')).not.toHaveCount(0, { timeout: 10000 });
+    await page.waitForTimeout(500);
+
     await composer.fill(originalContent);
     await composer.press('Enter');
     
@@ -475,6 +537,7 @@ test('Sequence A: Community Lifecycle', async ({ page, browser }) => {
     await page.getByRole('button', { name: 'Edit Message' }).click();
     
     const editArea = page.locator('.edit-textarea');
+    await expect(editArea).toBeVisible({ timeout: 10000 });
     const editedContent = `Edited Lifecycle ${Date.now()}`;
     await editArea.fill(editedContent);
     await editArea.press('Enter');
@@ -531,19 +594,121 @@ test('Sequence A: Community Lifecycle', async ({ page, browser }) => {
     await expect(message.locator('[data-testid="reaction-badge"]')).toBeVisible({ timeout: 5000 });
     
     // Threading
+    console.log('[A4.4] Testing Threading...');
+    await waitForStatusLive(page); // Extra safety for threading
     await message.click({ button: 'right' });
     await expect(page.locator('.context-menu')).toBeVisible();
-    await page.getByRole('button', { name: 'Reply in Thread' }).or(page.locator('button:has-text("Reply")')).click();
+    await page.getByRole('button', { name: /Reply in Thread/i }).click();
     
     const threadPanel = page.locator('.thread-panel');
-    await expect(threadPanel).toBeVisible({ timeout: 10000 });
+    await expect(threadPanel).toBeVisible({ timeout: 15000 });
     
     const threadComposer = threadPanel.locator('textarea');
-    await threadComposer.fill('This is a threaded reply');
+    const threadReplyContent = `Threaded reply ${Date.now()}`;
+    await threadComposer.click();
+    await threadComposer.pressSequentially(threadReplyContent, { delay: 30 });
     await threadComposer.press('Enter');
     
-    await expect(threadPanel.locator('p').filter({ hasText: 'This is a threaded reply' }).first()).toBeVisible({ timeout: 10000 });
-});
+    await expect(threadPanel.locator('p').filter({ hasText: threadReplyContent }).first()).toBeVisible({ timeout: 15000 });
+    
+    // Verify reply count in main chat
+    console.log('[A4.4] Verifying main chat reply count...');
+    await expect(message.locator('.thread-trigger-btn')).toContainText(/repl(y|ies)/i, { timeout: 10000 });
+  });
+
+  // -- A5: Permissions & Moderation --
+
+  await test.step('A5.1: Permission Gates', async () => {
+    console.log('[A5.1] Verifying Permission Gates for Member B...');
+    // Ensure Member B is logged in and in the space
+    await expect(pageB.getByTestId('sidebar-container')).toBeVisible({ timeout: 30000 });
+
+    // 1. Verify restricted UI elements are hidden
+    await expect(pageB.getByTestId('add-space-button')).not.toBeVisible();
+    await expect(pageB.getByTestId('server-settings-button')).not.toBeVisible();
+
+    // 2. Attempt indirect access through URL (Space Settings)
+    const currentUrl = page.url(); // Admin page URL
+    const spaceId = currentUrl.split('/spaces/')[1]?.split('/')[0];
+    if (spaceId) {
+      await pageB.goto(`/settings/spaces/${spaceId}`);
+      // Member should be gated or see only "User Settings" without the Space menu
+      await expect(pageB.locator('h1')).not.toContainText('Space Settings', { timeout: 10000 });
+      // Restore page state for following steps
+      await pageB.goto('/');
+      await expect(pageB.getByTestId('sidebar-container')).toBeVisible({ timeout: 15000 });
+    }
+  });
+
+  await test.step('A5.2: Scoped Moderation (Kick)', async () => {
+    console.log('[A5.2] Executing Scoped Kick Action...');
+    await page.bringToFront();
+    await waitForStatusLive(page); // Ensure Admin is live before moderation
+    
+    // Ensure Details drawer is open
+    const detailsDrawer = page.getByTestId('details-drawer');
+    if (!await detailsDrawer.isVisible()) {
+      await page.getByTestId('toggle-member-list').click();
+      await expect(detailsDrawer).toBeVisible({ timeout: 15000 });
+    }
+    
+    // Wait for member list to stabilize
+    await expect(page.getByTestId('member-item')).not.toHaveCount(0, { timeout: 10000 });
+    
+    // Locate member_b
+    const memberItem = page.getByTestId('member-item').filter({ hasText: /member_b/i }).first();
+    await expect(memberItem).toBeVisible({ timeout: 15000 });
+    
+    await memberItem.click({ button: 'right', force: true });
+    
+    const contextMenu = page.locator('.context-menu');
+    await expect(contextMenu).toBeVisible({ timeout: 10000 });
+    
+    const moderateBtn = page.getByRole('button', { name: /Moderate User/i });
+    await expect(moderateBtn).toBeVisible({ timeout: 10000 });
+    await moderateBtn.click();
+    
+    await expect(page.getByTestId('moderation-modal')).toBeVisible({ timeout: 15000 });
+    
+    await page.getByTestId('moderation-action-select').selectOption('kick');
+    
+    // Explicitly select the 'Space' scope for the kick action to ensure serverId is used
+    await page.locator('input[type="radio"][value="server"]').click();
+    
+    const kickReason = 'E2E Test: Behavior violation';
+    const reasonInput = page.getByTestId('moderation-reason-input');
+    await reasonInput.click();
+    await reasonInput.pressSequentially(kickReason, { delay: 50 });
+    
+    await page.getByTestId('confirm-moderation-button').click();
+    
+    // Verify disappearance from Admin view — the authoritative signal.
+    // Member B remains a hub member (kick is scoped to the space), so no redirect
+    // happens on their side. A5.3 confirms the kick was persisted via the audit log.
+    await expect(memberItem).not.toBeVisible({ timeout: 15000 });
+  });
+
+  await test.step('A5.3: Audit Log Verification', async () => {
+    console.log('[A5.3] Verifying Audit Log persistence...');
+    await page.bringToFront();
+
+    // Admin URL while viewing a channel is /?server=srv_xxx&channel=chn_xxx.
+    // Extract the server id from the query string — that's the "space" id in the
+    // audit log route.
+    const currentUrl = new URL(page.url());
+    const spaceId = currentUrl.searchParams.get('server');
+    if (!spaceId) throw new Error(`A5.3: could not derive server id from URL: ${page.url()}`);
+
+    await page.goto(`/settings/spaces/${spaceId}/audit-log`);
+    // Layout wraps pages in its own <h1>Settings</h1>; match the page's own heading.
+    await expect(page.getByRole('heading', { name: 'Audit Log', level: 1 })).toBeVisible({ timeout: 15000 });
+
+    // Verify the "kick" action is recorded.
+    // The target column renders as "usr_xxxx..." (truncated id), not the username,
+    // so we can't match on "member_b". Instead, confirm a kick row exists.
+    const auditEntry = page.locator('.audit-entry').filter({ hasText: /kick/i }).first();
+    await expect(auditEntry).toBeVisible({ timeout: 15000 });
+  });
 
   // Final cleanup for Member B
   if (contextB) {
