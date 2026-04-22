@@ -1299,9 +1299,11 @@ export function ChatWindow({
                                                                                 onClick={() => setLightboxUrl(finalUrl)}
                                                                             />
                                                                         )}
-                                                                        <div className="attachment-overlay">
-                                                                            <span>{att.filename}</span>
-                                                                        </div>
+                                                                        {!att.contentType?.startsWith("image/") && !att.contentType?.startsWith("video/") && (
+                                                                            <div className="attachment-overlay">
+                                                                                <span>{att.filename}</span>
+                                                                            </div>
+                                                                        )}
                                                                     </div>
                                                                 )}
                                                             </div>
@@ -1681,7 +1683,9 @@ export function ChatWindow({
             {lightboxUrl && (
                 <div className="lightbox-overlay" onClick={() => setLightboxUrl(null)}>
                     <button className="lightbox-close" onClick={() => setLightboxUrl(null)}>×</button>
-                    <img src={lightboxUrl} className="lightbox-image" alt="Full size" />
+                    <div className="lightbox-content" onClick={(e) => e.stopPropagation()}>
+                        <GifPlayer src={lightboxUrl} className="lightbox-image" alt="Full size" style={{ maxWidth: "90vw", maxHeight: "90vh" }} />
+                    </div>
                 </div>
             )}
 
