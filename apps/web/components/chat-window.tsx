@@ -57,7 +57,33 @@ interface ChatWindowProps {
 
 const Lottie = dynamic(() => import("lottie-react").then(mod => mod.default), { ssr: false }) as any;
 
-const LottieSticker = ({ url, filename }: { url: string; filename?: string }) => {
+const normalizeMediaUrl = (url: string) => {
+    // Handle Discord external proxy: https://images-ext-1.discordapp.net/external/.../https/media.tenor.com/...
+    if (url.includes("images-ext-") && url.includes("/https/")) {
+        const parts = url.split("/https/");
+        if (parts.length > 1) return "https://" + parts[1];
+    }
+    return url;
+};
+
+const getProxiedUrl = (url: string) => {
+    const normalized = normalizeMediaUrl(url);
+    const controlPlaneUrl = process.env.NEXT_PUBLIC_CONTROL_PLANE_URL || "";
+    
+    // Always proxy stickers to avoid CORS/Referer issues
+    if (normalized.includes("discordapp.net/stickers/") || normalized.includes("discordapp.com/stickers/")) {
+        return `${controlPlaneUrl}/v1/media/proxy?url=${encodeURIComponent(normalized)}`;
+    }
+    
+    // Proxy Discord assets if they are likely to be blocked by CORS
+    if (normalized.includes("discordapp.net") || normalized.includes("discordapp.com")) {
+        return `${controlPlaneUrl}/v1/media/proxy?url=${encodeURIComponent(normalized)}`;
+    }
+    
+    return normalized;
+};
+
+function LottieSticker({ url }: { url: string }) {
     const [animationData, setAnimationData] = useState<any>(null);
     const [error, setError] = useState(false);
 
@@ -81,8 +107,12 @@ const LottieSticker = ({ url, filename }: { url: string; filename?: string }) =>
                     console.warn(`Failed to load Lottie sticker from ${isFallback ? 'proxy fallback' : 'primary CDN'}:`, err);
                     if (!isFallback) {
                         // If direct CDN failed, try proxy
-                        const proxiedUrl = url.replace("cdn.discordapp.com", "media.discordapp.net");
-                        tryFetch(proxiedUrl, true);
+                        const proxiedUrl = getProxiedUrl(url);
+                        if (proxiedUrl !== url) {
+                            tryFetch(proxiedUrl, true);
+                        } else {
+                            setError(true);
+                        }
                     } else {
                         setError(true);
                     }
@@ -1205,55 +1235,56 @@ export function ChatWindow({
                                             {message.embeds && message.embeds.length > 0 && (
                                                 <div className="message-embeds-container">
                                                     {message.embeds
-                                                        .filter(embed => !mediaUrls.includes(embed.url))
+                                                        .filter(embed => 
+                                                            !mediaUrls.includes(embed.url) && 
+                                                            !embed.url.includes("discordapp.com/emojis/") && 
+                                                            !embed.url.includes("discordapp.net/emojis/")
+                                                        )
                                                         .map((embed, i) => (
                                                             <EmbedCard key={i} embed={embed} />
                                                         ))
                                                     }
                                                 </div>
-                                            )}
-                                        </>
-
-                                    )}
-
-                                    {/* Attachments rendering */}
+                                         {/* Attachments rendering */}
                                     {message.attachments && message.attachments.length > 0 && (
                                         <div className="message-attachments-container">
-                                            {message.attachments.map((att) => (
-                                                <div key={att.id} className={`attachment ${att.isSticker ? 'sticker' : ''}`}>
-                                                    <div style={{ display: "block", textDecoration: "none" }}>
-                                                        {att.contentType === "application/json" && att.isSticker ? (
-                                                            <LottieSticker url={att.url} filename={att.filename} />
-                                                        ) : att.contentType.startsWith("image/") ? (
-                                                            <img 
-                                                                src={att.url} 
-                                                                alt={att.filename} 
-                                                                loading="lazy" 
-                                                                onClick={(e) => {
-                                                                    if (att.isSticker) return;
-                                                                    e.preventDefault();
-                                                                    setLightboxUrl(att.url);
-                                                                }}
-                                                            />
-                                                        ) : att.contentType.startsWith("video/") ? (
-                                                            <video 
-                                                                src={att.url} 
-                                                                autoPlay 
-                                                                loop 
-                                                                muted 
-                                                                playsInline 
-                                                                controls
-                                                            />
+                                            {message.attachments.map((att) => {
+                                                const normalizedUrl = normalizeMediaUrl(att.url);
+                                                const finalUrl = getProxiedUrl(normalizedUrl);
+                                                
+                                                return (
+                                                    <div key={att.id} className={`attachment ${att.isSticker ? 'sticker' : ''}`}>
+                                                        {att.isSticker ? (
+                                                            <div className="sticker-container" style={{ width: "160px", height: "160px" }}>
+                                                                {normalizedUrl.endsWith(".json") ? (
+                                                                    <LottieSticker url={finalUrl} />
+                                                                ) : (
+                                                                    <img 
+                                                                        src={finalUrl} 
+                                                                        alt={att.filename} 
+                                                                        style={{ width: "100%", height: "100%", objectFit: "contain" }}
+                                                                        onClick={() => setLightboxUrl(finalUrl)}
+                                                                        onError={(e) => {
+                                                                            e.currentTarget.style.display = "none";
+                                                                        }}
+                                                                    />
+                                                                )}
+                                                            </div>
                                                         ) : (
-                                                            <a href={att.sourceUrl || att.url} target="_blank" rel="noopener noreferrer" className="attachment-link">
-                                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" /></svg>
-                                                                <span>{att.filename}</span>
-                                                            </a>
+                                                            <div className="attachment-preview" style={{ cursor: "pointer" }} onClick={() => setLightboxUrl(finalUrl)}>
+                                                                {att.contentType?.startsWith("video") ? (
+                                                                    <video src={finalUrl} controls style={{ maxWidth: "300px", maxHeight: "300px" }} />
+                                                                ) : (
+                                                                    <img src={finalUrl} alt={att.filename} style={{ maxWidth: "300px", maxHeight: "300px" }} onError={(e) => e.currentTarget.style.display="none"} />
+                                                                )}
+                                                                <div className="attachment-overlay">
+                                                                    <span>{att.filename}</span>
+                                                                </div>
+                                                            </div>
                                                         )}
                                                     </div>
-
-                                                </div>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
                                     )}
 
@@ -1261,11 +1292,12 @@ export function ChatWindow({
                                     {mediaUrls.length > 0 && (
                                         <div className="message-attachments-container" style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginTop: "0.5rem" }}>
                                             {mediaUrls.map((url, i) => {
-                                                const isTenorView = url.includes("tenor.com/view");
-                                                const isGiphyView = url.includes("giphy.com/gifs");
+                                                const normalized = normalizeMediaUrl(url);
+                                                const isTenorView = normalized.includes("tenor.com/view");
+                                                const isGiphyView = normalized.includes("giphy.com/gifs");
                                                 
                                                 if (isTenorView || isGiphyView) {
-                                                    const urlParts = url.split("/");
+                                                    const urlParts = normalized.split("/");
                                                     const lastPart = urlParts[urlParts.length - 1] || "";
                                                     const lastPartWithoutExt = lastPart.replace(/\.[^.]+$/, "");
                                                     const idMatch = lastPartWithoutExt.match(/-([a-zA-Z0-9]+)$|([a-zA-Z0-9]+)$/);
@@ -1276,26 +1308,31 @@ export function ChatWindow({
                                                         : `https://giphy.com/embed/${id}`;
                                                     return (
                                                         <div key={i} className="attachment legacy-media" style={{ width: "100%", maxWidth: "400px" }}>
-                                                            <iframe
-                                                                src={embedUrl}
-                                                                width="100%"
-                                                                height="250"
-                                                                frameBorder="0"
-                                                                allowFullScreen
-                                                                style={{ borderRadius: "8px" }}
-                                                            />
+                                                            <div className="embed-video-container" style={{ borderRadius: "8px", overflow: "hidden" }}>
+                                                                <iframe
+                                                                    src={embedUrl}
+                                                                    frameBorder="0"
+                                                                    width="100%"
+                                                                    height="300"
+                                                                    allow="autoplay; encrypted-media"
+                                                                    allowFullScreen
+                                                                />
+                                                            </div>
                                                         </div>
                                                     );
                                                 }
 
+                                                const finalUrl = getProxiedUrl(normalized);
                                                 return (
                                                     <div key={i} className="attachment legacy-media" style={{ maxWidth: "300px" }}>
                                                         <img 
-                                                            src={url} 
-                                                            alt="Attached media" 
-                                                            loading="lazy" 
-                                                            style={{ maxWidth: "100%", borderRadius: "4px", cursor: 'pointer' }} 
-                                                            onClick={() => setLightboxUrl(url)}
+                                                            src={finalUrl} 
+                                                            alt="Attachment" 
+                                                            style={{ maxWidth: "100%", maxHeight: "300px", borderRadius: "8px", cursor: "pointer" }} 
+                                                            onClick={() => setLightboxUrl(finalUrl)}
+                                                            onError={(e) => {
+                                                                e.currentTarget.style.display = "none";
+                                                            }}
                                                         />
                                                     </div>
                                                 );

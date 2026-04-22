@@ -1,5 +1,18 @@
 import React, { useState } from "react";
 import { LinkEmbed } from "@skerry/shared";
+import { getYouTubeEmbedUrl, getTwitchEmbedUrl } from "../lib/channel-utils";
+
+const getProxiedUrl = (url: string) => {
+    if (!url) return url;
+    const controlPlaneUrl = process.env.NEXT_PUBLIC_CONTROL_PLANE_URL || "";
+    
+    // Proxy Discord assets if they are likely to be blocked by CORS
+    if (url.includes("discordapp.net") || url.includes("discordapp.com")) {
+        return `${controlPlaneUrl}/v1/media/proxy?url=${encodeURIComponent(url)}`;
+    }
+    
+    return url;
+};
 
 interface EmbedCardProps {
   embed: LinkEmbed;
@@ -87,6 +100,7 @@ export const EmbedCard: React.FC<EmbedCardProps> = ({ embed }) => {
     setIsPlaying(true);
   };
 
+
   const gifEmbedUrl = getGifEmbedUrl(embed.url);
   const videoEmbedUrl = getVideoEmbedUrl();
   const showVideo = (isPlaying || embed.type === "gif" || embed.type === "gifv") && (videoEmbedUrl || gifEmbedUrl);
@@ -114,7 +128,7 @@ export const EmbedCard: React.FC<EmbedCardProps> = ({ embed }) => {
             {embed.imageUrl && (
               <div className="embed-image-container">
                 <img 
-                  src={embed.imageUrl} 
+                  src={getProxiedUrl(embed.imageUrl)} 
                   alt={embed.title || "Preview"} 
                   className="embed-image"
                   loading="lazy"
