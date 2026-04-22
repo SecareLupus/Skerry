@@ -47,12 +47,29 @@ export const EmbedCard: React.FC<EmbedCardProps> = ({ embed }) => {
     return null;
   };
 
+  const getGifEmbedUrl = (url: string) => {
+    if (url.includes("tenor.com/view") || url.includes("giphy.com/gifs")) {
+        const urlParts = url.split("/");
+        const lastPart = urlParts[urlParts.length - 1] || "";
+        const lastPartWithoutExt = lastPart.replace(/\.[^.]+$/, "");
+        const idMatch = lastPartWithoutExt.match(/-([a-zA-Z0-9]+)$|([a-zA-Z0-9]+)$/);
+        const id = idMatch ? (idMatch[1] || idMatch[2]) : lastPartWithoutExt;
+        return url.includes("tenor.com") 
+            ? `https://tenor.com/embed/${id}`
+            : `https://giphy.com/embed/${id}`;
+    }
+    return null;
+  };
+
   const getVideoEmbedUrl = () => {
     const yt = getYouTubeEmbedUrl(embed.url);
     if (yt) return yt;
 
     const twitch = getTwitchEmbedUrl(embed.url);
     if (twitch) return twitch;
+
+    const gif = getGifEmbedUrl(embed.url);
+    if (gif) return gif;
 
     // Fallback to og:video if it looks like an embed URL
     if (embed.videoUrl) {
@@ -70,15 +87,16 @@ export const EmbedCard: React.FC<EmbedCardProps> = ({ embed }) => {
     setIsPlaying(true);
   };
 
+  const gifEmbedUrl = getGifEmbedUrl(embed.url);
   const videoEmbedUrl = getVideoEmbedUrl();
-  const showVideo = isPlaying && videoEmbedUrl;
+  const showVideo = (isPlaying || embed.type === "gif") && (videoEmbedUrl || gifEmbedUrl);
 
   return (
     <div className="embed-card-container">
       {showVideo ? (
         <div className="embed-video-container">
           <iframe
-            src={videoEmbedUrl}
+            src={videoEmbedUrl || gifEmbedUrl || undefined}
             frameBorder="0"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
@@ -100,6 +118,11 @@ export const EmbedCard: React.FC<EmbedCardProps> = ({ embed }) => {
                   alt={embed.title || "Preview"} 
                   className="embed-image"
                   loading="lazy"
+                  onError={(e) => {
+                    // Hide the broken image container
+                    const container = e.currentTarget.parentElement;
+                    if (container) container.style.display = "none";
+                  }}
                 />
                 {embed.type === "video" && videoEmbedUrl && (
                   <div className="embed-video-overlay" onClick={handlePlay}>

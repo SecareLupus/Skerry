@@ -62,17 +62,34 @@ const LottieSticker = ({ url, filename }: { url: string; filename?: string }) =>
     const [error, setError] = useState(false);
 
     useEffect(() => {
-        const proxiedUrl = url.replace("cdn.discordapp.com", "media.discordapp.net");
-        fetch(proxiedUrl)
-            .then(res => {
-                if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-                return res.json();
-            })
-            .then(data => setAnimationData(data))
-            .catch(err => {
-                console.error("Failed to load Lottie sticker:", err);
-                setError(true);
-            });
+        const tryFetch = (fetchUrl: string, isFallback: boolean = false) => {
+            fetch(fetchUrl, { mode: 'cors', cache: 'no-cache' })
+                .then(res => {
+                    if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+                    return res.text();
+                })
+                .then(text => {
+                    try {
+                        const data = JSON.parse(text);
+                        setAnimationData(data);
+                        setError(false);
+                    } catch (e) {
+                        throw new Error("Invalid JSON data");
+                    }
+                })
+                .catch(err => {
+                    console.warn(`Failed to load Lottie sticker from ${isFallback ? 'proxy fallback' : 'primary CDN'}:`, err);
+                    if (!isFallback) {
+                        // If direct CDN failed, try proxy
+                        const proxiedUrl = url.replace("cdn.discordapp.com", "media.discordapp.net");
+                        tryFetch(proxiedUrl, true);
+                    } else {
+                        setError(true);
+                    }
+                });
+        };
+
+        tryFetch(url);
     }, [url]);
 
     if (error) {
@@ -97,9 +114,19 @@ const LottieSticker = ({ url, filename }: { url: string; filename?: string }) =>
     );
 };
 
-function MessageContent({ message }: { message: MessageItem }) {
+function MessageContent({ message, hiddenUrls = [] }: { message: MessageItem; hiddenUrls?: string[] }) {
     const { state } = useChat();
-    const content = message.content;
+    let content = message.content;
+
+    // Hide URLs that are already rendered as media/embeds
+    if (hiddenUrls.length > 0) {
+        for (const url of hiddenUrls) {
+            // Use a regex to match the URL only if it's not part of another word
+            const escapedUrl = url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            content = content.replace(new RegExp(escapedUrl, 'g'), "").trim();
+        }
+    }
+
     const quoteRegex = /^> @([^:]+):\s*([\s\S]*?)(?:\n\n|\n?$)/m;
     const match = content.match(quoteRegex);
 
@@ -485,16 +512,20 @@ export function ChatWindow({
         if (url.includes("cdn.discordapp.com/emojis/")) return false;
         
         return (
-            /\.(jpeg|jpg|gif|png|webp|svg)(\?.*)?$/i.test(url) ||
+            /\.(jpeg|jpg|gif|png|webp|svg|json|mp4|webm|mov)(\?.*)?$/i.test(url) ||
             url.includes("/_matrix/media/v3/download/") ||
-            /media\.giphy\.com|tenor\.com\/view/i.test(url)
+            /media\d*\.giphy\.com\/media\/|giphy\.com\/gifs|giphy\.com\/clips|tenor\.com\/view|c\.tenor\.com\//i.test(url) ||
+            url.includes("cdn.discordapp.com/stickers/") ||
+            url.includes("media.discordapp.net/stickers/")
         );
     };
 
     const extractMediaUrls = (content: string) => {
         // Detect URLs, stopping at a trailing parenthesis which is common in markdown image syntax
         const urlRegex = /(https?:\/\/[^\s)]+)/g;
-        return content.match(urlRegex)?.filter(isMediaUrl) || [];
+        const matches = content.match(urlRegex) || [];
+        // Deduplicate
+        return Array.from(new Set(matches.filter(isMediaUrl)));
     };
 
     const messageContextMenuItems: ContextMenuItem[] = useMemo(() => {
@@ -1169,13 +1200,16 @@ export function ChatWindow({
                                         </div>
                                     ) : (
                                         <>
-                                            <MessageContent message={message} />
+                                            <MessageContent message={message} hiddenUrls={mediaUrls} />
                                             {message.updatedAt && <small className="message-meta-edited" style={{ fontSize: "0.75rem", opacity: 0.6 }}>(edited)</small>}
                                             {message.embeds && message.embeds.length > 0 && (
                                                 <div className="message-embeds-container">
-                                                    {message.embeds.map((embed, i) => (
-                                                        <EmbedCard key={i} embed={embed} />
-                                                    ))}
+                                                    {message.embeds
+                                                        .filter(embed => !mediaUrls.includes(embed.url))
+                                                        .map((embed, i) => (
+                                                            <EmbedCard key={i} embed={embed} />
+                                                        ))
+                                                    }
                                                 </div>
                                             )}
                                         </>
@@ -1231,8 +1265,12 @@ export function ChatWindow({
                                                 const isGiphyView = url.includes("giphy.com/gifs");
                                                 
                                                 if (isTenorView || isGiphyView) {
-                                                    const parts = url.split("-");
-                                                    const id = parts[parts.length - 1]?.split("/").pop(); // Handle case where there's no dash
+                                                    const urlParts = url.split("/");
+                                                    const lastPart = urlParts[urlParts.length - 1] || "";
+                                                    const lastPartWithoutExt = lastPart.replace(/\.[^.]+$/, "");
+                                                    const idMatch = lastPartWithoutExt.match(/-([a-zA-Z0-9]+)$|([a-zA-Z0-9]+)$/);
+                                                    const id = idMatch ? (idMatch[1] || idMatch[2]) : lastPartWithoutExt;
+                                                    
                                                     const embedUrl = isTenorView 
                                                         ? `https://tenor.com/embed/${id}`
                                                         : `https://giphy.com/embed/${id}`;

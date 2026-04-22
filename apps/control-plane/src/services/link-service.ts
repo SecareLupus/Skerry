@@ -64,8 +64,11 @@ export async function scrapeUrl(url: string): Promise<LinkEmbed | null> {
                        $('meta[property="og:video:url"]').attr("content") || 
                        $('meta[property="og:video"]').attr("content");
 
-        // YouTube special handling
-        let finalType: "link" | "video" = videoUrl ? "video" : "link";
+        // Video/GIF detection
+        let finalType: "link" | "video" | "gif" = videoUrl ? "video" : "link";
+        if (url.includes("tenor.com") || url.includes("giphy.com")) {
+            finalType = "gif";
+        }
         if (url.includes("youtube.com") || url.includes("youtu.be") || url.includes("twitch.tv")) {
             finalType = "video";
         }
