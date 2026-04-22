@@ -100,7 +100,7 @@ export async function startDiscordBot() {
                         discordChannelId: message.channel.isThread() ? (message.channel as any).parentId : message.channelId,
                         authorId: message.author.id,
                         authorName: message.member?.displayName ?? message.author.displayName ?? message.author.username,
-                        authorAvatarUrl: message.author.displayAvatarURL() ?? undefined,
+                        authorAvatarUrl: message.author.displayAvatarURL({ extension: 'webp', size: 128 }),
                         content: message.content,
                         messageId: message.id,
                         media,

@@ -180,7 +180,8 @@ export async function getUnreadSummary(productUserId: string): Promise<Record<st
        from channels ch
        join chat_messages msg on msg.channel_id = ch.id
        left join channel_read_states rs on rs.channel_id = ch.id and rs.product_user_id = $1
-       where msg.author_user_id != $1 and (rs.last_read_at is null or msg.created_at > rs.last_read_at)
+       where (msg.author_user_id != $1 or (msg.is_relay = true and msg.external_author_id not in (select oidc_subject from identity_mappings where product_user_id = $1 and provider = 'discord'))) 
+         and (rs.last_read_at is null or msg.created_at > rs.last_read_at)
        group by ch.id, rs.is_muted`,
       [productUserId]
     );

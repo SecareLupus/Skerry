@@ -62,7 +62,8 @@ const LottieSticker = ({ url, filename }: { url: string; filename?: string }) =>
     const [error, setError] = useState(false);
 
     useEffect(() => {
-        fetch(url)
+        const proxiedUrl = url.replace("cdn.discordapp.com", "media.discordapp.net");
+        fetch(proxiedUrl)
             .then(res => {
                 if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
                 return res.json();
@@ -109,8 +110,8 @@ function MessageContent({ message }: { message: MessageItem }) {
 
         // 1. Handle Discord-style tags: <:name:id> or <a:name:id>
         processedText = processedText.replace(/<(a?):([a-zA-Z0-9_-]+):(\d+)>/g, (match, animated, name, id) => {
-            const ext = animated ? "gif" : "webp";
-            return `![:${name}:](https://cdn.discordapp.com/emojis/${id}.${ext}?size=160&quality=lossless)`;
+            const query = animated ? "?size=160&quality=lossless&animated=true" : "?size=160&quality=lossless";
+            return `![:${name}:](https://cdn.discordapp.com/emojis/${id}.webp${query})`;
         });
 
         // 2. Handle common standard shortcodes (minimal set for demo, or could use a library)
@@ -480,6 +481,9 @@ export function ChatWindow({
     };
 
     const isMediaUrl = (url: string) => {
+        // Exclude Discord emojis from being treated as standard media attachments
+        if (url.includes("cdn.discordapp.com/emojis/")) return false;
+        
         return (
             /\.(jpeg|jpg|gif|png|webp|svg)(\?.*)?$/i.test(url) ||
             url.includes("/_matrix/media/v3/download/") ||
@@ -1227,9 +1231,11 @@ export function ChatWindow({
                                                 const isGiphyView = url.includes("giphy.com/gifs");
                                                 
                                                 if (isTenorView || isGiphyView) {
+                                                    const parts = url.split("-");
+                                                    const id = parts[parts.length - 1]?.split("/").pop(); // Handle case where there's no dash
                                                     const embedUrl = isTenorView 
-                                                        ? url.replace("tenor.com/view", "tenor.com/embed")
-                                                        : url.replace("giphy.com/gifs", "giphy.com/embed");
+                                                        ? `https://tenor.com/embed/${id}`
+                                                        : `https://giphy.com/embed/${id}`;
                                                     return (
                                                         <div key={i} className="attachment legacy-media" style={{ width: "100%", maxWidth: "400px" }}>
                                                             <iframe
@@ -1576,6 +1582,13 @@ export function ChatWindow({
                 )
             }
 
+            {lightboxUrl && (
+                <div className="lightbox-overlay" onClick={() => setLightboxUrl(null)}>
+                    <button className="lightbox-close" onClick={() => setLightboxUrl(null)}>×</button>
+                    <img src={lightboxUrl} className="lightbox-image" alt="Full size" />
+                </div>
+            )}
+
             <style jsx>{`
             .highlighted-message {
                 background: rgba(255, 255, 0, 0.15);
@@ -1593,6 +1606,40 @@ export function ChatWindow({
             }
             .unread-banner:hover {
                 background: #4752c4;
+            }
+            .lightbox-overlay {
+                position: fixed;
+                inset: 0;
+                background: rgba(0, 0, 0, 0.9);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 2000;
+                cursor: zoom-out;
+                animation: fadeIn 0.2s ease-out;
+                backdrop-filter: blur(4px);
+            }
+            .lightbox-image {
+                max-width: 95vw;
+                max-height: 95vh;
+                object-fit: contain;
+                box-shadow: 0 0 40px rgba(0,0,0,0.5);
+                border-radius: 4px;
+            }
+            .lightbox-close {
+                position: absolute;
+                top: 2rem;
+                right: 2rem;
+                background: none;
+                border: none;
+                color: white;
+                font-size: 2.5rem;
+                cursor: pointer;
+                opacity: 0.7;
+                transition: opacity 0.2s;
+            }
+            .lightbox-close:hover {
+                opacity: 1;
             }
             .message-reply-indicator {
                 display: flex;

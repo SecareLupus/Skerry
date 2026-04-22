@@ -659,10 +659,32 @@ export function mapDiscordMediaToSkerryAttachments(media: Array<{ url: string; s
     let finalUrl = url;
     // Normalize Discord CDN to Media Proxy for better reliability and browser compatibility
     if (url.includes("cdn.discordapp.com") || url.includes("media.discordapp.net")) {
+      const isDiscordAsset = !item.isSticker && (
+        lowerUrl.includes("/emojis/") || 
+        lowerUrl.includes("/avatars/") || 
+        lowerUrl.includes("/icons/") || 
+        lowerUrl.includes("/banners/") ||
+        lowerUrl.includes("/splashes/") ||
+        lowerUrl.includes("/app-icons/") ||
+        lowerUrl.includes("/app-assets/") ||
+        lowerUrl.includes("/role-icons/")
+      );
+
       finalUrl = url.replace("cdn.discordapp.com", "media.discordapp.net");
       
-      // Prefer WebP for better performance and compatibility with animated images
-      if (isHeic || isGif || isApng) {
+      // For Discord CDN assets (emojis, avatars, etc.), Discord highly recommends WebP.
+      // If it's an animated asset (hash starts with a_), we should request it as animated WebP.
+      if (isDiscordAsset) {
+        const isAnimated = lowerUrl.includes("/a_");
+        
+        // Remove existing extension and use .webp
+        finalUrl = finalUrl.replace(/\.(png|jpg|jpeg|gif)(\?|$)/, ".webp$2");
+        
+        if (isAnimated && !finalUrl.includes("animated=true")) {
+          finalUrl += (finalUrl.includes("?") ? "&" : "?") + "animated=true";
+        }
+      } else if (isHeic || isGif || isApng) {
+        // For other Discord-hosted media (attachments), try to use WebP if it's a known heavy/incompatible format
         if (!finalUrl.includes("format=")) {
           finalUrl += (finalUrl.includes("?") ? "&" : "?") + "format=webp";
         }
@@ -670,7 +692,7 @@ export function mapDiscordMediaToSkerryAttachments(media: Array<{ url: string; s
     }
 
     let contentType = "image/png"; // Default to a standard image type
-    if (finalUrl.includes("format=webp") || isWebp || isHeic) contentType = "image/webp";
+    if (finalUrl.includes(".webp") || finalUrl.includes("format=webp") || isWebp || isHeic) contentType = "image/webp";
     else if (isGif) contentType = "image/gif";
     else if (isPng) contentType = "image/png";
     else if (isJpg) contentType = "image/jpeg";
