@@ -1,6 +1,9 @@
 import sys
 import json
-import rlottie
+try:
+    import rlottie
+except ImportError:
+    import rlottie_python as rlottie
 import io
 
 def render():
