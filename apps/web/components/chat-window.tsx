@@ -19,6 +19,7 @@ import DOMPurify from "dompurify";
 import { LandingJoinButton } from "./landing-join-button";
 import { LandingPageView } from "./landing-page-view";
 import { GifPlayer } from "./gif-player";
+import { useIntersectionObserver } from "../hooks/use-intersection-observer";
 
 
 
@@ -101,6 +102,15 @@ const getProxiedUrl = (url: string) => {
 function LottieSticker({ url }: { url: string }) {
     const [animationData, setAnimationData] = useState<any>(null);
     const [error, setError] = useState(false);
+    const [ref, isVisible] = useIntersectionObserver<HTMLDivElement>({ rootMargin: "200px" });
+
+    // Diagnostic logging for visibility dimensions
+    useEffect(() => {
+        if (animationData && ref.current) {
+            const rect = ref.current.getBoundingClientRect();
+            console.log(`[Lottie Test] ${isVisible ? 'VISIBLE' : 'HIDDEN'} (${Math.round(rect.width)}x${Math.round(rect.height)}): Sticker ${url.slice(-20)}`);
+        }
+    }, [isVisible, animationData, url]);
 
     // Mutation Detector: Check if the data is still growing
     useEffect(() => {
@@ -166,12 +176,18 @@ function LottieSticker({ url }: { url: string }) {
     }
 
     return (
-        <Lottie 
-            animationData={animationData} 
-            loop={true} 
-            style={{ width: 160, height: 160 }} 
-            rendererSettings={{ preserveAspectRatio: 'xMidYMid slice' }}
-        />
+        <div ref={ref} style={{ width: 160, height: 160 }}>
+            <Lottie 
+                animationData={animationData} 
+                loop={true} 
+                renderer="canvas"
+                style={{ width: "100%", height: "100%" }} 
+                rendererSettings={{ 
+                    preserveAspectRatio: 'xMidYMid slice',
+                    clearCanvas: true
+                }}
+            />
+        </div>
     );
 };
 

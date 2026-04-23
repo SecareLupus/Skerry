@@ -21,8 +21,9 @@ export function GifPlayer({ src, alt, className, style, onClick }: GifPlayerProp
 
     // Passive log to test if visibility detection works without pausing
     useEffect(() => {
-        if (useVideo) {
-            console.log(`[GifPlayer Test] ${isVisible ? 'VISIBLE' : 'HIDDEN'}: ${src.slice(-30)}`);
+        if (useVideo && ref.current) {
+            const rect = ref.current.getBoundingClientRect();
+            console.log(`[GifPlayer Test] ${isVisible ? 'VISIBLE' : 'HIDDEN'} (${Math.round(rect.width)}x${Math.round(rect.height)}): ${src.slice(-30)}`);
         }
     }, [isVisible, useVideo, src]);
 
