@@ -53,6 +53,7 @@ export async function registerMediaRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.get("/v1/media/sticker.webp", async (request, reply) => {
+    console.log(`[Media] GET /v1/media/sticker.webp - URL: ${request.query && (request.query as any).url}`);
     const { url } = z.object({ url: z.string().url() }).parse(request.query);
     
     // Hash the URL to use as a filename
@@ -98,7 +99,7 @@ export async function registerMediaRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.get("/v1/media/proxy", async (request, reply) => {
-    // ... existing proxy code
+    console.log(`[Media] GET /v1/media/proxy - URL: ${request.query && (request.query as any).url}`);
     const { url } = z.object({ url: z.string().url() }).parse(request.query);
     
     // Only allow proxying specific domains to avoid SSRF
@@ -136,4 +137,11 @@ export async function registerMediaRoutes(app: FastifyInstance): Promise<void> {
       return reply.code(500).send({ error: "Internal error fetching media" });
     }
   });
+
+  app.get("/v1/media/health", async () => {
+    console.log("[Media] Health check requested");
+    return { status: "ok", cacheDir: STICKER_CACHE_DIR };
+  });
+
+  console.log("[Media] Media routes registration complete");
 }
