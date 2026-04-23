@@ -30,18 +30,20 @@ export function GifPlayer({ src, alt, className, style, onClick }: GifPlayerProp
     if (useVideo) {
         return (
             <div ref={ref} className={className} style={{ ...style, display: "block", position: "relative" }}>
-                <video
-                    src={src}
-                    style={{ display: "block", objectFit: "contain", width: "100%", height: "100%" }}
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                    onClick={onClick}
-                    onError={() => {
-                        console.error("GifPlayer: Both image and video failed to load", src);
-                    }}
-                />
+                {isVisible && (
+                    <video
+                        src={src}
+                        style={{ display: "block", objectFit: "contain", width: "100%", height: "100%" }}
+                        autoPlay
+                        loop
+                        muted
+                        playsInline
+                        onClick={onClick}
+                        onError={() => {
+                            console.error("GifPlayer: Both image and video failed to load", src);
+                        }}
+                    />
+                )}
             </div>
         );
     }
