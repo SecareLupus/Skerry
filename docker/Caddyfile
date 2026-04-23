@@ -2,6 +2,7 @@
     email {$EMAIL}
     log {
         output stdout
+        level DEBUG
     }
 }
 

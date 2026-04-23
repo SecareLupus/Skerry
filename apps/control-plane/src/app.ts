@@ -6,6 +6,7 @@ import { ZodError } from "zod";
 import rateLimit from "@fastify/rate-limit";
 import { registerAuthRoutes } from "./routes/auth-routes.js";
 import { registerDomainRoutes } from "./routes/domain-routes.js";
+import { registerMediaRoutes } from "./routes/media-routes.js";
 import { config } from "./config.js";
 import { logEvent, httpRequestsTotal, httpRequestDurationSeconds } from "./services/observability-service.js";
 
@@ -184,5 +185,6 @@ export async function buildApp() {
 
   await registerAuthRoutes(app);
   await registerDomainRoutes(app);
+  await registerMediaRoutes(app);
   return app;
 }

@@ -42,7 +42,19 @@ export async function renderLottieToWebP(url: string): Promise<Buffer> {
     // We look for render.py in the same directory as the source, or one level up from dist
     const bridgePath = path.join(__dirname, 'render.py');
     const bridgePathFallback = path.join(__dirname, '..', 'src', 'render.py');
-    const finalBridgePath = require('fs').existsSync(bridgePath) ? bridgePath : bridgePathFallback;
+    const bridgePathFallback2 = '/app/apps/sticker-renderer/src/render.py';
+    
+    let finalBridgePath = bridgePath;
+    if (require('fs').existsSync(bridgePath)) {
+        finalBridgePath = bridgePath;
+    } else if (require('fs').existsSync(bridgePathFallback)) {
+        finalBridgePath = bridgePathFallback;
+    } else {
+        finalBridgePath = bridgePathFallback2;
+    }
+
+    console.log(`[Sticker Renderer] Using bridge path: ${finalBridgePath} (exists: ${require('fs').existsSync(finalBridgePath)})`);
+    console.log(`[Sticker Renderer] Current __dirname: ${__dirname}`);
     
     const pythonBridge = spawn('python3', [finalBridgePath]);
 

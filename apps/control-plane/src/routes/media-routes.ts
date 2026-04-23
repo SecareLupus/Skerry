@@ -75,7 +75,8 @@ export async function registerMediaRoutes(app: FastifyInstance): Promise<void> {
         const response = await fetch(rendererUrl);
 
         if (!response.ok) {
-            throw new Error(`Renderer failed: ${response.statusText}`);
+            const errorText = await response.text().catch(() => "No error body");
+            throw new Error(`Renderer failed (${response.status}): ${errorText}`);
         }
 
         const buffer = await response.arrayBuffer();
