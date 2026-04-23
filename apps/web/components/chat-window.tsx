@@ -1237,7 +1237,7 @@ export function ChatWindow({
                                                             <div key={att.id} className={`attachment ${att.isSticker ? 'sticker' : ''}`}>
                                                                 {att.isSticker ? (
                                                                     <div className="sticker-container" style={{ width: "160px", height: "160px" }}>
-                                                                        {normalizedUrl.endsWith(".json") ? (
+                                                                        {(normalizedUrl.endsWith(".json") || (att.sourceUrl?.split('?')[0]?.endsWith(".json") ?? false)) ? (
                                                                             <LottieSticker url={normalizedUrl} />
                                                                         ) : (
                                                                             <GifPlayer 

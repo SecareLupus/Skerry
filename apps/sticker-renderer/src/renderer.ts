@@ -32,7 +32,12 @@ export async function renderLottieToWebP(url: string): Promise<Buffer> {
     ]);
 
     // 3. Start the Native rlottie-python bridge
-    const pythonBridge = spawn('python3', [path.join(__dirname, 'render.py')]);
+    // We look for render.py in the same directory as the source, or one level up from dist
+    const bridgePath = path.join(__dirname, 'render.py');
+    const bridgePathFallback = path.join(__dirname, '..', 'src', 'render.py');
+    const finalBridgePath = require('fs').existsSync(bridgePath) ? bridgePath : bridgePathFallback;
+    
+    const pythonBridge = spawn('python3', [finalBridgePath]);
 
     const chunks: Buffer[] = [];
     ffmpeg.stdout.on('data', (chunk) => chunks.push(chunk));

@@ -4,10 +4,7 @@ import rlottie
 import io
 
 def render():
-    if len(sys.argv) < 2:
-        return
-
-    # Load Lottie JSON from stdin or path
+    # Load Lottie JSON from stdin
     try:
         lottie_data = sys.stdin.read()
         anim = rlottie.LottieAnimation.from_data(lottie_data)
