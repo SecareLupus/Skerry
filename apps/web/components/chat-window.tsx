@@ -57,7 +57,6 @@ interface ChatWindowProps {
 
 // LandingPageView is now imported from ./landing-page-view
 
-const Lottie = dynamic(() => import("lottie-react").then(mod => mod.default), { ssr: false }) as any;
 
 const normalizeMediaUrl = (url: string) => {
     if (!url) return url;
@@ -100,97 +99,28 @@ const getProxiedUrl = (url: string) => {
 };
 
 function LottieSticker({ url }: { url: string }) {
-    const [animationData, setAnimationData] = useState<any>(null);
-    const [error, setError] = useState(false);
-    const [ref, isVisible] = useIntersectionObserver<HTMLDivElement>({ rootMargin: "200px" });
-
-    // Diagnostic logging for visibility dimensions
-    useEffect(() => {
-        if (animationData && ref.current) {
-            const rect = ref.current.getBoundingClientRect();
-            console.log(`[Lottie Test] ${isVisible ? 'VISIBLE' : 'HIDDEN'} (${Math.round(rect.width)}x${Math.round(rect.height)}): Sticker ${url.slice(-20)}`);
-        }
-    }, [isVisible, animationData, url]);
-
-    // Mutation Detector: Check if the data is still growing
-    useEffect(() => {
-        if (!animationData) return;
-        const initialString = JSON.stringify(animationData).length;
-        const timer = setTimeout(() => {
-            const currentString = JSON.stringify(animationData).length;
-            if (currentString !== initialString) {
-                console.warn(`[Lottie Leak Detector] Object grew from ${initialString} to ${currentString} bytes. Cloning to fix...`);
-                // If it grew, we force a clean clone to "reset" the memory
-                setAnimationData((prev: any) => JSON.parse(JSON.stringify(prev)));
-            }
-        }, 15000);
-        return () => clearTimeout(timer);
-    }, [animationData]);
-
-    useEffect(() => {
-        const tryFetch = (fetchUrl: string, isFallback: boolean = false) => {
-            fetch(fetchUrl, { mode: 'cors', cache: 'default' })
-                .then(res => {
-                    if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-                    return res.text();
-                })
-                .then(text => {
-                    try {
-                        const data = JSON.parse(text);
-                        // Store a clean copy
-                        setAnimationData(data);
-                        setError(false);
-                    } catch (e) {
-                        throw new Error("Invalid JSON data");
-                    }
-                })
-                .catch(err => {
-                    // Only log the second failure to reduce console noise
-                    if (isFallback) {
-                        console.error(`LottieSticker: All load attempts failed for ${url}`, err);
-                        setError(true);
-                    } else {
-                        const proxiedUrl = getProxiedUrl(url);
-                        if (proxiedUrl !== url) {
-                            tryFetch(proxiedUrl, true);
-                        } else {
-                            setError(true);
-                        }
-                    }
-                });
-        };
-
-        tryFetch(url);
-    }, [url]);
-
-    if (error) {
-        return (
-            <div className="sticker-error" style={{ width: 160, height: 160, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(255,255,255,0.05)", borderRadius: 8 }}>
-                <span style={{ fontSize: "0.75rem", opacity: 0.5 }}>Failed to load sticker</span>
-            </div>
-        );
-    }
-
-    if (!animationData) {
-        return <div style={{ width: 160, height: 160, background: "rgba(255,255,255,0.05)", borderRadius: 8 }} />;
-    }
+    const stickerUrl = `/v1/media/sticker.webp?url=${encodeURIComponent(url)}`;
 
     return (
-        <div ref={ref} style={{ width: 160, height: 160 }}>
-            <Lottie 
-                animationData={animationData} 
-                loop={true} 
-                isStopped={!isVisible}
-                renderer="canvas"
-                style={{ width: "100%", height: "100%" }} 
-                rendererSettings={{ 
-                    preserveAspectRatio: 'xMidYMid slice',
-                    clearCanvas: true
+        <div style={{ width: 160, height: 160, borderRadius: 8, overflow: "hidden", background: "rgba(255,255,255,0.02)" }}>
+            <img 
+                src={stickerUrl} 
+                alt="Sticker"
+                style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
+                loading="lazy"
+                onError={(e) => {
+                    // Fallback to error message if WebP fails
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                    const parent = target.parentElement;
+                    if (parent) {
+                        parent.innerHTML = '<div style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; opacity:0.5; font-size:0.75rem;">Failed to load sticker</div>';
+                    }
                 }}
             />
         </div>
     );
-};
+}
 
 function MessageContent({ message, hiddenUrls = [] }: { message: MessageItem; hiddenUrls?: string[] }) {
     const { state } = useChat();

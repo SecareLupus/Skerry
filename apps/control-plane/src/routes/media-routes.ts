@@ -8,11 +8,23 @@ import {
   getIdentityByProductUserId
 } from "../services/identity-service.js";
 import { uploadMedia } from "../services/media-service.js";
+import fs from "node:fs/promises";
+import crypto from "node:crypto";
+import path from "node:path";
 
 export async function registerMediaRoutes(app: FastifyInstance): Promise<void> {
   const initializedAuthHandlers = { preHandler: [requireAuth, requireInitialized] };
+  const STICKER_CACHE_DIR = "/app/cache/stickers";
+
+  // Ensure cache dir exists
+  try {
+    await fs.mkdir(STICKER_CACHE_DIR, { recursive: true });
+  } catch (err) {
+    console.warn(`[Media] Could not create sticker cache directory: ${STICKER_CACHE_DIR}`);
+  }
 
   app.post("/v1/media/upload", initializedAuthHandlers, async (request, reply) => {
+    // ... existing upload code
     const payload = z
       .object({
         serverId: z.string().min(1),
@@ -27,8 +39,6 @@ export async function registerMediaRoutes(app: FastifyInstance): Promise<void> {
       authContext: request.auth
     });
 
-    // We allow media upload if the user can manage the server OR if they are simply a registered user on the platform.
-    // This allows regular users to upload images even if they don't have management roles yet (e.g. for profile sync).
     const hasAnyIdentity = !!(await getIdentityByProductUserId(request.auth!.productUserId));
 
     if (!allowed && !hasAnyIdentity) {
@@ -38,13 +48,55 @@ export async function registerMediaRoutes(app: FastifyInstance): Promise<void> {
 
     const result = await uploadMedia(payload);
     reply.code(201);
-    // Return contentType alongside URL so the client can pass it back
-    // when creating the message, which is critical for extension-less
-    // Synapse media URLs that can't be type-inferred from the path.
     return { url: result.url, contentType: payload.contentType };
   });
 
+  app.get("/v1/media/sticker.webp", async (request, reply) => {
+    const { url } = z.object({ url: z.string().url() }).parse(request.query);
+    
+    // Hash the URL to use as a filename
+    const hash = crypto.createHash("md5").update(url).digest("hex");
+    const cachePath = path.join(STICKER_CACHE_DIR, `${hash}.webp`);
+
+    try {
+        // 1. Check Cache
+        const stats = await fs.stat(cachePath).catch(() => null);
+        if (stats) {
+            console.log(`[Sticker Cache] HIT for ${url}`);
+            const buffer = await fs.readFile(cachePath);
+            reply.header("Content-Type", "image/webp");
+            reply.header("Cache-Control", "public, max-age=31536000, immutable");
+            return reply.send(buffer);
+        }
+
+        // 2. Cache MISS -> Call Renderer
+        console.log(`[Sticker Cache] MISS for ${url}, calling renderer...`);
+        const rendererUrl = `http://sticker-renderer:3000/render?url=${encodeURIComponent(url)}`;
+        const response = await fetch(rendererUrl);
+
+        if (!response.ok) {
+            throw new Error(`Renderer failed: ${response.statusText}`);
+        }
+
+        const buffer = await response.arrayBuffer();
+        const finalBuffer = Buffer.from(buffer);
+
+        // 3. Save to Cache (Background)
+        fs.writeFile(cachePath, finalBuffer).catch(err => {
+            console.error(`[Sticker Cache] Failed to save ${cachePath}:`, err);
+        });
+
+        reply.header("Content-Type", "image/webp");
+        reply.header("Cache-Control", "public, max-age=31536000, immutable");
+        return reply.send(finalBuffer);
+    } catch (err) {
+        console.error(`[Sticker Cache] Error processing ${url}:`, err);
+        return reply.code(500).send({ error: "Failed to render sticker" });
+    }
+  });
+
   app.get("/v1/media/proxy", async (request, reply) => {
+    // ... existing proxy code
     const { url } = z.object({ url: z.string().url() }).parse(request.query);
     
     // Only allow proxying specific domains to avoid SSRF

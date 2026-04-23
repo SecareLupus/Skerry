@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body, html { margin: 0; padding: 0; overflow: hidden; background: transparent; }
+        #lottie { width: 512px; height: 512px; }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bodymovin/5.12.2/lottie.min.js"></script>
+</head>
+<body>
+    <div id="lottie"></div>
+    <script>
+        window.renderLottie = (animationData) => {
+            return new Promise((resolve) => {
+                const anim = lottie.loadAnimation({
+                    container: document.getElementById('lottie'),
+                    renderer: 'svg',
+                    loop: false,
+                    autoplay: false,
+                    animationData: animationData
+                });
+
+                anim.addEventListener('DOMLoaded', () => {
+                    window.lottieInstance = anim;
+                    resolve({
+                        totalFrames: anim.totalFrames,
+                        frameRate: anim.frameRate
+                    });
+                });
+            });
+        };
+
+        window.goToFrame = (frame) => {
+            window.lottieInstance.goToAndStop(frame, true);
+        };
+    </script>
+</body>
+</html>

@@ -89,6 +89,7 @@ services:
       - livekit
     volumes:
       - ./docker/synapse:/app/docker/synapse
+      - sticker_cache:/app/cache/stickers
     deploy:
       resources:
         limits:
@@ -141,6 +142,27 @@ services:
         limits:
           memory: 128M
   
+  sticker-renderer:
+    build:
+      context: .
+      target: sticker-renderer
+    networks:
+      - default
+      - backend
+    environment:
+      - PORT=3000
+    deploy:
+      resources:
+        limits:
+          # Rendering is heavy, give it some room but cap it
+          cpus: '0.5'
+          memory: 1G
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   db-backup:
     image: postgres:16-alpine
     container_name: skerry-db-backup
@@ -170,3 +192,4 @@ volumes:
   livekit_data:
   caddy_data:
   caddy_config:
+  sticker_cache:
