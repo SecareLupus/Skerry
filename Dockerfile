@@ -36,7 +36,6 @@ ENV PATH="$PNPM_HOME:$PATH"
 WORKDIR /app
 COPY --from=build /app /app
 RUN pnpm install --filter @skerry/sticker-renderer
-# We only need Chromium for the JIT render
-RUN npx playwright install chromium
+# We don't need to install playwright browsers because they are pre-installed in the base image
 EXPOSE 3000
 CMD [ "pnpm", "--filter", "@skerry/sticker-renderer", "start" ]
