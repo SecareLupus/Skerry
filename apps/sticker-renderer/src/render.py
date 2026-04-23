@@ -16,7 +16,7 @@ def render():
         sys.exit(1)
 
     width, height = 160, 160
-    total_frames = anim.total_frame
+    total_frames = anim.total_frames
     
     # We cap frames to 60 for performance/size
     render_frames = min(total_frames, 60)
