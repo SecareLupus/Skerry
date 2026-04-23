@@ -37,7 +37,8 @@ ENV VIRTUAL_ENV=/opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 # Install rlottie-python using absolute path and verify
-RUN /opt/venv/bin/pip install rlottie-python && \
+RUN /opt/venv/bin/pip install --upgrade pip wheel setuptools && \
+    /opt/venv/bin/pip install "rlottie-python[full]" && \
     /opt/venv/bin/python3 -c "import rlottie; print('Import worked!')"
 
 RUN npm install -g pnpm@9.12.2
