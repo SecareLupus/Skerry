@@ -3,7 +3,7 @@ FROM node:20-slim AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
-RUN corepack enable
+RUN npm install -g pnpm@9.12.2
 COPY . /app
 WORKDIR /app
 
@@ -30,7 +30,7 @@ CMD [ "pnpm", "--filter", "@skerry/web", "start:prod" ]
 # --- Sticker Renderer Runtime ---
 FROM mcr.microsoft.com/playwright:v1.49.0-jammy AS sticker-renderer
 RUN apt-get update && apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
-RUN corepack enable
+RUN npm install -g pnpm@9.12.2
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 WORKDIR /app
