@@ -177,18 +177,17 @@ function LottieSticker({ url }: { url: string }) {
 
     return (
         <div ref={ref} style={{ width: 160, height: 160 }}>
-            {isVisible && (
-                <Lottie 
-                    animationData={animationData} 
-                    loop={true} 
-                    renderer="canvas"
-                    style={{ width: "100%", height: "100%" }} 
-                    rendererSettings={{ 
-                        preserveAspectRatio: 'xMidYMid slice',
-                        clearCanvas: true
-                    }}
-                />
-            )}
+            <Lottie 
+                animationData={animationData} 
+                loop={true} 
+                isStopped={!isVisible}
+                renderer="canvas"
+                style={{ width: "100%", height: "100%" }} 
+                rendererSettings={{ 
+                    preserveAspectRatio: 'xMidYMid slice',
+                    clearCanvas: true
+                }}
+            />
         </div>
     );
 };

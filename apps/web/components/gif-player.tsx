@@ -40,23 +40,33 @@ export function GifPlayer({ src, alt, className, style, onClick }: GifPlayerProp
         }
     }, [isVisible, useVideo, src]);
 
+    const videoRef = useRef<HTMLVideoElement>(null);
+
+    useEffect(() => {
+        if (videoRef.current) {
+            if (isVisible) {
+                videoRef.current.play().catch(() => {}); // Ignore abort errors
+            } else {
+                videoRef.current.pause();
+            }
+        }
+    }, [isVisible]);
+
     if (useVideo) {
         return (
             <div ref={ref} className={className} style={containerStyle}>
-                {isVisible && (
-                    <video
-                        src={src}
-                        style={{ display: "block", objectFit: "contain", width: "100%", height: "100%" }}
-                        autoPlay
-                        loop
-                        muted
-                        playsInline
-                        onClick={onClick}
-                        onError={() => {
-                            console.error("GifPlayer: Both image and video failed to load", src);
-                        }}
-                    />
-                )}
+                <video
+                    ref={videoRef}
+                    src={src}
+                    style={{ display: "block", objectFit: "contain", width: "100%", height: "100%" }}
+                    loop
+                    muted
+                    playsInline
+                    onClick={onClick}
+                    onError={() => {
+                        console.error("GifPlayer: Both image and video failed to load", src);
+                    }}
+                />
             </div>
         );
     }

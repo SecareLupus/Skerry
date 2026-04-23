@@ -18,28 +18,12 @@ export function useIntersectionObserver<T extends HTMLElement>(
   useEffect(() => {
     if (!enabled || !ref.current) return;
 
-    // Try to find the closest scrollable parent to use as root
-    // This is often needed in complex chat layouts
-    let root: HTMLElement | null = null;
-    let parent = ref.current.parentElement;
-    while (parent) {
-      const style = window.getComputedStyle(parent);
-      if (style.overflowY === 'auto' || style.overflowY === 'scroll') {
-        root = parent;
-        break;
-      }
-      parent = parent.parentElement;
-    }
-
     const observer = new IntersectionObserver(
       ([entry]) => {
-        // More robust check: intersectRatio > 0 OR isIntersecting
-        const visible = (entry?.isIntersecting || (entry?.intersectionRatio ?? 0) > 0);
-        setIsVisible(visible);
+        setIsVisible(entry?.isIntersecting ?? false);
       },
       { 
-        root, // Pass the detected scroll container
-        threshold: [0, 0.01], 
+        threshold, 
         rootMargin 
       }
     );
