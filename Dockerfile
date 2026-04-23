@@ -36,11 +36,12 @@ RUN python3 -m venv /opt/venv
 ENV VIRTUAL_ENV=/opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Install rlottie-python and find the missing shared libs
+# Install rlottie-python and verify the correct import name
 RUN /opt/venv/bin/pip install --upgrade pip wheel setuptools && \
     /opt/venv/bin/pip install "rlottie-python[full]" && \
-    find /opt/venv -name "*.so" -exec ldd {} + && \
-    /opt/venv/bin/python3 -c "import rlottie; print('Import worked!')"
+    ls -F /opt/venv/lib/python3.11/site-packages/rlottie_python/ && \
+    /opt/venv/bin/python3 -c "import rlottie_python; print('Import rlottie_python worked!')" || \
+    /opt/venv/bin/python3 -c "import rlottie; print('Import rlottie worked!')"
 
 RUN npm install -g pnpm@9.12.2
 ENV PNPM_HOME="/pnpm"
