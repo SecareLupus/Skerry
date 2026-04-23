@@ -1,6 +1,11 @@
 import { spawn } from 'child_process';
 import path from 'path';
 import axios from 'axios';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export async function initBrowser() {
     // No-op for rlottie
@@ -45,15 +50,15 @@ export async function renderLottieToWebP(url: string): Promise<Buffer> {
     const bridgePathFallback2 = '/app/apps/sticker-renderer/src/render.py';
     
     let finalBridgePath = bridgePath;
-    if (require('fs').existsSync(bridgePath)) {
+    if (fs.existsSync(bridgePath)) {
         finalBridgePath = bridgePath;
-    } else if (require('fs').existsSync(bridgePathFallback)) {
+    } else if (fs.existsSync(bridgePathFallback)) {
         finalBridgePath = bridgePathFallback;
     } else {
         finalBridgePath = bridgePathFallback2;
     }
 
-    console.log(`[Sticker Renderer] Using bridge path: ${finalBridgePath} (exists: ${require('fs').existsSync(finalBridgePath)})`);
+    console.log(`[Sticker Renderer] Using bridge path: ${finalBridgePath} (exists: ${fs.existsSync(finalBridgePath)})`);
     console.log(`[Sticker Renderer] Current __dirname: ${__dirname}`);
     
     const pythonBridge = spawn('python3', [finalBridgePath]);
