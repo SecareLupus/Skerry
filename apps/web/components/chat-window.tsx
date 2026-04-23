@@ -102,20 +102,20 @@ function LottieSticker({ url }: { url: string }) {
     const [animationData, setAnimationData] = useState<any>(null);
     const [error, setError] = useState(false);
 
-    // Mutation Detector: Passive check to see if the library modifies the data
+    // Mutation Detector: Check if the data is still growing
     useEffect(() => {
         if (!animationData) return;
-        const initialKeys = Object.keys(animationData).length;
         const initialString = JSON.stringify(animationData).length;
         const timer = setTimeout(() => {
-            const currentKeys = Object.keys(animationData).length;
             const currentString = JSON.stringify(animationData).length;
-            if (currentKeys !== initialKeys || currentString !== initialString) {
-                console.warn(`[Lottie Leak Detector] Mutation detected for ${url.slice(-30)}`);
+            if (currentString !== initialString) {
+                console.warn(`[Lottie Leak Detector] Object grew from ${initialString} to ${currentString} bytes. Cloning to fix...`);
+                // If it grew, we force a clean clone to "reset" the memory
+                setAnimationData(prev => JSON.parse(JSON.stringify(prev)));
             }
-        }, 10000);
+        }, 15000);
         return () => clearTimeout(timer);
-    }, [animationData, url]);
+    }, [animationData]);
 
     useEffect(() => {
         const tryFetch = (fetchUrl: string, isFallback: boolean = false) => {
@@ -127,6 +127,7 @@ function LottieSticker({ url }: { url: string }) {
                 .then(text => {
                     try {
                         const data = JSON.parse(text);
+                        // Store a clean copy
                         setAnimationData(data);
                         setError(false);
                     } catch (e) {
@@ -134,16 +135,17 @@ function LottieSticker({ url }: { url: string }) {
                     }
                 })
                 .catch(err => {
-                    console.warn(`LottieSticker: Failed to load from ${isFallback ? 'proxy' : 'direct'}: ${fetchUrl}`, err);
-                    if (!isFallback) {
+                    // Only log the second failure to reduce console noise
+                    if (isFallback) {
+                        console.error(`LottieSticker: All load attempts failed for ${url}`, err);
+                        setError(true);
+                    } else {
                         const proxiedUrl = getProxiedUrl(url);
                         if (proxiedUrl !== url) {
                             tryFetch(proxiedUrl, true);
                         } else {
                             setError(true);
                         }
-                    } else {
-                        setError(true);
                     }
                 });
         };
