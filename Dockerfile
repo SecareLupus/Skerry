@@ -28,14 +28,17 @@ EXPOSE 3000
 CMD [ "pnpm", "--filter", "@skerry/web", "start:prod" ]
 
 # --- Sticker Renderer Runtime ---
-FROM mcr.microsoft.com/playwright:v1.49.0-jammy AS sticker-renderer
-RUN apt-get update && apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
+FROM node:20-bookworm-slim AS sticker-renderer
+RUN apt-get update && apt-get install -y ffmpeg python3 python3-pip python3-venv && rm -rf /var/lib/apt/lists/*
+
+# Install rlottie-python
+RUN python3 -m pip install --break-system-packages rlottie-python
+
 RUN npm install -g pnpm@9.12.2
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 WORKDIR /app
 COPY --from=build /app /app
 RUN pnpm install --filter @skerry/sticker-renderer
-# We don't need to install playwright browsers because they are pre-installed in the base image
 EXPOSE 3000
 CMD [ "pnpm", "--filter", "@skerry/sticker-renderer", "start" ]
