@@ -12,19 +12,25 @@ export async function initBrowser() {
     return null;
 }
 
-export async function renderLottieToWebP(urlInput: string | any): Promise<Buffer> {
-    const url = typeof urlInput === 'object' && urlInput !== null ? (urlInput.url || JSON.stringify(urlInput)) : urlInput;
-    console.log(`[Sticker Renderer] Native render starting for ${url} (type: ${typeof urlInput})`);
+export async function renderLottieToWebP(urlInput: string, dataInput?: string): Promise<Buffer> {
+    console.log(`[Sticker Renderer] Native render starting (URL: ${urlInput}, HasData: ${!!dataInput})`);
     
-    // 1. Fetch the Lottie JSON
-    const { data: lottieJson } = await axios.get(url, { 
-        responseType: 'text',
-        headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36',
-            'Referer': 'https://discord.com/',
-            'Accept': 'application/json'
-        }
-    });
+    let lottieJson: any;
+    
+    if (dataInput) {
+        lottieJson = dataInput;
+    } else {
+        // 1. Fetch the Lottie JSON
+        const response = await axios.get(urlInput, { 
+            responseType: 'text',
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36',
+                'Referer': 'https://discord.com/',
+                'Accept': 'application/json'
+            }
+        });
+        lottieJson = response.data;
+    }
     const lottieString = typeof lottieJson === 'string' ? lottieJson : JSON.stringify(lottieJson);
     const tempOutputFile = `/tmp/sticker-${Date.now()}.webp`;
 

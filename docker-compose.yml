@@ -162,6 +162,8 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+    volumes:
+      - sticker_cache:/app/cache/stickers
 
   db-backup:
     image: postgres:16-alpine

@@ -11,10 +11,30 @@ app.get('/health', async () => {
 app.get('/render', async (request, reply) => {
     try {
         const { url } = z.object({ url: z.string().url() }).parse(request.query);
-        
-        console.log(`[Sticker Renderer] Starting render for ${url}`);
-        
+        console.log(`[Sticker Renderer] GET render for ${url}`);
         const webpBuffer = await renderLottieToWebP(url);
+        reply.header('Content-Type', 'image/webp');
+        reply.header('Cache-Control', 'public, max-age=31536000, immutable');
+        return reply.send(webpBuffer);
+    } catch (err: any) {
+        app.log.error(err);
+        return reply.code(500).send({ error: err.message || 'Internal Server Error' });
+    }
+});
+
+app.post('/render', async (request, reply) => {
+    try {
+        const { url, data } = z.object({ 
+            url: z.string().url().optional(),
+            data: z.string().optional()
+        }).parse(request.body);
+        
+        if (!url && !data) {
+            return reply.code(400).send({ error: 'Either url or data must be provided' });
+        }
+        
+        console.log(`[Sticker Renderer] POST render for ${url || 'direct data'}`);
+        const webpBuffer = await renderLottieToWebP(url || '', data);
         
         reply.header('Content-Type', 'image/webp');
         reply.header('Cache-Control', 'public, max-age=31536000, immutable');

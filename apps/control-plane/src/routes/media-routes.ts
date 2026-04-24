@@ -14,7 +14,7 @@ import path from "node:path";
 
 export async function registerMediaRoutes(app: FastifyInstance): Promise<void> {
   const initializedAuthHandlers = { preHandler: [requireAuth, requireInitialized] };
-  const STICKER_CACHE_DIR = "/tmp/skerry-sticker-cache";
+  const STICKER_CACHE_DIR = "/app/cache/stickers";
 
   // Ensure cache dir exists
   try {
@@ -61,23 +61,37 @@ export async function registerMediaRoutes(app: FastifyInstance): Promise<void> {
     
     try {
       const { url } = z.object({ url: z.string().url() }).parse(request.query);
-      const hash = crypto.createHash("md5").update(url).digest("hex");
+      
+      // 1. Fetch JSON first to hash it
+      const lottieResponse = await fetch(url);
+      if (!lottieResponse.ok) {
+        throw new Error(`Failed to fetch Lottie JSON from ${url} (${lottieResponse.status})`);
+      }
+      const lottieJson = await lottieResponse.text();
+      
+      // 2. Content-based Hash
+      const hash = crypto.createHash("md5").update(lottieJson).digest("hex");
       const cachePath = path.join(STICKER_CACHE_DIR, `${hash}.webp`);
+      console.log(`[Sticker] Hash for ${url}: ${hash}`);
 
-      // 1. Check Cache
+      // 3. Check Cache
       const stats = await fs.stat(cachePath).catch(() => null);
       if (stats) {
-        console.log(`[Sticker Cache] HIT for ${url}`);
+        console.log(`[Sticker Cache] HIT for ${hash} (${url})`);
         const buffer = await fs.readFile(cachePath);
         reply.header("Content-Type", "image/webp");
         reply.header("Cache-Control", "public, max-age=31536000, immutable");
         return reply.send(buffer);
       }
 
-      // 2. Cache MISS -> Call Renderer
-      console.log(`[Sticker Cache] MISS for ${url}, calling renderer...`);
-      const rendererUrl = `http://sticker-renderer:3000/render?url=${encodeURIComponent(url)}`;
-      const response = await fetch(rendererUrl);
+      // 4. Cache MISS -> Call Renderer with JSON data
+      console.log(`[Sticker Cache] MISS for ${hash}, calling renderer...`);
+      const rendererUrl = `http://sticker-renderer:3000/render`;
+      const response = await fetch(rendererUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url, data: lottieJson })
+      });
 
       if (!response.ok) {
         const errorText = await response.text().catch(() => "No error body");
@@ -87,7 +101,7 @@ export async function registerMediaRoutes(app: FastifyInstance): Promise<void> {
       const buffer = await response.arrayBuffer();
       const finalBuffer = Buffer.from(buffer);
 
-      // 3. Save to Cache (Background)
+      // 5. Save to Cache (Background)
       fs.writeFile(cachePath, finalBuffer).catch(err => {
         console.error(`[Sticker Cache] Failed to save ${cachePath}:`, err);
       });
