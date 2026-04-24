@@ -98,7 +98,7 @@ const getProxiedUrl = (url: string) => {
     return normalized;
 };
 
-const LottieSticker = React.memo(({ url }: { url: string }) => {
+const LottieSticker = React.memo(function LottieSticker({ url }: { url: string }) {
     const controlPlaneUrl = process.env.NEXT_PUBLIC_CONTROL_PLANE_URL || "";
     const stickerUrl = `${controlPlaneUrl}/v1/media/sticker?url=${encodeURIComponent(url)}`;
 
