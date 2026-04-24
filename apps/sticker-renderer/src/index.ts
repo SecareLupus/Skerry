@@ -14,11 +14,11 @@ app.get('/render', async (request, reply) => {
         
         console.log(`[Sticker Renderer] Starting render for ${url}`);
         
-        const gifBuffer = await renderLottieToWebP(url);
+        const webpBuffer = await renderLottieToWebP(url);
         
-        reply.header('Content-Type', 'image/gif');
+        reply.header('Content-Type', 'image/webp');
         reply.header('Cache-Control', 'public, max-age=31536000, immutable');
-        return reply.send(gifBuffer);
+        return reply.send(webpBuffer);
     } catch (err: any) {
         app.log.error(err);
         return reply.code(500).send({ error: err.message || 'Internal Server Error' });

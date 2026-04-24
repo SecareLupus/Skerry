@@ -26,7 +26,7 @@ export async function renderLottieToWebP(urlInput: string | any): Promise<Buffer
         }
     });
     const lottieString = typeof lottieJson === 'string' ? lottieJson : JSON.stringify(lottieJson);
-    const tempOutputFile = `/tmp/sticker-${Date.now()}.gif`;
+    const tempOutputFile = `/tmp/sticker-${Date.now()}.webp`;
 
     // 3. Find bridge path
     const bridgePath = path.join(__dirname, 'render.py');
@@ -80,8 +80,14 @@ export async function renderLottieToWebP(urlInput: string | any): Promise<Buffer
         '-video_size', '160x160',
         '-r', metadata.framerate.toString(),
         '-i', 'pipe:0',
-        '-lavfi', 'split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse',
+        '-c:v', 'libwebp_anim', // Use animation-specific encoder
+        '-lossless', '0', // Lossy for better compatibility
+        '-q:v', '75',
         '-loop', '0',
+        '-an',
+        '-r', metadata.framerate.toString(), // Match output framerate
+        '-vsync', '0',
+        '-f', 'webp',
         tempOutputFile
     ]);
 
