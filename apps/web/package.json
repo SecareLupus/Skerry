@@ -9,7 +9,7 @@
     "start:prod": "next start -H 0.0.0.0",
     "lint": "next lint",
     "typecheck": "tsc --project tsconfig.json --noEmit",
-    "test": "npx dotenv-cli -e ../../.env -- tsx --test test/*.test.ts",
+    "test": "npx dotenv-cli -e ../../.env.test -o -- tsx --test test/*.test.ts",
     "test:e2e": "playwright test"
   },
   "dependencies": {

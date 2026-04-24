@@ -98,17 +98,3 @@ export const config = {
     allowedIps: process.env.METRICS_ALLOWED_IPS?.split(",").map(ip => ip.trim()).filter(Boolean) ?? [],
   }
 };
-
-// Config verification logging
-console.log("--- Configuration Loaded ---");
-console.log(`Port: ${config.port}`);
-console.log(`Dev Auth Bypass: ${config.devAuthBypass}`);
-console.log(`Discord OIDC Enabled: ${Boolean(config.oidc.discordClientId)}`);
-console.log(`Google OIDC Enabled: ${Boolean(config.oidc.googleClientId)}`);
-console.log(`Twitch OIDC Enabled: ${Boolean(config.oidc.twitchClientId)}`);
-console.log(
-  `Discord Bridge Credentials: ${Boolean(config.discordBridge.clientId && config.discordBridge.clientSecret)}`,
-);
-console.log(`Discord Bot Token Present: ${Boolean(config.discordBotToken)}`);
-console.log(`Discord Bridge Callback: ${config.discordBridge.callbackUrl}`);
-console.log("----------------------------");

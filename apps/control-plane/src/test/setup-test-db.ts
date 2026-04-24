@@ -7,8 +7,8 @@ async function setup() {
   // We use the environment variables if available, otherwise defaults
   const user = process.env.POSTGRES_USER || "postgres";
   const password = process.env.POSTGRES_PASSWORD || "postgres";
-  const host = "localhost"; // Local tests run on host
-  const port = 5432;
+  const host = process.env.POSTGRES_HOST || "localhost";
+  const port = Number(process.env.POSTGRES_PORT || "5432");
 
   const client = new Client({
     user,

@@ -10,7 +10,7 @@
     "start:prod": "node dist/index.js",
     "lint": "tsc --project tsconfig.json --noEmit",
     "typecheck": "tsc --project tsconfig.json --noEmit",
-    "test": "npx dotenv-cli -e ../../.env -e .env.test -- tsx src/test/setup-test-db.ts && npx dotenv-cli -e ../../.env -e .env.test -- tsx --test --test-concurrency=1 src/test/*.test.ts",
+    "test": "npx dotenv-cli -e ../../.env.test -e .env.test -o -- tsx src/test/setup-test-db.ts && npx dotenv-cli -e ../../.env.test -e .env.test -o -- tsx --test --test-concurrency=1 src/test/*.test.ts",
     "migrate:up": "npx dotenv-cli -e ../../.env -- node-pg-migrate up --migrations-dir migrations",
     "migrate:down": "npx dotenv-cli -e ../../.env -- node-pg-migrate down --migrations-dir migrations",
     "migrate:create": "npx dotenv-cli -e ../../.env -- node-pg-migrate create --migrations-dir migrations",
