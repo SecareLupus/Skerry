@@ -139,6 +139,74 @@ test("Auth Edge: expired session cookie returns 401", async (t) => {
 // OAuth refresh resilience — provider failure must not crash or corrupt state
 // ===========================================================================
 
+test("Auth Edge: concurrent ensureIdentityTokenValid calls share one OAuth refresh", async (t) => {
+  if (!pool) { t.skip("DATABASE_URL not configured."); return; }
+
+  config.oidc.discordClientId = config.oidc.discordClientId ?? "test_discord_client";
+  config.oidc.discordClientSecret = config.oidc.discordClientSecret ?? "test_discord_secret";
+
+  const expiredTime = new Date(Date.now() - 1000).toISOString();
+  const identity = await upsertIdentityMapping({
+    provider: "discord",
+    oidcSubject: "discord_user_concurrent",
+    email: "concurrent@discord.com",
+    preferredUsername: "concurrent",
+    avatarUrl: null,
+    accessToken: "old_access",
+    refreshToken: "old_refresh",
+    tokenExpiresAt: expiredTime
+  });
+
+  // Count only OAuth token-refresh calls. upsertIdentityMapping triggers
+  // additional Synapse fetches (registerUser + setUserDisplayName) that we
+  // don't care about here.
+  let oauthRefreshCount = 0;
+  const mockFetch = (async (url: string | URL) => {
+    const urlStr = typeof url === "string" ? url : url.toString();
+    const isOauthRefresh = urlStr.includes("discord") && urlStr.includes("token");
+    if (isOauthRefresh) {
+      oauthRefreshCount += 1;
+      // Yield to the event loop so a concurrent call has a chance to enter
+      // the critical section before this one resolves. Without single-flight
+      // protection, both calls fire fetch.
+      await new Promise((resolve) => setImmediate(resolve));
+      return {
+        ok: true,
+        json: async () => ({
+          access_token: "new_access",
+          refresh_token: "new_refresh",
+          expires_in: 3600
+        })
+      } as Response;
+    }
+    // Synapse / other side-effect calls — return benign success.
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({}),
+      text: async () => ""
+    } as Response;
+  }) as typeof fetch;
+
+  await withMockedFetch(mockFetch, async () => {
+    await Promise.all([
+      ensureIdentityTokenValid(identity.productUserId),
+      ensureIdentityTokenValid(identity.productUserId)
+    ]);
+  });
+
+  assert.equal(
+    oauthRefreshCount,
+    1,
+    "concurrent refreshes for the same identity must share a single OAuth call"
+  );
+
+  // And the identity should be in the post-refresh state, not corrupted.
+  const after = await getIdentityByProductUserId(identity.productUserId);
+  assert.equal(after?.accessToken, "new_access");
+  assert.equal(after?.refreshToken, "new_refresh");
+});
+
 test("Auth Edge: ensureIdentityTokenValid handles OAuth provider 500 without crashing", async (t) => {
   if (!pool) { t.skip("DATABASE_URL not configured."); return; }
 

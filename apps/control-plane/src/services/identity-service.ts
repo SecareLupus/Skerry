@@ -307,7 +307,25 @@ export async function updateUserTheme(productUserId: string, theme: string): Pro
   });
 }
 
+// Single-flight guard: when multiple callers concurrently ask to validate the
+// same identity's token, only one OAuth refresh runs. Without this, providers
+// that single-use refresh tokens (Discord) reject the second call.
+const inFlightTokenRefreshes = new Map<string, Promise<void>>();
+
 export async function ensureIdentityTokenValid(productUserId: string): Promise<void> {
+  const existing = inFlightTokenRefreshes.get(productUserId);
+  if (existing) return existing;
+
+  const promise = doEnsureIdentityTokenValid(productUserId);
+  inFlightTokenRefreshes.set(productUserId, promise);
+  try {
+    await promise;
+  } finally {
+    inFlightTokenRefreshes.delete(productUserId);
+  }
+}
+
+async function doEnsureIdentityTokenValid(productUserId: string): Promise<void> {
   const identity = await getIdentityByProductUserId(productUserId);
   if (!identity || !identity.refreshToken || !identity.accessToken) {
     return;

@@ -324,7 +324,7 @@ _Items prioritized during the Refactoring Sprint triage._
 - [ ] **Federation tests** — Phase 23 shipped Web-of-Trust / guest identity; zero test files touch these.
 - [x] **Rate-limit tests** — added [`rate-limit.test.ts`](apps/control-plane/src/test/rate-limit.test.ts) (4 tests) covering 429 with structured body, `x-ratelimit-*` headers, per-IP buckets, x-forwarded-for chain handling.
 - [x] **Migration tests** — added [`migrations.test.ts`](apps/control-plane/src/test/migrations.test.ts) with two tests: `up` twice is a no-op (idempotency) and a down→up roundtrip on the latest migration that diffs both `pgmigrations` and the `information_schema.columns` snapshot. Catches non-reversible migrations and partially-applied downs.
-- [ ] **Contract tests for `@skerry/shared`** — types are imported everywhere; if an enum changes, consumers break silently.
+- [x] **Contract tests for `@skerry/shared`** — extended [`contracts.test.ts`](packages/shared/src/test/contracts.test.ts) with exhaustive `never` checks for all 9 string-union exports (AccessLevel, Role, ChannelType, JoinPolicy, ModerationActionType, ReportStatus, PrivilegedAction, DelegationAssignmentStatus, IdentityProvider) plus zod runtime tests for `MasqueradeParamsSchema`. Removing a value fails the array literal at compile; adding a value fails the `assertNever` branch at compile. 14 new tests, 16 total.
 - [ ] **Accessibility tests** — `@axe-core/playwright` on the critical flows would be cheap.
 - [ ] **Visual regression** — stickers, emoji, and embed cards are visual-heavy; Playwright `toHaveScreenshot()` on a few key components would catch CSS regressions.
 - [ ] **Performance budgets** — `chat-window.tsx` has no "render under N ms with 500 messages" guardrail.
@@ -351,7 +351,7 @@ X. **Migration idempotency** — `migrations.test.ts` (2 tests) covering up-twic
 
 1. **CI strategy decision** — self-hosted runner vs. cloud workflow with `services.postgres` (+ Synapse/LiveKit containers). Without this, none of the new tests run automatically. Unblocks #2.
 2. **TAP reporter + coverage tooling** — deferred until (1) lands.
-3. **Concurrent-refresh test** — deferred from auth edge cases batch; deserves single-flight verification rather than a sprinkle.
+X. **Concurrent-refresh test + single-flight fix** — added 9th test to `auth-edge-cases.test.ts`. Two parallel `ensureIdentityTokenValid` calls for the same identity now share one OAuth refresh via an in-flight `Map<userId, Promise>` in `identity-service.ts`. Test was initially failing 3≠1 because `upsertIdentityMapping` triggers Synapse `registerUser` + `setUserDisplayName` fetches; mock now filters to OAuth-only.
 4. **Split oversized test files** — `integration-auth-chat-permissions.test.ts` (1,415 LOC) and `message-crud.test.ts` (770 LOC). Quality-of-life, not bug-catching.
 5. **Move `config.discordBridge.mockMode = true` out of module-load** — fragile but not actively biting.
 
