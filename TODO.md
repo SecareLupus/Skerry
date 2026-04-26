@@ -310,7 +310,7 @@ _Items prioritized during the Refactoring Sprint triage._
 ### Flakiness
 
 - [x] **Fix event-stream races** — added [`test/helpers/events.ts`](apps/control-plane/src/test/helpers/events.ts) with `captureEvents()` that collects into an array and provides `expect(eventName)` membership-matching. Migrated `realtime-sync.test.ts` (3 tests); `notifications.test.ts` uses HTTP assertions, no subscribe-style capture.
-- [ ] **Inject a clock** — wall-clock timeouts in [`token-refresh.test.ts`](apps/control-plane/src/test/token-refresh.test.ts) (`Date.now() - 1000` for "expired") work today but make debugging painful.
+- [x] **Inject a clock** — `token-refresh.test.ts` now pins "now" to a fixed ISO instant (`2026-06-15T12:00:00Z`) via `t.mock.timers.enable({ apis: ["Date"] })` + `t.mock.timers.setTime(NOW)`. Token expiry values are expressed as absolute offsets from the anchor (`new Date(NOW + ONE_HOUR_MS)` instead of `new Date(Date.now() + 60*60*1000)`). Traces now read directly: "token expires at NOW + 1h, NOW is X, so not expired." `t.mock` auto-resets per test — verified 12/12 pass when run alongside `auth-edge-cases.test.ts` in the same process.
 - [x] **Guard `fetch` monkey-patching** — added [`test/helpers/fetch-mock.ts`](apps/control-plane/src/test/helpers/fetch-mock.ts) exporting `withMockedFetch(mock, body)` which always restores `globalThis.fetch` even on throw. Migrated `token-refresh.test.ts`.
 - [x] **Use `beforeEach(resetDb)` instead of start-of-test resets** — all 15 control-plane test files migrated to `beforeEach(async () => { if (pool) { await initDb(); await resetDb(); } })`. State leaks between tests are no longer possible.
 

@@ -12,6 +12,15 @@ import { withMockedFetch } from "./helpers/fetch-mock.js";
 config.oidc.discordClientId = config.oidc.discordClientId ?? "test_discord_client";
 config.oidc.discordClientSecret = config.oidc.discordClientSecret ?? "test_discord_secret";
 
+// Pin "now" to a fixed instant in tests that reason about token expiry. Token
+// times are then expressed as absolute ISO offsets from this anchor, which
+// makes the assertions read directly ("token expires 1h after NOW, NOW is X,
+// so it's not expired") instead of forcing the reader to mentally compute
+// `Date.now() - 1000`.
+const NOW = Date.parse("2026-06-15T12:00:00.000Z");
+const ONE_HOUR_MS = 60 * 60 * 1000;
+const ONE_MINUTE_MS = 60 * 1000;
+
 beforeEach(async () => {
     if (pool) {
         await initDb();
@@ -19,19 +28,23 @@ beforeEach(async () => {
     }
 });
 
-test("isTokenExpired helper", () => {
-    const now = Date.now();
+test("isTokenExpired helper", (t) => {
+    t.mock.timers.enable({ apis: ["Date"] });
+    t.mock.timers.setTime(NOW);
 
-    // Far in the future
-    assert.equal(isTokenExpired(new Date(now + 1000 * 60 * 60).toISOString()), false);
+    // Far in the future (1 hour from now) — well past the 5-minute buffer.
+    const future = new Date(NOW + ONE_HOUR_MS).toISOString();
+    assert.equal(isTokenExpired(future), false);
 
-    // Just about to expire (within 5 min buffer)
-    assert.equal(isTokenExpired(new Date(now + 1000 * 60 * 2).toISOString()), true);
+    // 2 minutes from now — inside the 5-minute expiry buffer.
+    const nearExpiry = new Date(NOW + 2 * ONE_MINUTE_MS).toISOString();
+    assert.equal(isTokenExpired(nearExpiry), true);
 
-    // Already expired
-    assert.equal(isTokenExpired(new Date(now - 1000).toISOString()), true);
+    // 1 second in the past — already expired.
+    const past = new Date(NOW - 1000).toISOString();
+    assert.equal(isTokenExpired(past), true);
 
-    // No expiry
+    // No expiry (long-lived or handled elsewhere).
     assert.equal(isTokenExpired(null), false);
 });
 
@@ -41,7 +54,11 @@ test("ensureIdentityTokenValid refreshes token when expired", async (t) => {
         return;
     }
 
-    const expiredTime = new Date(Date.now() - 1000).toISOString();
+    t.mock.timers.enable({ apis: ["Date"] });
+    t.mock.timers.setTime(NOW);
+
+    // Token expired 1 second before NOW.
+    const expiredTime = new Date(NOW - 1000).toISOString();
     const identity = await upsertIdentityMapping({
         provider: "discord",
         oidcSubject: "discord_user_refresh_test",
@@ -68,7 +85,8 @@ test("ensureIdentityTokenValid refreshes token when expired", async (t) => {
         const updated = await getIdentityByProductUserId(identity.productUserId);
         assert.equal(updated?.accessToken, "new_access_token");
         assert.equal(updated?.refreshToken, "new_refresh_token");
-        assert.ok(updated?.tokenExpiresAt && new Date(updated.tokenExpiresAt).getTime() > Date.now());
+        // The new expiry should be NOW + 3600s (the mocked refresh response's expires_in).
+        assert.ok(updated?.tokenExpiresAt && new Date(updated.tokenExpiresAt).getTime() > NOW);
     });
 });
 
@@ -78,7 +96,11 @@ test("ensureIdentityTokenValid does nothing if token is valid", async (t) => {
         return;
     }
 
-    const validTime = new Date(Date.now() + 1000 * 60 * 60).toISOString();
+    t.mock.timers.enable({ apis: ["Date"] });
+    t.mock.timers.setTime(NOW);
+
+    // Token valid for 1 hour past NOW.
+    const validTime = new Date(NOW + ONE_HOUR_MS).toISOString();
     const identity = await upsertIdentityMapping({
         provider: "discord",
         oidcSubject: "discord_user_valid_test",
