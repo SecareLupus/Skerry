@@ -18,6 +18,16 @@ const presenceCache = new Map<string, {
 const PRESENCE_CACHE_TTL_MS = 60 * 1000; // Increased to 1 min for gateway-backed cache
 const ANTI_ENTROPY_INTERVAL_MS = 10 * 60 * 1000; // Check stalest guild every 10 mins
 
+// Encode a Discord reaction's emoji into a string the rest of the system can store and compare.
+// Custom emoji preserve their ID using Discord's native `<:name:id>` / `<a:name:id>` syntax so
+// the frontend can resolve the CDN URL without a DB lookup. Unicode emoji pass through as the
+// raw character.
+export function encodeDiscordReactionEmoji(emoji: { id: string | null; name: string | null; animated: boolean | null }): string | null {
+    if (!emoji.name) return null;
+    if (emoji.id) return `<${emoji.animated ? "a" : ""}:${emoji.name}:${emoji.id}>`;
+    return emoji.name;
+}
+
 export async function startDiscordBot() {
     if (isStarting) return;
     if (client && client.isReady()) return;
@@ -252,7 +262,7 @@ export async function startDiscordBot() {
             const message = reaction.message;
             const guildId = message.guildId;
             const channelId = message.channelId;
-            const emoji = reaction.emoji.name;
+            const emoji = encodeDiscordReactionEmoji(reaction.emoji);
             if (!emoji) return;
 
             const discordChannelIdForMapping = message.channel.isThread() ? (message.channel as any).parentId : channelId;
@@ -311,7 +321,7 @@ export async function startDiscordBot() {
             }
 
             const message = reaction.message;
-            const emoji = reaction.emoji.name;
+            const emoji = encodeDiscordReactionEmoji(reaction.emoji);
             if (!emoji) return;
 
             const discordChannelIdForMapping = message.channel.isThread() ? (message.channel as any).parentId : message.channelId;

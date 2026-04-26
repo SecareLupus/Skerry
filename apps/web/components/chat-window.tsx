@@ -98,6 +98,25 @@ const getProxiedUrl = (url: string) => {
     return normalized;
 };
 
+function ReactionEmoji({ emoji }: { emoji: string }) {
+    const customMatch = /^<(a?):([a-zA-Z0-9_-]+):(\d+)>$/.exec(emoji);
+    if (customMatch) {
+        const animated = customMatch[1] === "a";
+        const name = customMatch[2]!;
+        const id = customMatch[3]!;
+        const ext = animated ? "gif" : "webp";
+        return (
+            <img
+                src={`https://cdn.discordapp.com/emojis/${id}.${ext}?size=32&quality=lossless`}
+                alt={`:${name}:`}
+                title={`:${name}:`}
+                style={{ width: "1.1em", height: "1.1em", verticalAlign: "middle", objectFit: "contain" }}
+            />
+        );
+    }
+    return <span>{emoji}</span>;
+}
+
 const LottieSticker = React.memo(function LottieSticker({ url }: { url: string }) {
     const controlPlaneUrl = process.env.NEXT_PUBLIC_CONTROL_PLANE_URL || "";
     const stickerUrl = `${controlPlaneUrl}/v1/media/sticker?url=${encodeURIComponent(url)}`;
@@ -1373,7 +1392,7 @@ export function ChatWindow({
                                                         }
                                                     }}
                                                 >
-                                                    <span>{r.emoji}</span>
+                                                    <ReactionEmoji emoji={r.emoji} />
                                                     <span style={{ fontWeight: 600, opacity: 0.8 }}>{r.count}</span>
                                                 </button>
                                             ))}

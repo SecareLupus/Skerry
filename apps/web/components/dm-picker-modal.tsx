@@ -43,12 +43,15 @@ export function DMPickerModal() {
         try {
             const channel = await createDirectMessage(state.bootstrapStatus.bootstrapHubId, [user.productUserId]);
 
-            // Refresh DM list and switch to the new channel
+            // Optimistically seed the DM into local state so the sidebar shows it
+            // immediately and refreshChatState's channel-membership check succeeds
+            // even if listChannels lags the just-committed write.
+            dispatch({ type: "ADD_DM_CHANNEL", payload: channel });
             dispatch({ type: "SET_ACTIVE_MODAL", payload: null });
 
-            const dmServer = state.servers.find(s => s.type === 'dm');
-            if (dmServer) {
-                await handleServerChange(dmServer.id, channel.id);
+            const dmServerId = state.servers.find(s => s.type === 'dm')?.id ?? channel.serverId;
+            if (dmServerId) {
+                await handleServerChange(dmServerId, channel.id);
             }
         } catch (err) {
             console.error("Failed to create DM:", err);

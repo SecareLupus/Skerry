@@ -2,7 +2,7 @@
 
 import { FormEvent, KeyboardEvent as ReactKeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useChat, MessageItem, ModalType } from "../context/chat-context";
+import { useChat, ChatHandlersProvider, MessageItem, ModalType } from "../context/chat-context";
 import { AuthOverlay } from "./auth-overlay";
 import { Sidebar } from "./sidebar";
 import { ChatWindow } from "./chat-window";
@@ -953,8 +953,10 @@ export function ChatClient() {
         </section >
       )}
 
-      <ModalManager />
-      <ClientModals 
+      <ChatHandlersProvider value={{ handleServerChange, handleChannelChange, refreshChatState }}>
+        <ModalManager />
+      </ChatHandlersProvider>
+      <ClientModals
         {...state}
         activeModal={activeModal}
         dispatch={dispatch}
