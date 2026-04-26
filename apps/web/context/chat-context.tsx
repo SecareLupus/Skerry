@@ -25,7 +25,7 @@ import type {
 } from "../lib/control-plane";
 
 export interface ChatHandlers {
-    handleServerChange: (serverId: string, channelId?: string) => Promise<void>;
+    handleServerChange: (serverId: string, channelId?: string, extraKnownChannels?: Channel[]) => Promise<void>;
     handleChannelChange: (channelId: string) => Promise<void>;
     refreshChatState: (serverId: string, preferredChannelId?: string) => Promise<void>;
 }

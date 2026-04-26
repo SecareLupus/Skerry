@@ -101,7 +101,7 @@ export function useChatInitialization({
       .catch(() => dispatch({ type: "SET_BLOCKED_USER_IDS", payload: [] }));
   }, [dispatch]);
 
-  const refreshChatState = useCallback(async (preferredServerId?: string, preferredChannelId?: string, preferredMessageId?: string, force = false): Promise<void> => {
+  const refreshChatState = useCallback(async (preferredServerId?: string, preferredChannelId?: string, preferredMessageId?: string, force = false, extraKnownChannels?: import("@skerry/shared").Channel[]): Promise<void> => {
     const requestId = ++chatStateRequestIdRef.current;
     
     // Throttled fetch for global list of servers, roles, and hubs
@@ -180,12 +180,15 @@ export function useChatInitialization({
     }
 
     // Validate that the channel exists in this server (prevent stale localStorage hits).
-    // For just-created DMs, listChannels may lag the write — recover by trusting
-    // a known DM channel from state.allDmChannels and merging it into channelItems.
+    // For just-created channels (notably DMs), listChannels may lag the write or
+    // the caller may have a fresher view than the closure-captured state, so we
+    // accept a hand-off via `extraKnownChannels` and also fall back to
+    // state.allDmChannels for the steady-state case.
     if (nextChannelId && !channelItems.find(c => c.id === nextChannelId)) {
-      const knownDm = state.allDmChannels.find(c => c.id === nextChannelId);
-      if (knownDm && knownDm.serverId === nextServerId) {
-        channelItems = [knownDm, ...channelItems];
+      const known = extraKnownChannels?.find(c => c.id === nextChannelId)
+        ?? state.allDmChannels.find(c => c.id === nextChannelId);
+      if (known && known.serverId === nextServerId) {
+        channelItems = [known, ...channelItems];
       } else {
         console.warn(`[useChatInitialization] Channel ${nextChannelId} not found in server ${nextServerId}. Resetting to default.`);
         const textChannels = channelItems.filter((channel) => channel.type === "text" || channel.type === "announcement");
@@ -308,7 +311,7 @@ export function useChatInitialization({
     }
   }, [urlServerId, urlChannelId, urlMessageId, selectedServerId, selectedChannelId, dispatch, setUrlSelection, lastSyncedUrlRef, setDraftMessage, draftMessagesByChannel, channelScrollPositions, messagesRef, markChannelAsRead, setTargetUrl, state.channels, state.categories, state.allDmChannels]);
 
-  const handleServerChange = useCallback(async (serverId: string, channelId?: string): Promise<void> => {
+  const handleServerChange = useCallback(async (serverId: string, channelId?: string, extraKnownChannels?: import("@skerry/shared").Channel[]): Promise<void> => {
     const targetChannelId = channelId ?? state.lastChannelByServer[serverId];
     dispatch({ type: "SET_SWITCHING_SERVER", payload: true });
     dispatch({ type: "SET_SELECTED_SERVER_ID", payload: serverId });
@@ -316,7 +319,7 @@ export function useChatInitialization({
     if (targetChannelId) localStorage.setItem("lastChannelId", targetChannelId);
 
     try {
-      await refreshChatState(serverId, targetChannelId, undefined, true);
+      await refreshChatState(serverId, targetChannelId, undefined, true, extraKnownChannels);
     } catch (cause) {
       dispatch({ type: "SET_SWITCHING_SERVER", payload: false });
       dispatch({ type: "SET_ERROR", payload: cause instanceof Error ? cause.message : "Failed to load channels." });

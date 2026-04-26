@@ -1363,7 +1363,7 @@ export function ChatWindow({
                                                     title={r.displayNames ? r.displayNames.join(', ') : ''}
                                                     type="button"
                                                     className={`interaction-btn ${r.me ? "active" : ""}`}
-                                                    style={{ padding: "1px 6px", borderRadius: "12px", border: "1px solid var(--border-color)", background: r.me ? "var(--accent-color-transparent)" : "var(--surface-color)", fontSize: "0.85rem", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.25rem" }}
+                                                    style={{ padding: "1px 6px", borderRadius: "12px", fontSize: "0.85rem", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.25rem" }}
                                                     onClick={() => {
                                                         const emoji = r.emoji;
                                                         const isMe = r.me;
