@@ -6,7 +6,7 @@ import { withDb } from "../db/client.js";
 import { createMessage } from "./chat/message-service.js";
 import { publishChannelMessage } from "./chat-realtime.js";
 
-import { getDiscordBotClient, startDiscordBot, provisionProjectEmoji } from "./discord-bot-client.js";
+import { getDiscordBotClient, startDiscordBot } from "./discord-bot-client.js";
 import { isTokenExpired } from "../auth/oidc.js";
 
 function randomId(prefix: string): string {
@@ -446,12 +446,9 @@ export async function selectDiscordGuild(input: {
       throw new Error("Discord bridge connection save failed.");
     }
 
-    // Launch the bot immediately now that a connection is established
+    // Launch the bot immediately now that a connection is established. The bot
+    // also provisions the "skerry" application-level emoji on login.
     startDiscordBot().catch(err => console.error("Failed to start Discord bot after guild selection:", err));
-
-    if (saved.guild_id) {
-      provisionProjectEmoji(saved.guild_id).catch(err => console.error("Failed to provision project emoji:", err));
-    }
 
     return mapConnection(saved);
   });
