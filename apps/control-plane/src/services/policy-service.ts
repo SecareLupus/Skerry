@@ -224,6 +224,30 @@ async function getEffectiveRoleBindings(
         });
       }
     }
+  } else if (!input.scope?.hubId && !input.scope?.channelId) {
+    // Truly scopeless listing (e.g. `/v1/me/roles`) — surface every active
+    // space_owner delegation so the caller sees every space they manage.
+    // We deliberately skip this for scoped authorization checks: emitting
+    // server-scoped bindings when `scope.hubId` is set would make them match
+    // a hub-wide scope (because `bindingMatchesScope` treats an absent
+    // request-scope id as "any"), granting privileges outside the delegation.
+    const delegations = await db.query<{ server_id: string; hub_id: string }>(
+      `select saa.server_id, s.hub_id
+       from space_admin_assignments saa
+       join servers s on s.id = saa.server_id
+       where saa.assigned_user_id = $1
+         and saa.status = 'active'
+         and (saa.expires_at is null or saa.expires_at > now())`,
+      [input.productUserId]
+    );
+    for (const row of delegations.rows) {
+      effective.push({
+        role: "space_owner",
+        hub_id: row.hub_id,
+        server_id: row.server_id,
+        channel_id: null
+      });
+    }
   }
 
   return effective;

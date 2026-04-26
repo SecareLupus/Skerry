@@ -59,6 +59,7 @@ export type ModalType =
     | "grant-role"
     | "masquerade"
     | "confirmation"
+    | "voice-settings"
     | null;
 
 export interface ConfirmationContext {

@@ -27,4 +27,57 @@ trusted_key_servers:
 enable_authenticated_media: false
 app_service_config_files:
   - /data/skerry-appservice.yaml
+
+# Test-only rate-limit overrides. Synapse's defaults are tuned for a public
+# homeserver; in E2E we create/invite/join rooms in bursts from a single
+# admin user, which trips `rc_message`, `rc_invites`, `rc_joins`, and
+# `rc_admin_redaction` within seconds. A failed createRoom returns 429 and
+# the server is persisted with matrix_space_id = null, which then breaks
+# later moderation actions (kick/ban can't resolve a Matrix room).
+# The limits below are effectively unbounded for test load.
+rc_message:
+  per_second: 1000
+  burst_count: 1000
+rc_registration:
+  per_second: 1000
+  burst_count: 1000
+rc_login:
+  address:
+    per_second: 1000
+    burst_count: 1000
+  account:
+    per_second: 1000
+    burst_count: 1000
+  failed_attempts:
+    per_second: 1000
+    burst_count: 1000
+rc_admin_redaction:
+  per_second: 1000
+  burst_count: 1000
+rc_joins:
+  local:
+    per_second: 1000
+    burst_count: 1000
+  remote:
+    per_second: 1000
+    burst_count: 1000
+rc_joins_per_room:
+  per_second: 1000
+  burst_count: 1000
+rc_invites:
+  per_room:
+    per_second: 1000
+    burst_count: 1000
+  per_user:
+    per_second: 1000
+    burst_count: 1000
+  per_issuer:
+    per_second: 1000
+    burst_count: 1000
+rc_third_party_invite:
+  per_second: 1000
+  burst_count: 1000
+rc_room_creation:
+  per_second: 1000
+  burst_count: 1000
 # vim:ft=yaml

@@ -1,65 +1,23 @@
-import test from "node:test";
+import test, { beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { buildApp } from "../app.js";
 import { config } from "../config.js";
-import { createSessionToken } from "../auth/session.js";
 import { initDb, pool } from "../db/client.js";
 import { upsertIdentityMapping } from "../services/identity-service.js";
+import { resetDb } from "./helpers/reset-db.js";
+import { createAuthCookie } from "./helpers/auth.js";
 
-config.discordBridge.mockMode = true;
-
-async function resetDb(): Promise<void> {
-  if (!pool) return;
-  await pool.query("begin");
-  try {
-    await pool.query("delete from moderation_actions");
-    await pool.query("delete from moderation_reports");
-    await pool.query("delete from discord_bridge_channel_mappings");
-    await pool.query("delete from discord_bridge_connections");
-    await pool.query("delete from federation_policy_events");
-    await pool.query("delete from room_acl_status");
-    await pool.query("delete from hub_federation_policies");
-    await pool.query("delete from delegation_audit_events");
-    await pool.query("delete from space_admin_assignments");
-    await pool.query("delete from role_assignment_audit_logs");
-    await pool.query("delete from role_bindings");
-    await pool.query("delete from chat_messages");
-    await pool.query("delete from channels");
-    await pool.query("delete from categories");
-    await pool.query("delete from servers");
-    await pool.query("delete from hubs");
-    await pool.query("delete from identity_mappings");
-    await pool.query("delete from idempotency_keys");
-    await pool.query(
-      "update platform_settings set bootstrap_completed_at = null, bootstrap_admin_user_id = null, bootstrap_hub_id = null, default_server_id = null, default_channel_id = null where id = 'global'"
-    );
-    await pool.query("commit");
-  } catch (error) {
-    await pool.query("rollback");
-    throw error;
+beforeEach(async () => {
+  if (pool) {
+    await initDb();
+    await resetDb();
   }
-}
-
-function createAuthCookie(input: {
-  productUserId: string;
-  provider?: string;
-  oidcSubject?: string;
-}): string {
-  const token = createSessionToken({
-    productUserId: input.productUserId,
-    provider: input.provider ?? "dev",
-    oidcSubject: input.oidcSubject ?? `sub_${input.productUserId}`,
-    expiresAt: Date.now() + 60 * 60 * 1000
-  });
-  return `skerry_session=${token}`;
-}
+});
 
 test("DM channel is created and both participants can exchange messages", async (t) => {
   if (!pool) { t.skip("DATABASE_URL not configured."); return; }
   if (!config.setupBootstrapToken) { t.skip("SETUP_BOOTSTRAP_TOKEN not configured."); return; }
 
-  await initDb();
-  await resetDb();
   const app = await buildApp();
 
   try {
@@ -169,8 +127,6 @@ test("opening a DM with yourself returns a valid channel", async (t) => {
   if (!pool) { t.skip("DATABASE_URL not configured."); return; }
   if (!config.setupBootstrapToken) { t.skip("SETUP_BOOTSTRAP_TOKEN not configured."); return; }
 
-  await initDb();
-  await resetDb();
   const app = await buildApp();
 
   try {
@@ -220,8 +176,6 @@ test("DM creation fails with invalid payload (empty userIds)", async (t) => {
   if (!pool) { t.skip("DATABASE_URL not configured."); return; }
   if (!config.setupBootstrapToken) { t.skip("SETUP_BOOTSTRAP_TOKEN not configured."); return; }
 
-  await initDb();
-  await resetDb();
   const app = await buildApp();
 
   try {
@@ -272,8 +226,6 @@ test("DM channel listing reflects messages from both participants in order", asy
   if (!pool) { t.skip("DATABASE_URL not configured."); return; }
   if (!config.setupBootstrapToken) { t.skip("SETUP_BOOTSTRAP_TOKEN not configured."); return; }
 
-  await initDb();
-  await resetDb();
   const app = await buildApp();
 
   try {

@@ -30,6 +30,12 @@ test("Voice Service Integration", async (t) => {
   const sfuRoomId = `sfu_chn_${voiceChannelId}`;
 
   await withDb(async (db) => {
+    // Mark the platform as initialized — voice routes are gated behind
+    // `requireInitialized` which otherwise short-circuits to 503.
+    await db.query(
+      "UPDATE platform_settings SET bootstrap_completed_at = now() WHERE id = 'global' AND bootstrap_completed_at IS NULL"
+    );
+
     // Clear existing for this test to be idempotent
     await db.query("DELETE FROM voice_presence WHERE channel_id = $1", [voiceChannelId]);
     await db.query("DELETE FROM channels WHERE id = $1", [voiceChannelId]);

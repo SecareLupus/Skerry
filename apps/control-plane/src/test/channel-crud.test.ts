@@ -1,79 +1,27 @@
-import test from "node:test";
+import test, { beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { buildApp } from "../app.js";
 import { config } from "../config.js";
-import { createSessionToken } from "../auth/session.js";
 import { initDb, pool } from "../db/client.js";
 import { upsertIdentityMapping } from "../services/identity-service.js";
+import { resetDb } from "./helpers/reset-db.js";
+import { createAuthCookie } from "./helpers/auth.js";
+import { bootstrap as bootstrapHub } from "./helpers/bootstrap.js";
 
-config.discordBridge.mockMode = true;
-
-async function resetDb(): Promise<void> {
-  if (!pool) return;
-  await pool.query("begin");
-  try {
-    await pool.query("delete from room_acl_status");
-    await pool.query("delete from chat_messages");
-    await pool.query("delete from channels");
-    await pool.query("delete from categories");
-    await pool.query("delete from servers");
-    await pool.query("delete from hubs");
-    await pool.query("delete from identity_mappings");
-    await pool.query("delete from idempotency_keys");
-    await pool.query(
-      "update platform_settings set bootstrap_completed_at = null, bootstrap_admin_user_id = null, bootstrap_hub_id = null, default_server_id = null, default_channel_id = null where id = 'global'"
-    );
-    await pool.query("commit");
-  } catch (error) {
-    await pool.query("rollback");
-    throw error;
+beforeEach(async () => {
+  if (pool) {
+    await initDb();
+    await resetDb();
   }
-}
+});
 
-function createAuthCookie(input: {
-  productUserId: string;
-  provider?: string;
-  oidcSubject?: string;
-}): string {
-  const token = createSessionToken({
-    productUserId: input.productUserId,
-    provider: input.provider ?? "dev",
-    oidcSubject: input.oidcSubject ?? `sub_${input.productUserId}`,
-    expiresAt: Date.now() + 60 * 60 * 1000
-  });
-  return `skerry_session=${token}`;
-}
-
-async function bootstrap(app: Awaited<ReturnType<typeof buildApp>>) {
-  const adminIdentity = await upsertIdentityMapping({
-    provider: "dev",
-    oidcSubject: "chan_admin",
-    email: "chan-admin@dev.local",
-    preferredUsername: "chan-admin",
-    avatarUrl: null
-  });
-  const adminCookie = createAuthCookie({
-    productUserId: adminIdentity.productUserId,
-  });
-
-  const bsRes = await app.inject({
-    method: "POST",
-    url: "/auth/bootstrap-admin",
-    headers: { cookie: adminCookie },
-    payload: { setupToken: config.setupBootstrapToken, hubName: "Channel CRUD Hub" }
-  });
-  assert.equal(bsRes.statusCode, 201);
-  const { defaultServerId } = bsRes.json() as { defaultServerId: string };
-
-  return { adminIdentity, adminCookie, defaultServerId };
-}
+const bootstrap = (app: Awaited<ReturnType<typeof buildApp>>) =>
+  bootstrapHub(app, { prefix: "chan", hubName: "Channel CRUD Hub" });
 
 test("channel management with styleContent and CSS safety", async (t) => {
   if (!pool) { t.skip("DATABASE_URL not configured."); return; }
   if (!config.setupBootstrapToken) { t.skip("SETUP_BOOTSTRAP_TOKEN not configured."); return; }
 
-  await initDb();
-  await resetDb();
   const app = await buildApp();
 
   try {

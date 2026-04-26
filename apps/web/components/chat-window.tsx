@@ -999,7 +999,7 @@ export function ChatWindow({
                             <button
                                 type="button"
                                 className="icon-button"
-                                onClick={() => dispatch({ type: "SET_ACTIVE_MODAL", payload: "voice-settings" as any })}
+                                onClick={() => dispatch({ type: "SET_ACTIVE_MODAL", payload: "voice-settings" })}
                                 title="Voice Settings"
                             >
                                 ⚙️

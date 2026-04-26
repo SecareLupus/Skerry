@@ -1,34 +1,50 @@
-import test from "node:test";
+import test, { beforeEach } from "node:test";
 import assert from "node:assert/strict";
+import { config } from "../config.js";
 import { initDb, pool } from "../db/client.js";
 import { upsertIdentityMapping, getIdentityByProductUserId, ensureIdentityTokenValid } from "../services/identity-service.js";
 import { isTokenExpired } from "../auth/oidc.js";
+import { resetDb } from "./helpers/reset-db.js";
+import { withMockedFetch } from "./helpers/fetch-mock.js";
 
-async function resetDb(): Promise<void> {
-    if (!pool) return;
-    await pool.query("begin");
-    try {
-        await pool.query("delete from identity_mappings");
-        await pool.query("commit");
-    } catch (error) {
-        await pool.query("rollback");
-        throw error;
+// `refreshDiscordToken()` throws early if client creds are missing. Inject
+// placeholders so it falls through to the mocked global fetch instead.
+config.oidc.discordClientId = config.oidc.discordClientId ?? "test_discord_client";
+config.oidc.discordClientSecret = config.oidc.discordClientSecret ?? "test_discord_secret";
+
+// Pin "now" to a fixed instant in tests that reason about token expiry. Token
+// times are then expressed as absolute ISO offsets from this anchor, which
+// makes the assertions read directly ("token expires 1h after NOW, NOW is X,
+// so it's not expired") instead of forcing the reader to mentally compute
+// `Date.now() - 1000`.
+const NOW = Date.parse("2026-06-15T12:00:00.000Z");
+const ONE_HOUR_MS = 60 * 60 * 1000;
+const ONE_MINUTE_MS = 60 * 1000;
+
+beforeEach(async () => {
+    if (pool) {
+        await initDb();
+        await resetDb();
     }
-}
+});
 
-test("isTokenExpired helper", () => {
-    const now = Date.now();
+test("isTokenExpired helper", (t) => {
+    t.mock.timers.enable({ apis: ["Date"] });
+    t.mock.timers.setTime(NOW);
 
-    // Far in the future
-    assert.equal(isTokenExpired(new Date(now + 1000 * 60 * 60).toISOString()), false);
+    // Far in the future (1 hour from now) — well past the 5-minute buffer.
+    const future = new Date(NOW + ONE_HOUR_MS).toISOString();
+    assert.equal(isTokenExpired(future), false);
 
-    // Just about to expire (within 5 min buffer)
-    assert.equal(isTokenExpired(new Date(now + 1000 * 60 * 2).toISOString()), true);
+    // 2 minutes from now — inside the 5-minute expiry buffer.
+    const nearExpiry = new Date(NOW + 2 * ONE_MINUTE_MS).toISOString();
+    assert.equal(isTokenExpired(nearExpiry), true);
 
-    // Already expired
-    assert.equal(isTokenExpired(new Date(now - 1000).toISOString()), true);
+    // 1 second in the past — already expired.
+    const past = new Date(NOW - 1000).toISOString();
+    assert.equal(isTokenExpired(past), true);
 
-    // No expiry
+    // No expiry (long-lived or handled elsewhere).
     assert.equal(isTokenExpired(null), false);
 });
 
@@ -38,11 +54,11 @@ test("ensureIdentityTokenValid refreshes token when expired", async (t) => {
         return;
     }
 
-    await initDb();
-    await resetDb();
+    t.mock.timers.enable({ apis: ["Date"] });
+    t.mock.timers.setTime(NOW);
 
-    // 1. Create an identity with an expired token
-    const expiredTime = new Date(Date.now() - 1000).toISOString();
+    // Token expired 1 second before NOW.
+    const expiredTime = new Date(NOW - 1000).toISOString();
     const identity = await upsertIdentityMapping({
         provider: "discord",
         oidcSubject: "discord_user_refresh_test",
@@ -54,31 +70,24 @@ test("ensureIdentityTokenValid refreshes token when expired", async (t) => {
         tokenExpiresAt: expiredTime
     });
 
-    // 2. Mock global fetch for the refresh call
-    const originalFetch = globalThis.fetch;
-    globalThis.fetch = (async (url: string | URL, options?: RequestInit) => {
-        return {
-            ok: true,
-            json: async () => ({
-                access_token: "new_access_token",
-                refresh_token: "new_refresh_token",
-                expires_in: 3600
-            })
-        } as Response;
-    }) as typeof fetch;
+    const mockFetch = (async () => ({
+        ok: true,
+        json: async () => ({
+            access_token: "new_access_token",
+            refresh_token: "new_refresh_token",
+            expires_in: 3600
+        })
+    } as Response)) as typeof fetch;
 
-    try {
-        // 3. Call ensureIdentityTokenValid
+    await withMockedFetch(mockFetch, async () => {
         await ensureIdentityTokenValid(identity.productUserId);
 
-        // 4. Verify the database was updated
         const updated = await getIdentityByProductUserId(identity.productUserId);
         assert.equal(updated?.accessToken, "new_access_token");
         assert.equal(updated?.refreshToken, "new_refresh_token");
-        assert.ok(updated?.tokenExpiresAt && new Date(updated.tokenExpiresAt).getTime() > Date.now());
-    } finally {
-        globalThis.fetch = originalFetch;
-    }
+        // The new expiry should be NOW + 3600s (the mocked refresh response's expires_in).
+        assert.ok(updated?.tokenExpiresAt && new Date(updated.tokenExpiresAt).getTime() > NOW);
+    });
 });
 
 test("ensureIdentityTokenValid does nothing if token is valid", async (t) => {
@@ -87,11 +96,11 @@ test("ensureIdentityTokenValid does nothing if token is valid", async (t) => {
         return;
     }
 
-    await initDb();
-    await resetDb();
+    t.mock.timers.enable({ apis: ["Date"] });
+    t.mock.timers.setTime(NOW);
 
-    // 1. Create an identity with a valid token
-    const validTime = new Date(Date.now() + 1000 * 60 * 60).toISOString();
+    // Token valid for 1 hour past NOW.
+    const validTime = new Date(NOW + ONE_HOUR_MS).toISOString();
     const identity = await upsertIdentityMapping({
         provider: "discord",
         oidcSubject: "discord_user_valid_test",
@@ -103,21 +112,17 @@ test("ensureIdentityTokenValid does nothing if token is valid", async (t) => {
         tokenExpiresAt: validTime
     });
 
-    // 2. Mock global fetch (should NOT be called)
-    const originalFetch = globalThis.fetch;
     let fetchCalled = false;
-    globalThis.fetch = (async () => {
+    const mockFetch = (async () => {
         fetchCalled = true;
         return { ok: true, json: async () => ({}) } as Response;
     }) as typeof fetch;
 
-    try {
+    await withMockedFetch(mockFetch, async () => {
         await ensureIdentityTokenValid(identity.productUserId);
 
         const after = await getIdentityByProductUserId(identity.productUserId);
         assert.equal(after?.accessToken, "original_access_token");
         assert.equal(fetchCalled, false);
-    } finally {
-        globalThis.fetch = originalFetch;
-    }
+    });
 });

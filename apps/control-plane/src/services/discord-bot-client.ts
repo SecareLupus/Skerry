@@ -494,7 +494,6 @@ export async function provisionProjectEmoji(guildId: string) {
 async function getWebhookForChannel(channel: any): Promise<WebhookClient | null> {
     let webhook = webhookCache.get(channel.id);
     if (!webhook) {
-        console.log(`[Discord Bridge] Fetching webhooks for channel ${channel.id}`);
         try {
             const webhooks = await channel.fetchWebhooks();
             const existing = webhooks.find((wh: any) => wh.name === "Skerry Bridge");
@@ -502,7 +501,6 @@ async function getWebhookForChannel(channel: any): Promise<WebhookClient | null>
             if (existing) {
                 webhook = new WebhookClient({ id: existing.id, token: existing.token! });
             } else {
-                console.log(`[Discord Bridge] Creating new webhook for channel ${channel.id}`);
                 const created = await channel.createWebhook({
                     name: "Skerry Bridge",
                     reason: "Automated bridge for Skerry community"
@@ -511,7 +509,7 @@ async function getWebhookForChannel(channel: any): Promise<WebhookClient | null>
             }
             webhookCache.set(channel.id, webhook);
         } catch (error) {
-            console.error(`[Discord Bridge] Failed to fetch/create webhook for channel ${channel.id}:`, error);
+            logEvent("error", "discord_webhook_setup_failed", { channelId: channel.id, error: String(error) });
             return null;
         }
     }
@@ -536,7 +534,6 @@ export async function relayMatrixMessageToDiscord(input: {
     }
 
     try {
-        console.log(`[Discord Bridge] Relaying message ${input.messageId || "no-id"} to channel ${input.discordChannelId}`);
         const allowedTypes: ChannelType[] = [
             ChannelType.GuildText,
             ChannelType.GuildAnnouncement,
@@ -548,7 +545,6 @@ export async function relayMatrixMessageToDiscord(input: {
 
         // Resolve externalThreadId from parentId if provided but missing
         if (input.parentId && !input.externalThreadId) {
-            console.log(`[Discord Bridge] Attempting to resolve externalThreadId for parent chain of ${input.parentId}`);
             await withDb(async (db) => {
                 let currentParentId = input.parentId;
                 let depth = 0;
@@ -562,26 +558,25 @@ export async function relayMatrixMessageToDiscord(input: {
 
                     if (row.external_thread_id) {
                         input.externalThreadId = row.external_thread_id;
-                        console.log(`[Discord Bridge] Resolved thread ID ${input.externalThreadId} from parent ${currentParentId} (depth ${depth})`);
                         break;
                     }
                     currentParentId = row.parent_id!;
                     depth++;
                 }
                 if (!input.externalThreadId) {
-                    console.warn(`[Discord Bridge] Could not find external_thread_id in parent chain of ${input.parentId}`);
+                    logEvent("warn", "discord_thread_id_unresolved", { parentId: input.parentId });
                 }
             });
         }
 
         let targetChannel = await client.channels.fetch(input.discordChannelId);
         if (!targetChannel) {
-            console.error(`[Discord Bridge] Could not fetch channel ${input.discordChannelId}`);
+            logEvent("error", "discord_channel_fetch_failed", { channelId: input.discordChannelId });
             return;
         }
 
         if (!allowedTypes.includes(targetChannel.type as any)) {
-            console.warn(`[Discord Bridge] Channel ${input.discordChannelId} has unsupported type ${targetChannel.type}`);
+            logEvent("warn", "discord_channel_type_unsupported", { channelId: input.discordChannelId, type: targetChannel.type });
             return;
         }
 
@@ -651,7 +646,6 @@ export async function relayMatrixMessageToDiscord(input: {
                     if (!emoji) continue;
 
                     if (emoji.provider === "discord") {
-                        console.log(`[Discord Mirror] Resolving external emoji mirror for '${name}' in guild '${guild.id}'`);
                         const fullEmoji = await getOrMirrorExternalEmoji(input.serverId, guild.id, emoji.id, emoji.name);
                         if (fullEmoji) {
                             const prefix = fullEmoji.isAnimated ? "a" : "";
@@ -661,7 +655,6 @@ export async function relayMatrixMessageToDiscord(input: {
                             content = content.replace(regex, discordTag);
                         }
                     } else if (emoji.provider === "skerry") {
-                        console.log(`[Discord Mirror] Resolving native emoji mirror for '${name}' in guild '${guild.id}'`);
                         const fullEmoji = await getOrMirrorEmoji(input.serverId, guild.id, emoji.id);
                         if (fullEmoji) {
                             const discordTag = `<:${fullEmoji.name}:${fullEmoji.id}>`;
@@ -708,8 +701,6 @@ export async function relayMatrixMessageToDiscord(input: {
 
         // Forum Handling - Creating a New Thread
         if (targetChannel.type === ChannelType.GuildForum && !threadIdToUse) {
-            console.log(`[Discord Bridge] Creating new thread in Forum room via webhook for impersonation`);
-
             // We need a webhook for the forum channel
             let webhook = await getWebhookForChannel(targetChannel as any);
             if (!webhook) return;
@@ -726,16 +717,8 @@ export async function relayMatrixMessageToDiscord(input: {
             const response = result as any;
             const newThreadId = response.thread?.id || response.channelId || response.id;
 
-            console.log(`[Discord Bridge] Forum Webhook Response:`, JSON.stringify({
-                id: response.id,
-                channelId: response.channelId,
-                threadId: response.thread?.id,
-                newThreadId
-            }));
-
             if (input.messageId && newThreadId) {
                 await withDb(async (db) => {
-                    console.log(`[Discord Bridge] Persisting Forum mapping: Skerry msg ${input.messageId} -> Discord thread ${newThreadId}`);
                     await db.query(
                         "update chat_messages set external_thread_id = $1, external_message_id = $2, external_provider = 'discord' where id = $3",
                         [newThreadId, response.id, input.messageId]
@@ -747,13 +730,11 @@ export async function relayMatrixMessageToDiscord(input: {
 
         // If it's a forum reply, we MUST redirect to the thread before calculating isThread/parentChannel
         if (targetChannel.type === ChannelType.GuildForum && threadIdToUse) {
-            console.log(`[Discord Bridge] Resolving thread ${threadIdToUse} for forum room`);
             const thread = await client.channels.fetch(threadIdToUse);
             if (thread && (thread.type === ChannelType.PublicThread || thread.type === ChannelType.PrivateThread || thread.type === ChannelType.AnnouncementThread)) {
                 finalTargetChannel = thread;
-                console.log(`[Discord Bridge] Target redirected to thread ${thread.id}`);
             } else {
-                console.warn(`[Discord Bridge] Thread ${threadIdToUse} not found or invalid type`);
+                logEvent("warn", "discord_thread_invalid", { threadId: threadIdToUse });
             }
         }
 
@@ -764,7 +745,6 @@ export async function relayMatrixMessageToDiscord(input: {
         if (!webhook) return;
 
         const finalThreadId = isThread ? finalTargetChannel.id : threadIdToUse;
-        console.log(`[Discord Bridge] Sending message to webhook. threadId: ${finalThreadId || "none"}`);
 
         const result = await webhook.send({
             username,
@@ -776,23 +756,15 @@ export async function relayMatrixMessageToDiscord(input: {
         } as any);
 
         const response = result as any;
-        console.log(`[Discord Bridge] Webhook Result (Regular/Reply):`, JSON.stringify({
-            id: response.id,
-            channelId: response.channelId,
-            finalThreadId
-        }));
 
         if (input.messageId && response) {
             await withDb(async (db) => {
-                console.log(`[Discord Bridge] Persisting Regular mapping: Skerry msg ${input.messageId} -> Discord msg ${response.id} (thread: ${finalThreadId || 'none'})`);
                 await db.query(
                     "update chat_messages set external_message_id = $1, external_thread_id = coalesce(external_thread_id, $2), external_provider = 'discord' where id = $3",
                     [response.id, finalThreadId || null, input.messageId]
                 );
             });
         }
-
-        console.log(`[Discord Bridge] Message sent successfully`);
     } catch (error) {
         logEvent("error", "discord_outbound_relay_failed", { error: String(error) });
         // If webhook fails (e.g. deleted), clear cache for retry next time
@@ -805,7 +777,7 @@ export async function relayMatrixMessageToDiscord(input: {
                 await (channel as any).send(`**[Matrix] ${input.authorName}**: ${input.content}`);
             }
         } catch (fallbackError) {
-            console.error("Discord fallback relay failed:", fallbackError);
+            logEvent("error", "discord_fallback_relay_failed", { error: String(fallbackError) });
         }
     }
 }
@@ -828,7 +800,6 @@ export async function updateDiscordRelayedMessage(input: {
         await webhook.editMessage(input.externalMessageId, {
             content: input.content
         });
-        console.log(`[Discord Bridge] Updated message ${input.externalMessageId} on Discord`);
     } catch (error) {
         logEvent("error", "discord_webhook_update_failed", { error: String(error) });
     }
@@ -849,7 +820,6 @@ export async function deleteDiscordRelayedMessage(input: {
         if (!webhook) return;
 
         await webhook.deleteMessage(input.externalMessageId);
-        console.log(`[Discord Bridge] Deleted message ${input.externalMessageId} on Discord`);
     } catch (error) {
         logEvent("error", "discord_webhook_delete_failed", { error: String(error) });
     }
@@ -1050,7 +1020,6 @@ async function getOrMirrorEmoji(serverId: string, guildId: string, skerryEmojiId
             // Ensure URL is absolute for Discord API
             const absoluteUrl = url.startsWith("http") ? url : `${config.appBaseUrl}${url}`;
             
-            console.log(`[Discord Mirror] Uploading native emoji '${name}' to guild '${guildId}' from ${absoluteUrl}`);
             const discordEmoji = await guild.emojis.create({
                 attachment: absoluteUrl,
                 name: name,
@@ -1065,7 +1034,7 @@ async function getOrMirrorEmoji(serverId: string, guildId: string, skerryEmojiId
 
             return { id: discordEmoji.id, name: discordEmoji.name };
         } catch (error) {
-            console.error("[Discord Bridge] Failed to mirror emoji:", error);
+            logEvent("error", "discord_emoji_mirror_failed", { error: String(error) });
             return null;
         }
     });
@@ -1119,7 +1088,6 @@ async function getOrMirrorExternalEmoji(serverId: string, guildId: string, exter
             const url = `https://cdn.discordapp.com/emojis/${externalEmojiId}.${ext}?size=128&quality=lossless`;
 
             // Upload to Discord
-            console.log(`[Discord Mirror] Uploading external emoji '${name}' to guild '${guildId}' from ${url}`);
             const discordEmoji = await guild.emojis.create({
                 attachment: url,
                 name: name,
@@ -1134,7 +1102,7 @@ async function getOrMirrorExternalEmoji(serverId: string, guildId: string, exter
 
             return { id: discordEmoji.id, name: discordEmoji.name, isAnimated };
         } catch (error) {
-            console.error("[Discord Bridge] Failed to mirror external emoji:", error);
+            logEvent("error", "discord_external_emoji_mirror_failed", { error: String(error) });
             return null;
         }
     });
@@ -1148,7 +1116,7 @@ async function ensureEmojiSlot(guild: Guild, serverId: string): Promise<void> {
     // Default limit is 50 for non-boosted guilds.
     if (emojis.size < 50) return;
 
-    console.log(`[Discord Bridge] Guild ${guild.id} is at emoji limit (50). Rotating oldest mirrored emoji.`);
+    logEvent("info", "discord_emoji_slot_rotation", { guildId: guild.id });
 
     await withDb(async (db) => {
         // Find stalest from both internal and external tables
@@ -1180,7 +1148,6 @@ async function ensureEmojiSlot(guild: Guild, serverId: string): Promise<void> {
 
         if (toDelete) {
             try {
-                console.log(`[Discord Bridge] Deleting stalest mirrored emoji ${toDelete.discord_emoji_id} from guild ${guild.id}`);
                 const emoji = guild.emojis.cache.get(toDelete.discord_emoji_id) || await guild.emojis.fetch(toDelete.discord_emoji_id);
                 if (emoji) {
                     await emoji.delete("LRU rotation for new mirrored emoji");

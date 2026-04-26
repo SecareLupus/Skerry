@@ -35,7 +35,7 @@ export function useChatRealtime() {
     try {
       await upsertChannelReadState(channelId);
     } catch (e) {
-      // Ignore transient errors
+      console.warn("[realtime] upsertChannelReadState failed", e);
     }
   }, [dispatch]);
 
@@ -47,6 +47,8 @@ export function useChatRealtime() {
 
     let closed = false;
     let pollInterval: ReturnType<typeof setInterval> | null = null;
+    let consecutivePollFailures = 0;
+    let pollFailureToastShown = false;
 
     const startPolling = () => {
       if (pollInterval || !selectedChannelId) {
@@ -60,6 +62,8 @@ export function useChatRealtime() {
       pollInterval = setInterval(() => {
         void listMessages(channelToPoll, null)
           .then((next: MessageItem[]) => {
+            consecutivePollFailures = 0;
+            pollFailureToastShown = false;
             dispatch({
               type: "UPDATE_MESSAGES",
               payload: (current: MessageItem[]) => {
@@ -98,7 +102,15 @@ export function useChatRealtime() {
               }
             });
           })
-          .catch(() => {});
+          .catch((err: unknown) => {
+            consecutivePollFailures += 1;
+            console.warn("[realtime] poll failed", { attempts: consecutivePollFailures, error: err });
+            if (consecutivePollFailures >= 3 && !pollFailureToastShown) {
+              pollFailureToastShown = true;
+              dispatch({ type: "SET_REALTIME_STATE", payload: "disconnected" });
+              showToast("Lost connection. Retrying…", "error");
+            }
+          });
       }, 3000);
     };
 

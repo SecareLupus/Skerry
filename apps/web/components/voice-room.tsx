@@ -35,7 +35,7 @@ export function VoiceRoom({ grant, muted, deafened, videoEnabled, screenShareEna
         onDisconnectRef.current = onDisconnect;
     }, [onDisconnect]);
 
-    const sfuUrl = (grant as any).sfuUrl as string;
+    const sfuUrl = grant.sfuUrl;
     const token = grant.token;
 
     useEffect(() => {

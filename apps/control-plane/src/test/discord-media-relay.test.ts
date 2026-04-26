@@ -29,10 +29,12 @@ test("mapDiscordMediaToSkerryAttachments maps various media types correctly", ()
 
     assert.strictEqual(results.length, 4);
     
-    // GIF check
+    // GIF check — Discord-CDN-hosted .gif attachments are proxied as WebP
+    // (format=webp) for faster animation; contentType reflects the proxied form.
     const r0 = results[0]!;
-    assert.strictEqual(r0.contentType, "image/gif");
+    assert.strictEqual(r0.contentType, "image/webp");
     assert.ok(r0.url.includes("media.discordapp.net"), "URL should be normalized to media proxy");
+    assert.ok(r0.url.includes("format=webp"), "GIF should be proxied as webp");
     
     // JPG check
     const r1 = results[1]!;

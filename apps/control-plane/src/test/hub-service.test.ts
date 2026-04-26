@@ -1,35 +1,21 @@
-import test from "node:test";
+import test, { beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { initDb, pool } from "../db/client.js";
 import { listHubsForUser } from "../services/hub-service.js";
+import { resetDb } from "./helpers/reset-db.js";
 
-async function resetDb(): Promise<void> {
-  if (!pool) return;
-  await pool.query("begin");
-  try {
-    await pool.query("delete from mention_markers");
-    await pool.query("delete from channel_read_states");
-    await pool.query("delete from chat_messages");
-    await pool.query("delete from channels");
-    await pool.query("delete from categories");
-    await pool.query("delete from servers");
-    await pool.query("delete from role_bindings");
-    await pool.query("delete from hubs");
-    await pool.query("commit");
-  } catch (error) {
-    await pool.query("rollback");
-    throw error;
+beforeEach(async () => {
+  if (pool) {
+    await initDb();
+    await resetDb();
   }
-}
+});
 
 test("hub service listHubsForUser", async (t) => {
   if (!pool) {
     t.skip("DATABASE_URL not configured.");
     return;
   }
-
-  await initDb();
-  await resetDb();
 
   // Create hubs
   await pool.query(`insert into hubs (id, name, owner_user_id) values ('hub_1', 'Hub 1', 'user_a')`);

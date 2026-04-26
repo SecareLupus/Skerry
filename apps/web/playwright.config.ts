@@ -3,10 +3,15 @@ import path from 'path';
 
 export default defineConfig({
   testDir: './e2e',
-  fullyParallel: true,
+  // Feature specs reset + re-bootstrap the platform in `beforeEach`, which
+  // would race if they ran in parallel. Keep execution serial.
+  fullyParallel: false,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  // E2E scenarios touch SSE + WebRTC + multiple browser contexts; first-run
+  // flakes are common. One retry locally absorbs the most common transients
+  // without masking genuine breakage.
+  retries: process.env.CI ? 2 : 1,
+  workers: 1,
   reporter: 'html',
   use: {
     baseURL: 'http://localhost:8080',

@@ -1,4 +1,4 @@
-import test from "node:test";
+import test, { beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { buildApp } from "../app.js";
 import { config } from "../config.js";
@@ -6,24 +6,16 @@ import { createSessionToken } from "../auth/session.js";
 import { initDb, pool } from "../db/client.js";
 import { upsertIdentityMapping } from "../services/identity-service.js";
 import { updateUserPresence, listUserPresence } from "../services/presence-service.js";
-
-config.discordBridge.mockMode = true;
+import { resetDb } from "./helpers/reset-db.js";
 
 const ONLINE_THRESHOLD_MS = 2 * 60 * 1000; // mirrors the constant in presence-service.ts
 
-async function resetDb(): Promise<void> {
-  if (!pool) return;
-  await pool.query("begin");
-  try {
-    await pool.query("delete from user_presence");
-    await pool.query("delete from role_bindings");
-    await pool.query("delete from identity_mappings");
-    await pool.query("commit");
-  } catch (error) {
-    await pool.query("rollback");
-    throw error;
+beforeEach(async () => {
+  if (pool) {
+    await initDb();
+    await resetDb();
   }
-}
+});
 
 function createAuthCookie(input: {
   productUserId: string;
@@ -42,8 +34,6 @@ function createAuthCookie(input: {
 test("user is considered online immediately after updateUserPresence", async (t) => {
   if (!pool) { t.skip("DATABASE_URL not configured."); return; }
 
-  await initDb();
-  await resetDb();
 
   const identity = await upsertIdentityMapping({
     provider: "dev",
@@ -66,8 +56,6 @@ test("user is considered online immediately after updateUserPresence", async (t)
 test("unknown user has no presence entry", async (t) => {
   if (!pool) { t.skip("DATABASE_URL not configured."); return; }
 
-  await initDb();
-  await resetDb();
 
   const presenceMap = await listUserPresence(["usr_unknown_never_seen"]);
   assert.equal(
@@ -80,8 +68,6 @@ test("unknown user has no presence entry", async (t) => {
 test("empty input to listUserPresence returns empty map without error", async (t) => {
   if (!pool) { t.skip("DATABASE_URL not configured."); return; }
 
-  await initDb();
-
   const presenceMap = await listUserPresence([]);
   assert.deepEqual(presenceMap, {}, "Empty input should return empty map");
 });
@@ -89,8 +75,6 @@ test("empty input to listUserPresence returns empty map without error", async (t
 test("user is marked offline after last_seen_at exceeds the 2-minute threshold", async (t) => {
   if (!pool) { t.skip("DATABASE_URL not configured."); return; }
 
-  await initDb();
-  await resetDb();
 
   const identity = await upsertIdentityMapping({
     provider: "dev",
@@ -121,8 +105,6 @@ test("user is marked offline after last_seen_at exceeds the 2-minute threshold",
 test("presence update is idempotent — repeated pings keep user online", async (t) => {
   if (!pool) { t.skip("DATABASE_URL not configured."); return; }
 
-  await initDb();
-  await resetDb();
 
   const identity = await upsertIdentityMapping({
     provider: "dev",
@@ -143,8 +125,6 @@ test("presence update is idempotent — repeated pings keep user online", async 
 test("listUserPresence handles multiple users with mixed online/offline state", async (t) => {
   if (!pool) { t.skip("DATABASE_URL not configured."); return; }
 
-  await initDb();
-  await resetDb();
 
   const onlineIdentity = await upsertIdentityMapping({
     provider: "dev",
@@ -187,40 +167,6 @@ test("listUserPresence handles multiple users with mixed online/offline state", 
 test("POST /v1/me/presence endpoint updates presence and returns 204", async (t) => {
   if (!pool) { t.skip("DATABASE_URL not configured."); return; }
   if (!config.setupBootstrapToken) { t.skip("SETUP_BOOTSTRAP_TOKEN not configured."); return; }
-
-  await initDb();
-  // Full reset for route tests
-  if (pool) {
-    await pool.query("begin");
-    try {
-      await pool.query("delete from user_presence");
-      await pool.query("delete from moderation_actions");
-      await pool.query("delete from moderation_reports");
-      await pool.query("delete from discord_bridge_channel_mappings");
-      await pool.query("delete from discord_bridge_connections");
-      await pool.query("delete from federation_policy_events");
-      await pool.query("delete from room_acl_status");
-      await pool.query("delete from hub_federation_policies");
-      await pool.query("delete from delegation_audit_events");
-      await pool.query("delete from space_admin_assignments");
-      await pool.query("delete from role_assignment_audit_logs");
-      await pool.query("delete from role_bindings");
-      await pool.query("delete from chat_messages");
-      await pool.query("delete from channels");
-      await pool.query("delete from categories");
-      await pool.query("delete from servers");
-      await pool.query("delete from hubs");
-      await pool.query("delete from identity_mappings");
-      await pool.query("delete from idempotency_keys");
-      await pool.query(
-        "update platform_settings set bootstrap_completed_at = null, bootstrap_admin_user_id = null, bootstrap_hub_id = null, default_server_id = null, default_channel_id = null where id = 'global'"
-      );
-      await pool.query("commit");
-    } catch (err) {
-      await pool.query("rollback");
-      throw err;
-    }
-  }
 
   const app = await buildApp();
 

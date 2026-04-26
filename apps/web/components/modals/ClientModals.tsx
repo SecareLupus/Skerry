@@ -91,15 +91,18 @@ export function ClientModals(props: ClientModalsProps) {
   const { activeModal, dispatch, renameRoomType } = props;
   const { showToast } = useToast();
 
-  const isClientControlled = activeModal === "create-space" || 
-    activeModal === "rename-space" || 
-    activeModal === "create-category" || 
-    activeModal === "rename-category" || 
-    activeModal === "create-room" || 
+  const isClientControlled = activeModal === "create-space" ||
+    activeModal === "rename-space" ||
+    activeModal === "create-category" ||
+    activeModal === "rename-category" ||
+    activeModal === "create-room" ||
     activeModal === "rename-room" ||
     activeModal === "moderation";
 
-  if (!isClientControlled && !props.isInviting && !props.isCreatingHubInvite) return null;
+  // Modals beyond `isClientControlled` (e.g. VoiceSettingsModal) self-mount
+  // their own backdrop/panel below. Only short-circuit when there's literally
+  // nothing to show — otherwise self-rendering modals never get a chance.
+  if (!activeModal && !props.isInviting && !props.isCreatingHubInvite) return null;
 
   return (
     <>

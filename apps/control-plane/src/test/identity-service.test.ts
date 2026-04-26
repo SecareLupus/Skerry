@@ -1,4 +1,4 @@
-import test from "node:test";
+import test, { beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { initDb, pool } from "../db/client.js";
 import {
@@ -10,27 +10,20 @@ import {
   isOnboardingComplete,
   searchIdentities
 } from "../services/identity-service.js";
+import { resetDb } from "./helpers/reset-db.js";
 
-async function resetDb(): Promise<void> {
-  if (!pool) return;
-  await pool.query("begin");
-  try {
-    await pool.query("delete from identity_mappings");
-    await pool.query("commit");
-  } catch (error) {
-    await pool.query("rollback");
-    throw error;
+beforeEach(async () => {
+  if (pool) {
+    await initDb();
+    await resetDb();
   }
-}
+});
 
 test("identity service lifecycle", async (t) => {
   if (!pool) {
     t.skip("DATABASE_URL not configured.");
     return;
   }
-
-  await initDb();
-  await resetDb();
 
   // 1. Create a new identity
   const identity1 = await upsertIdentityMapping({

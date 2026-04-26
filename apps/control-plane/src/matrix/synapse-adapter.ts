@@ -1,4 +1,5 @@
 import { config } from "../config.js";
+import { RETRY_AFTER_MS } from "../services/retry.js";
 import type { ChannelType } from "@skerry/shared";
 
 interface CreateSpaceInput {
@@ -54,7 +55,35 @@ async function synapseRequest<T>(
   }
 
   if (!response.ok) {
-    const message = `Synapse request failed: ${response.status} ${await response.text()}`;
+    const bodyText = await response.text();
+    const message = `Synapse request failed: ${response.status} ${bodyText}`;
+
+    // 429 is transient: tell the retry layer how long to wait and throw so
+    // the caller's `withRetry` kicks in instead of silently persisting null
+    // IDs (which later fails downstream moderation actions).
+    if (response.status === 429) {
+      let retryAfterMs = 1000;
+      const headerRetryAfter = response.headers.get("retry-after");
+      if (headerRetryAfter) {
+        const parsed = Number(headerRetryAfter);
+        if (Number.isFinite(parsed)) retryAfterMs = parsed * 1000;
+      }
+      try {
+        const parsedBody = JSON.parse(bodyText) as { retry_after_ms?: number };
+        if (typeof parsedBody.retry_after_ms === "number") {
+          retryAfterMs = parsedBody.retry_after_ms;
+        }
+      } catch {
+        /* body wasn't JSON; stick with the header value */
+      }
+      // Cap the wait so a pathological retry_after (e.g. 60s) doesn't stall
+      // a request; withRetry still retries up to its own limit.
+      retryAfterMs = Math.min(retryAfterMs, 5000);
+      const err = new Error(message) as Error & { [RETRY_AFTER_MS]?: number };
+      err[RETRY_AFTER_MS] = retryAfterMs;
+      throw err;
+    }
+
     if (config.synapse.strictProvisioning) {
       throw new Error(message);
     }

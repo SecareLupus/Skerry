@@ -1,28 +1,15 @@
-import test from "node:test";
+import test, { beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { initDb, pool } from "../db/client.js";
 import { bindingAllowsAction, bindingMatchesScope, grantRole, canManageServer, listAllowedActions } from "../services/policy-service.js";
+import { resetDb } from "./helpers/reset-db.js";
 
-async function resetDb(): Promise<void> {
-  if (!pool) return;
-  await pool.query("begin");
-  try {
-    await pool.query("delete from mention_markers");
-    await pool.query("delete from channel_read_states");
-    await pool.query("delete from chat_messages");
-    await pool.query("delete from channels");
-    await pool.query("delete from categories");
-    await pool.query("delete from space_admin_assignments");
-    await pool.query("delete from servers");
-    await pool.query("delete from role_assignment_audit_logs");
-    await pool.query("delete from role_bindings");
-    await pool.query("delete from hubs");
-    await pool.query("commit");
-  } catch (error) {
-    await pool.query("rollback");
-    throw error;
+beforeEach(async () => {
+  if (pool) {
+    await initDb();
+    await resetDb();
   }
-}
+});
 
 test("space moderator can ban users within scope", () => {
   const allowed = bindingAllowsAction(
@@ -59,9 +46,6 @@ test("grantRole and canManageServer integration", async (t) => {
     t.skip("DATABASE_URL not configured.");
     return;
   }
-
-  await initDb();
-  await resetDb();
 
   // Create a hub and a server
   await pool.query(`insert into hubs (id, name, owner_user_id) values ('hub_1', 'Hub 1', 'owner_1')`);

@@ -37,7 +37,12 @@ function verify(token: string): SessionPayload | null {
     return null;
   }
 
-  const decoded = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8")) as SessionPayload;
+  let decoded: SessionPayload;
+  try {
+    decoded = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8")) as SessionPayload;
+  } catch {
+    return null;
+  }
   if (Date.now() > decoded.expiresAt) {
     return null;
   }

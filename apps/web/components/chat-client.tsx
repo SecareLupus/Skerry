@@ -497,6 +497,21 @@ export function ChatClient() {
     void initialize();
   }, [initialize]);
 
+  // Keep localStorage.lastServerId in sync with state.selectedServerId. Most
+  // selection changes go through `handleServerChange`, which writes to
+  // localStorage explicitly — but flows like "create a space then auto-switch
+  // into it" set selectedServerId through `SET_CHAT_INITIAL_DATA` directly,
+  // bypassing that write. Without this effect, lastServerId drifts stale,
+  // lastChannelId stays fresh, and the Initial Chat Load effect below
+  // re-fires with a (oldServer, newChannel) mismatch — which makes
+  // `useChatInitialization` reset to the home hub's default channel,
+  // causing the cold-context Join Voice redirect tracked in Phase 26.
+  useEffect(() => {
+    if (selectedServerId) {
+      localStorage.setItem("lastServerId", selectedServerId);
+    }
+  }, [selectedServerId]);
+
   useEffect(() => {
     if (!viewer || viewer.needsOnboarding || !bootstrapStatus?.initialized) {
       initialChatLoadKeyRef.current = null;

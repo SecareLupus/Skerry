@@ -1,8 +1,9 @@
-import test from "node:test";
+import test, { beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { buildApp } from "../app.js";
 import { withDb, pool } from "../db/client.js";
 import { createSessionToken } from "../auth/session.js";
+import { resetDb as sharedResetDb } from "./helpers/reset-db.js";
 
 // Helper to create a real session cookie
 function createAuthCookie(payload: any) {
@@ -13,32 +14,18 @@ function createAuthCookie(payload: any) {
   return `skerry_session=${token}`;
 }
 
-async function resetDb() {
+beforeEach(async () => {
   if (!pool) return;
-  await pool.query("begin");
-  try {
-    await pool.query("delete from platform_settings");
-    await pool.query("insert into platform_settings (id, bootstrap_completed_at) values ('global', now())");
-    await pool!.query("delete from channel_badge_rules");
-    await pool!.query("delete from server_badge_rules");
-    await pool!.query("delete from badges");
-    await pool.query("delete from role_bindings");
-    await pool.query("delete from chat_messages");
-    await pool.query("delete from channels");
-    await pool.query("delete from categories");
-    await pool.query("delete from servers");
-    await pool.query("delete from hubs");
-    await pool.query("delete from identity_mappings");
-    await pool.query("commit");
-  } catch (error) {
-    await pool!.query("rollback");
-    throw error;
-  }
-}
+  await sharedResetDb();
+  // Masquerade tests assume the platform has finished bootstrap; the shared
+  // resetDb nulls those fields so we restore them here.
+  await pool.query(
+    "update platform_settings set bootstrap_completed_at = now() where id = 'global'"
+  );
+});
 
 test("Masquerade: admin masquerading as user with badge can see hidden channel", async (t) => {
   const app = await buildApp();
-  await resetDb();
 
   const adminIdentity = {
     productUserId: "usr_admin",
@@ -54,8 +41,8 @@ test("Masquerade: admin masquerading as user with badge can see hidden channel",
   await pool!.query("insert into channels (id, server_id, name, type, visitor_access) values ('chn_hidden', 'srv_badge', 'top-secret', 'text', 'hidden')", []);
 
   // Create a badge and a rule that grants access to the hidden channel
-  await pool!.query("insert into badges (id, server_id, name, rank) values ('bdg_vip', 'srv_badge', 'VIP', 10)", []);
-  await pool!.query("insert into channel_badge_rules (channel_id, badge_id, access_level) values ('chn_hidden', 'bdg_vip', 'chat')", []);
+  await pool!.query("insert into badges (id, hub_id, server_id, name, rank) values ('bdg_vip', 'hub_3', 'srv_badge', 'VIP', 10)", []);
+  await pool!.query("insert into channel_badge_rules (id, channel_id, badge_id, access_level) values ('cbr_hidden_vip', 'chn_hidden', 'bdg_vip', 'chat')", []);
 
   // First verify: masquerading as visitor (no badge) -> channel is hidden
   const visitorCookie = createAuthCookie({
@@ -91,7 +78,6 @@ test("Masquerade: admin masquerading as user with badge can see hidden channel",
 
 test("Masquerade: admin masquerading as guest cannot see private channels", async (t) => {
   const app = await buildApp();
-  await resetDb();
 
   const adminIdentity = {
     productUserId: "usr_admin",
@@ -133,7 +119,6 @@ test("Masquerade: admin masquerading as guest cannot see private channels", asyn
 
 test("Masquerade: admin masquerading as moderator of server A cannot manage server B", async (t) => {
   const app = await buildApp();
-  await resetDb();
 
   const adminIdentity = {
     productUserId: "usr_admin",

@@ -1,12 +1,17 @@
 import { Pool } from "pg";
 import { config } from "../config.js";
 
+const isTestEnv = process.env.NODE_ENV === "test";
+
 export const pool = config.databaseUrl
-  ? new Pool({ 
+  ? new Pool({
       connectionString: config.databaseUrl,
       max: 30, // Increased from default 10 for better concurrency during bursts
       connectionTimeoutMillis: 5000, // Fail fast if we can't get a connection
-      idleTimeoutMillis: 30000,
+      // In tests, collapse the idle timeout so `node --test` can exit
+      // promptly after the last assertion (otherwise idle connections keep
+      // the event loop alive for the full 30s).
+      idleTimeoutMillis: isTestEnv ? 500 : 30000,
     })
   : null;
 
