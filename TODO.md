@@ -217,6 +217,49 @@ _Items prioritized during the Refactoring Sprint triage._
 
 ---
 
+## Phase 27 — BugFixesAndPolish Retry
+
+**Goal:** Re-apply fixes from the `BugFixesAndPolish` branch one-at-a-time on a fresh branch off main, instead of as a single batch. The original batch landed mixed (some stuck, some didn't, some partially); isolating each fix makes the partial outcomes diagnosable. Every item below needs re-doing on the new branch — even ones that worked the first time, since main never received them.
+
+**Branch reference:** `BugFixesAndPolish` — 3 commits beyond main (`53c5ea7`, `e1b1bde`, `fe015e9`). Cherry-pick / re-implement each item below in isolation; verify before moving to the next.
+
+**Suggested order:** small isolated fixes first (theme, modal crash), then the DM pair (list-refresh is a prerequisite for routing), then emoji rendering, then the partial-fix investigation, then styling verification. Skerry-side mirror is blocked on UI work and stays deferred.
+
+- [ ] **Theme toggle doesn't persist across toggles** — previously stuck on first pass; just needs re-applying.
+  - Prior approach in `53c5ea7`: FOUC guard in [use-theme.ts](apps/web/hooks/use-theme.ts) was re-applying on every render and overwriting user choice with stale `localStorage`. Fix gates the guard so it only runs on initial mount.
+
+- [ ] **"New Message" / DM picker crashed with context error** — previously stuck on first pass; just needs re-applying.
+  - Prior approach in `53c5ea7`: `ModalManager` wasn't wrapped in `ChatHandlersProvider`, so opening the DM picker threw `useChatHandlers must be used within a ChatHandlersProvider`. Fix wraps `ModalManager` inside the provider in [chat-client.tsx](apps/web/components/chat-client.tsx). (Note: this is a prerequisite for the DM-routing retry below — without it, the modal can't dispatch.)
+
+- [ ] **DM list doesn't refresh after creating a new DM** — previously attempted in `53c5ea7`, did not stick.
+  - Prior approach: new `ADD_DM_CHANNEL` reducer action in [chat-context.tsx](apps/web/context/chat-context.tsx) that prepends the new DM into `state.allDmChannels` (and conditionally `state.channels` when the DM server is active); dispatched from [dm-picker-modal.tsx](apps/web/components/dm-picker-modal.tsx) on creation. Regression test in [chat-context-reducer.test.ts](apps/web/test/chat-context-reducer.test.ts).
+  - Next move: re-apply in isolation, then verify the dispatch actually fires after creation before assuming the reducer logic is at fault.
+
+- [ ] **Routing to a just-created DM fails** — previously attempted in `53c5ea7` + `fe015e9`, did not stick. Depends on the previous item.
+  - Prior approach: extended `refreshChatState` in [use-chat-initialization.ts](apps/web/hooks/use-chat-initialization.ts) with an `extraKnownChannels` parameter so the channel-existence validator falls back to `state.allDmChannels` when `listChannels` hasn't caught up. DMPickerModal passes the new channel explicitly to dodge closure-captured state. (The sibling fix that wrapped `ModalManager` in `ChatHandlersProvider` did stick — that was the "New Message crash" fix.)
+  - Next move: land the optimistic-state plumbing first, then trace whether `extraKnownChannels` is populated at the validation site, or whether validation runs before the dispatch settles.
+
+- [ ] **Custom Discord emoji reactions render as text instead of images** — previously stuck on first pass; just needs re-applying. Prerequisite for verifying the backfill investigation below.
+  - Prior approach in `53c5ea7`: two halves. (1) Backend — [discord-bot-client.ts](apps/control-plane/src/services/discord-bot-client.ts) now encodes incoming Discord reactions in tag form (`<:name:id>` / `<a:name:id>`) when storing into `message_reactions`, so the row carries the snowflake. (2) Frontend — added a `ReactionEmoji` component in [chat-window.tsx](apps/web/components/chat-window.tsx) that parses the tag and renders the Discord CDN image URL.
+
+- [ ] **Custom Discord emoji backfill — only some emojis render** — partially fixed by migration `031-backfill-discord-reaction-emoji-tags.js` in `fe015e9`. Investigate the remainder.
+  - Prior approach: backfill migration joins `message_reactions` against `discord_seen_emojis` and rewrites bare names (`myEmoji`) into Discord tag form (`<:name:id>`). Uses `DISTINCT ON (name)` to pick the most-recently-seen variant.
+  - Likely gaps that match "only some emojis show":
+    - Emoji name not present in `discord_seen_emojis` (bot never observed it) → join produces no row, stays as bare text.
+    - Same name across multiple snowflake IDs in different servers → `DISTINCT ON (name)` keeps one variant; others lose their join.
+    - Unique-constraint collisions where both bare-name and tag-form rows exist for the same `(message_id, user_id)` → `UPDATE` silently skips.
+  - Next move: `SELECT emoji, count(*) FROM message_reactions WHERE emoji NOT LIKE '<%' GROUP BY emoji` against the unbackfilled rows and bucket each into one of the three categories above. That determines whether the fix is "extend `discord_seen_emojis` coverage" or "handle collisions explicitly."
+
+- [ ] **Skerry emoji → Discord mirror at application level (slot-cap fix)** — landed in `e1b1bde`, **untested** because Skerry doesn't have custom-emoji upload UI yet, so there's nothing to mirror.
+  - Prior approach: migration `030-skerry-emoji-mirrors-app-level.js` reshapes `discord_emoji_mappings` from per-guild (50-slot cap, keyed on `server_id` + `skerry_emoji_id`) to application-level (2000-slot bot-wide, keyed on `skerry_emoji_id` alone). [discord-bot-client.ts](apps/control-plane/src/services/discord-bot-client.ts) `provisionProjectEmoji()` now targets `client.application.emojis` and runs once at bot login; relay path uses `getOrMirrorSkerryEmojiToBotApp` with collision-resistant naming `_<6-char-id-suffix>`. Per-guild provisioning was removed from `selectDiscordGuild` in [discord-bridge-service.ts](apps/control-plane/src/services/discord-bridge-service.ts).
+  - Status: deferred. Revisit once the Skerry-side custom emoji UI lands and there's a source emoji to mirror.
+
+- [ ] **Styling drift in DM picker / reaction buttons** — landed across `53c5ea7` + `fe015e9`, **status unverified**.
+  - Prior approach: added `--bg-strong` and `--accent-soft` design tokens (light + dark) to [globals.css](apps/web/app/globals.css), defined `.interaction-btn` class, converted DM picker modal from inline styles to `.modal-overlay`/`.modal-content`/`.modal-header`/`.modal-body` classes, added a `ReactionEmoji` component in [chat-window.tsx](apps/web/components/chat-window.tsx) that renders custom emoji via CDN URL, plus scrollbar styling on `.messages`.
+  - Next move: visual diff these surfaces against current main to confirm whether the drift exists at all before retrying. May be a no-op.
+
+---
+
 ## Pre-Release List
 
 ### Bugs
@@ -233,6 +276,7 @@ _Items prioritized during the Refactoring Sprint triage._
 - [ ] **Simplify URL sync** — [`chat-client.tsx:531-582`](apps/web/src/components/chat-client.tsx#L531-L582): 5 interconnected refs; brittle and re-render-prone.
 - [ ] **Gate polling on SSE state** — [`use-chat-realtime.ts:102`](apps/web/src/hooks/use-chat-realtime.ts#L102): 3-second polling fallback can run alongside SSE on reconnect.
 - [ ] **Add LRU/size cap to sticker cache** — currently unbounded disk growth.
+- [ ] **Channel switch over-fetches metadata** — [`use-chat-initialization.ts:330`](apps/web/hooks/use-chat-initialization.ts#L330): `handleChannelChange` calls `refreshChatState(..., force=true)` to bypass the "already on this channel" early return at [line 151](apps/web/hooks/use-chat-initialization.ts#L151), but `force` is overloaded — it also invalidates `listServers`, `listViewerRoleBindings`, `listHubs`, `listChannels`, and `listCategories` ([lines 112-114](apps/web/hooks/use-chat-initialization.ts#L112-L114), [171-172](apps/web/hooks/use-chat-initialization.ts#L171-L172)), none of which change on an intra-server channel switch. Result: ~6 requests per switch instead of 1–2 (fetchChannelInit + markRead). Fix: split the flag — either add a `bypassEarlyReturn` parameter, or drop `force` from this path and tighten the early-return condition to compare requested vs current channel directly.
 
 ### Duplicate Code
 
