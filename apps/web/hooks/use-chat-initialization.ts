@@ -179,11 +179,18 @@ export function useChatInitialization({
       nextChannelId = textChannels[0]?.id ?? channelItems[0]?.id ?? null;
     }
 
-    // Validate that the channel exists in this server (prevent stale localStorage hits)
+    // Validate that the channel exists in this server (prevent stale localStorage hits).
+    // For just-created DMs, listChannels may lag the write — recover by trusting
+    // a known DM channel from state.allDmChannels and merging it into channelItems.
     if (nextChannelId && !channelItems.find(c => c.id === nextChannelId)) {
-      console.warn(`[useChatInitialization] Channel ${nextChannelId} not found in server ${nextServerId}. Resetting to default.`);
-      const textChannels = channelItems.filter((channel) => channel.type === "text" || channel.type === "announcement");
-      nextChannelId = textChannels[0]?.id ?? channelItems[0]?.id ?? null;
+      const knownDm = state.allDmChannels.find(c => c.id === nextChannelId);
+      if (knownDm && knownDm.serverId === nextServerId) {
+        channelItems = [knownDm, ...channelItems];
+      } else {
+        console.warn(`[useChatInitialization] Channel ${nextChannelId} not found in server ${nextServerId}. Resetting to default.`);
+        const textChannels = channelItems.filter((channel) => channel.type === "text" || channel.type === "announcement");
+        nextChannelId = textChannels[0]?.id ?? channelItems[0]?.id ?? null;
+      }
     }
 
         // BOOTSTRAP: Load the entire room state in one atomic call
@@ -299,7 +306,7 @@ export function useChatInitialization({
       dispatch({ type: "SET_SWITCHING_SERVER", payload: false });
       setUrlSelection(nextServerId, null);
     }
-  }, [urlServerId, urlChannelId, urlMessageId, selectedServerId, selectedChannelId, dispatch, setUrlSelection, lastSyncedUrlRef, setDraftMessage, draftMessagesByChannel, channelScrollPositions, messagesRef, markChannelAsRead, setTargetUrl, state.channels, state.categories]);
+  }, [urlServerId, urlChannelId, urlMessageId, selectedServerId, selectedChannelId, dispatch, setUrlSelection, lastSyncedUrlRef, setDraftMessage, draftMessagesByChannel, channelScrollPositions, messagesRef, markChannelAsRead, setTargetUrl, state.channels, state.categories, state.allDmChannels]);
 
   const handleServerChange = useCallback(async (serverId: string, channelId?: string): Promise<void> => {
     const targetChannelId = channelId ?? state.lastChannelByServer[serverId];
