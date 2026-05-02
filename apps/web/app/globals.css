@@ -1,5 +1,6 @@
 :root {
   --bg: #f7f3ea;
+  --bg-strong: #f0e6d2;
   --strong: #f0e6d2;
   --surface: #fffaf2;
   --surface-alt: #f8efd9;
@@ -7,6 +8,7 @@
   --text-muted: #6a5846;
   --border: #d8c3a2;
   --accent: #1f7a5a;
+  --accent-soft: rgba(31, 122, 90, 0.18);
   --accent-strong: #15563f;
   --danger: #a32121;
   --warning: #faa61a;
@@ -33,6 +35,7 @@
   --text-muted: #a49688;
   --border: #3d352c;
   --accent: #2da178;
+  --accent-soft: rgba(45, 161, 120, 0.22);
   --accent-strong: #3ac091;
   --danger: #e64a4a;
   --warning: #faa61a;
@@ -1104,10 +1107,41 @@ textarea:focus-visible,
   border-radius: 0.65rem;
   background: var(--surface);
   overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
   height: 100%;
   min-height: 0;
   display: flex;
   flex-direction: column-reverse;
+}
+
+.messages::-webkit-scrollbar {
+  width: 6px;
+}
+
+.messages::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 10px;
+}
+
+.messages::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.interaction-btn {
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.interaction-btn:hover {
+  background: var(--surface-alt);
+}
+
+.interaction-btn.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--text);
 }
 
 .message-item-container {

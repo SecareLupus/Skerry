@@ -243,6 +243,7 @@ type ChatAction =
     | { type: "UNBLOCK_USER"; payload: string }
     | { type: "SET_MEMBERS"; payload: ChatMember[] }
     | { type: "SET_ALL_DM_CHANNELS", payload: Channel[] }
+    | { type: "ADD_DM_CHANNEL", payload: Channel }
     | { type: "SET_LAST_CHANNEL_BY_SERVER", payload: { serverId: string; channelId: string } }
     | { type: "SET_THREAD_PARENT_ID", payload: string | null }
     | { type: "SET_QUOTING_MESSAGE", payload: MessageItem | null }
@@ -280,7 +281,7 @@ type ChatAction =
       };
 
 
-const initialState: ChatState = {
+export const initialState: ChatState = {
     viewer: null,
     providers: null,
     bootstrapStatus: null,
@@ -369,7 +370,7 @@ const initialState: ChatState = {
     lastMembershipUpdate: 0
 };
 
-function chatReducer(state: ChatState, action: ChatAction): ChatState {
+export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     switch (action.type) {
         case "SET_VOICE_SESSION":
             return {
@@ -596,6 +597,16 @@ function chatReducer(state: ChatState, action: ChatAction): ChatState {
             return { ...state, members: action.payload };
         case "SET_ALL_DM_CHANNELS":
             return { ...state, allDmChannels: action.payload };
+        case "ADD_DM_CHANNEL": {
+            const incoming = action.payload;
+            const existingDms = state.allDmChannels.filter(c => c.id !== incoming.id);
+            const nextDms = [incoming, ...existingDms];
+            const channelsMatchServer = state.channels.length > 0 && state.channels[0]?.serverId === incoming.serverId;
+            const nextChannels = channelsMatchServer && !state.channels.find(c => c.id === incoming.id)
+                ? [incoming, ...state.channels]
+                : state.channels;
+            return { ...state, allDmChannels: nextDms, channels: nextChannels };
+        }
         case "SET_LAST_CHANNEL_BY_SERVER":
             return {
                 ...state,

@@ -43,12 +43,15 @@ export function DMPickerModal() {
         try {
             const channel = await createDirectMessage(state.bootstrapStatus.bootstrapHubId, [user.productUserId]);
 
-            // Refresh DM list and switch to the new channel
+            // Optimistically seed the DM into local state so the sidebar shows it
+            // immediately and refreshChatState's channel-membership check succeeds
+            // even if listChannels lags the just-committed write.
+            dispatch({ type: "ADD_DM_CHANNEL", payload: channel });
             dispatch({ type: "SET_ACTIVE_MODAL", payload: null });
 
-            const dmServer = state.servers.find(s => s.type === 'dm');
-            if (dmServer) {
-                await handleServerChange(dmServer.id, channel.id);
+            const dmServerId = state.servers.find(s => s.type === 'dm')?.id ?? channel.serverId;
+            if (dmServerId) {
+                await handleServerChange(dmServerId, channel.id);
             }
         } catch (err) {
             console.error("Failed to create DM:", err);
@@ -107,25 +110,66 @@ export function DMPickerModal() {
             </div>
 
             <style jsx>{`
+                .modal-overlay {
+                    position: fixed;
+                    inset: 0;
+                    background: rgba(0, 0, 0, 0.6);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 3000;
+                    padding: 1rem;
+                }
+                .modal-content {
+                    display: flex;
+                    flex-direction: column;
+                    max-height: 80vh;
+                    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+                }
+                .modal-header {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    padding: 0.75rem 1rem;
+                    border-bottom: 1px solid var(--border);
+                }
+                .modal-header h2 {
+                    margin: 0;
+                    font-size: 1rem;
+                    color: var(--text);
+                }
+                .close-button {
+                    background: transparent;
+                    border: 0;
+                    color: var(--text-muted);
+                    font-size: 1.25rem;
+                    cursor: pointer;
+                    padding: 0.25rem 0.5rem;
+                }
+                .modal-body {
+                    overflow-y: auto;
+                }
                 .dm-picker-modal {
                     width: 100%;
                     max-width: 440px;
-                    background: var(--panel-bg, #ffffff);
+                    background: var(--surface);
+                    color: var(--text);
+                    border: 1px solid var(--border);
                     border-radius: 8px;
                     overflow: hidden;
                 }
                 .search-input-wrapper {
                     padding: 1rem;
-                    border-bottom: 1px solid var(--border-color, #eee);
+                    border-bottom: 1px solid var(--border);
                 }
                 .search-input {
                     width: 100%;
                     padding: 0.75rem;
-                    border: 1px solid var(--border-color, #ccc);
+                    border: 1px solid var(--border);
                     border-radius: 4px;
                     font-size: 1rem;
-                    background: var(--input-bg, #fff);
-                    color: var(--text-color, #333);
+                    background: var(--surface-alt);
+                    color: var(--text);
                 }
                 .user-results-list {
                     list-style: none;
@@ -143,13 +187,13 @@ export function DMPickerModal() {
                     transition: background 0.2s;
                 }
                 .user-result-item:hover {
-                    background: var(--hover-bg, #f5f5f5);
+                    background: var(--surface-alt);
                 }
                 .user-avatar-placeholder {
                     width: 32px;
                     height: 32px;
                     border-radius: 50%;
-                    background: #5865f2;
+                    background: var(--accent);
                     color: white;
                     display: flex;
                     align-items: center;
@@ -169,20 +213,20 @@ export function DMPickerModal() {
                 }
                 .display-name {
                     font-weight: 500;
-                    color: var(--text-color, #333);
+                    color: var(--text);
                 }
                 .matrix-id {
                     font-size: 0.75rem;
-                    color: var(--text-muted, #666);
+                    color: var(--text-muted);
                 }
                 .no-results, .loading-state {
                     padding: 2rem;
                     text-align: center;
-                    color: var(--text-muted, #666);
+                    color: var(--text-muted);
                 }
                 .error-message {
                     padding: 0.5rem 1rem;
-                    color: #d32f2f;
+                    color: var(--danger);
                     font-size: 0.875rem;
                 }
             `}</style>

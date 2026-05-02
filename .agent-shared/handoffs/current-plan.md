@@ -5,24 +5,44 @@ next_agent: either
 status: complete
 ---
 
-# Plan: Bootstrap cross-agent shared workflow
+# Plan: Phase 27 — BugFixesAndPolish Retry
 
 ## Goal
-Stand up the `.agent-shared/` directory and per-agent reference files so that
-Claude Code and Antigravity (Gemini) operate from a single source of truth
-for environment context, handoff protocol, and testing discipline.
+Re-apply the fixes from the `BugFixesAndPolish` branch one at a time on
+`Phase-27` (forked from main), instead of as a single batch.
 
 ## Steps
-- [x] Scaffold `.agent-shared/` (CONTEXT, WORKFLOW, TESTING, CHANGELOG, handoffs/)
-- [x] Extend `AGENTS.md` to reference shared files (preserving existing Skerry guardrails)
-- [x] Create `CLAUDE.md` with `@`-imports and pointers to `.agents/rules/`
-- [x] Add Claude skills: `bug-fix-test`, `handoff`, `verify-environment`
-- [x] Add slash commands: `/handoff`, `/verify-env`
-- [x] Confirm public test/production server details in `.agent-shared/CONTEXT.md` (URL + LAN SSH IP)
-- [ ] **User action**: skim `AGENTS.md` and `CLAUDE.md` and adjust the agent-specific notes if desired
+- [x] **Item 1** — Theme toggle FOUC guard re-applied with E2E regression
+  (`fe54478`).
+- [x] **Item 2** — `ModalManager` wrapped in `ChatHandlersProvider` with
+  E2E regression (`83db799`).
+- [x] **Items 3+4** — `ADD_DM_CHANNEL` reducer + DM-list optimistic seed
+  + channel-membership recovery, with 4 reducer regression tests
+  (`d86c360`).
+- [x] **Item 5** — Discord reactions stored in tag form; `ReactionEmoji`
+  renders CDN URL; 5 encoder regression tests (`dcd629b`).
+- [x] **Item 6** — Investigation only, no code change. See
+  `implementation-reports/2026-05-02-1730-phase-27-items-1-through-6.md`
+  — partial backfill is mostly Unicode (correct); only one custom name
+  (`zombieTwerk`, 3 rows on pangolin) is genuinely missing because the
+  bot never seeded it into `discord_seen_emojis`.
+- [x] **Item 8** — DM picker + reaction button rewired to current theme
+  tokens; `--bg-strong` (light), `--accent-soft` (both), `.interaction-btn`,
+  scrollbar styling, modal scoped styles added (`f940bfd`).
+
+(Item 7 — Skerry-side mirror — remains deferred per `TODO.md`.)
+
+## Final verification (localhost)
+- Unit: 146/146 (shared 16, web 9, control-plane 121).
+- E2E: 29/29 on the post-Item-8 build.
 
 ## Open Questions
-- Should Antigravity get a parallel `.gemini/skills/` tree, or is the `AGENTS.md` + `.agent-shared/` reference enough? (Currently leaning on the latter; can add later.)
+- Should the optional Item 6 follow-ups (one-shot manual backfill of
+  `zombieTwerk`'s 3 rows + extending the bot's reaction-event seed
+  logic) land as a separate PR, or are 3 stale rows acceptable as-is?
+- One unrelated flake observed in `messaging.spec.ts:145` (reactions +
+  threaded replies) during the post-Items-3+4 run; recovered on retry
+  and did not recur. Worth a closer look if it returns.
 
 ## Blocking Issues
 None.
