@@ -5,6 +5,8 @@ import { resetPlatform, bootstrapAdmin } from './helpers';
 // - Bug 1: theme toggle button now flips data-theme on the document element
 //   and stays flipped on a second toggle (prior bug: Effect 1 re-fired on every
 //   render and overwrote the user's choice with stale localStorage).
+// - Bug 5: "+" New Direct Message button opens the picker modal instead of
+//   crashing on `useChatHandlers must be used within a ChatHandlersProvider`.
 test.describe('UI regressions', () => {
   test.beforeEach(async ({ page }) => {
     await resetPlatform(page);
@@ -35,5 +37,28 @@ test.describe('UI regressions', () => {
         { timeout: 5000 }
       )
       .toBe(initial);
+  });
+
+  test('Bug 5: "New Message" button opens the DM picker without a context error', async ({ page }) => {
+    const consoleErrors: string[] = [];
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') consoleErrors.push(msg.text());
+    });
+
+    // bootstrapAdmin lands in channels view; navigate back to the
+    // servers/DMs view where the "New Message" button lives.
+    await page.getByTestId('back-to-servers').click();
+    await page.getByRole('button', { name: 'New Message' }).click();
+
+    // The modal renders a "New Direct Message" heading and a search input.
+    await expect(page.getByRole('heading', { name: 'New Direct Message' })).toBeVisible({
+      timeout: 5000,
+    });
+    await expect(page.getByPlaceholder('Type a username...')).toBeVisible();
+
+    const providerError = consoleErrors.find((line) =>
+      line.includes('useChatHandlers must be used within a ChatHandlersProvider')
+    );
+    expect(providerError, providerError).toBeUndefined();
   });
 });
