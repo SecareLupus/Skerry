@@ -27,13 +27,15 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # Build first so @skerry/shared's dist/ exists. Without this, lint
-      # and typecheck in consumer packages fail with `Cannot find module
-      # '@skerry/shared'` (since shared exports point to dist/), plus a
-      # cascade of implicitly-any errors on parameters whose types come
-      # from shared.
-      - name: Build all packages
-        run: pnpm build
+      # Only @skerry/shared needs a host-side build: its package.json points
+      # exports at dist/, and lint + typecheck run on the host and resolve
+      # `@skerry/shared` from there. Without this, every consumer package
+      # fails with `Cannot find module '@skerry/shared'` plus a cascade of
+      # implicitly-any errors on parameters whose types come from shared.
+      # control-plane and web are built inside their Docker images by
+      # test:env:up, not on the host — so we skip those here.
+      - name: Build @skerry/shared (so consumer lint/typecheck can resolve types)
+        run: pnpm --filter @skerry/shared build
 
       - name: Lint
         run: pnpm lint
@@ -41,6 +43,9 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+      # test:env:up is `docker compose up -d --build`, which runs the
+      # control-plane and web builds inside their respective images. A
+      # broken build in either app fails this step.
       - name: Bring up test stack (Docker)
         run: pnpm test:env:up
 
