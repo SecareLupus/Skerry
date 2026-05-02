@@ -1,60 +1,48 @@
 ---
 created_by: claude-code
 last_updated: 2026-05-02
-next_agent: claude-code
-status: in-progress
+next_agent: either
+status: complete
 ---
 
 # Plan: Phase 27 — BugFixesAndPolish Retry
 
 ## Goal
 Re-apply the fixes from the `BugFixesAndPolish` branch one at a time on
-`Phase-27` (forked from main), instead of as a single batch. Each item is
-landed and verified in isolation so partial outcomes are diagnosable.
-Reference branch: `BugFixesAndPolish` — commits `53c5ea7`, `e1b1bde`,
-`fe015e9`. See `TODO.md` Phase 27 for full prior-approach context per item.
-
-Focus: do not break the currently-passing test suite, and add regression
-tests where the fix admits one without disproportionate scaffolding.
+`Phase-27` (forked from main), instead of as a single batch.
 
 ## Steps
-- [ ] **Item 1** — Theme toggle FOUC guard. Re-apply
-  `apps/web/hooks/use-theme.ts` so the FOUC guard runs only on first
-  mount; add Playwright regression in `apps/web/e2e/ui-regressions.spec.ts`.
+- [x] **Item 1** — Theme toggle FOUC guard re-applied with E2E regression
+  (`fe54478`).
+- [x] **Item 2** — `ModalManager` wrapped in `ChatHandlersProvider` with
+  E2E regression (`83db799`).
+- [x] **Items 3+4** — `ADD_DM_CHANNEL` reducer + DM-list optimistic seed
+  + channel-membership recovery, with 4 reducer regression tests
+  (`d86c360`).
+- [x] **Item 5** — Discord reactions stored in tag form; `ReactionEmoji`
+  renders CDN URL; 5 encoder regression tests (`dcd629b`).
+- [x] **Item 6** — Investigation only, no code change. See
+  `implementation-reports/2026-05-02-1730-phase-27-items-1-through-6.md`
+  — partial backfill is mostly Unicode (correct); only one custom name
+  (`zombieTwerk`, 3 rows on pangolin) is genuinely missing because the
+  bot never seeded it into `discord_seen_emojis`.
+- [x] **Item 8** — DM picker + reaction button rewired to current theme
+  tokens; `--bg-strong` (light), `--accent-soft` (both), `.interaction-btn`,
+  scrollbar styling, modal scoped styles added (`f940bfd`).
 
-- [ ] **Item 2** — Wrap `ModalManager` inside `ChatHandlersProvider` in
-  `apps/web/components/chat-client.tsx`. Add `Bug 5` E2E test alongside
-  the theme spec.
+(Item 7 — Skerry-side mirror — remains deferred per `TODO.md`.)
 
-- [ ] **Item 3** — `ADD_DM_CHANNEL` reducer action + dispatch from
-  `apps/web/components/dm-picker-modal.tsx`. Add the 4 reducer tests from
-  `chat-context-reducer.test.ts` (node:test).
-
-- [ ] **Item 4** — Extend `refreshChatState` in
-  `apps/web/hooks/use-chat-initialization.ts` with `extraKnownChannels`
-  fallback; DM picker passes the new channel through. Depends on Item 3.
-  Trace that `extraKnownChannels` is populated at the validation site
-  before declaring fixed.
-
-- [ ] **Item 5** — Backend stores Discord reactions in tag form
-  (`apps/control-plane/src/services/discord-bot-client.ts`); frontend
-  `ReactionEmoji` parses tag and renders CDN URL in
-  `apps/web/components/chat-window.tsx`.
-
-- [ ] **Item 6** — Investigate emoji backfill remainder. Run the bucketing
-  query against pangolin and classify unbackfilled rows into the three
-  failure modes; decide remediation from results.
-
-- [ ] **Item 8** — Visual diff DM picker / reaction buttons against main
-  to confirm whether drift exists; cherry-pick token + class additions
-  from `53c5ea7`/`fe015e9` only if drift is real.
-
-(Item 7 — Skerry-side mirror — remains deferred per TODO.md.)
+## Final verification (localhost)
+- Unit: 146/146 (shared 16, web 9, control-plane 121).
+- E2E: 29/29 on the post-Item-8 build.
 
 ## Open Questions
-- Should Item 6's investigation block Item 5's commit, or land Item 5 first
-  and investigate Item 6 against the resulting state? Leaning latter since
-  Item 5 is the fresh-rows fix and Item 6 is the historical-rows fix.
+- Should the optional Item 6 follow-ups (one-shot manual backfill of
+  `zombieTwerk`'s 3 rows + extending the bot's reaction-event seed
+  logic) land as a separate PR, or are 3 stale rows acceptable as-is?
+- One unrelated flake observed in `messaging.spec.ts:145` (reactions +
+  threaded replies) during the post-Items-3+4 run; recovered on retry
+  and did not recur. Worth a closer look if it returns.
 
 ## Blocking Issues
-None at start.
+None.
