@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, FormEvent } from "react";
+import { useState, useEffect, useRef, FormEvent } from "react";
 import {
     discordBridgeStartUrl,
     fetchDiscordBridgeHealth,
@@ -42,6 +42,12 @@ export default function BridgeManager({ serverId, hubId, returnTo }: BridgeManag
     const [matrixChannelId, setMatrixChannelId] = useState("");
     const [hubDisabled, setHubDisabled] = useState(false);
     const [availableDiscordChannels, setAvailableDiscordChannels] = useState<Array<{ id: string; name: string; type: number }>>([]);
+    // Phase 25 #22: scroll-restore on OAuth return. The Connect Discord
+    // flow does a top-level navigation, so the user lands back at the top
+    // of the settings page after Discord redirects them. Without this, the
+    // freshly-rendered guild picker is invisible until they scroll.
+    const rootRef = useRef<HTMLDivElement | null>(null);
+    const [oauthJustReturned, setOauthJustReturned] = useState(false);
 
     useEffect(() => {
         const urlParams = new URLSearchParams(window.location.search);
@@ -49,9 +55,23 @@ export default function BridgeManager({ serverId, hubId, returnTo }: BridgeManag
         const guildId = urlParams.get("discordGuildId");
         if (pendingId) {
             setDiscordPendingSelectionId(pendingId);
+            setOauthJustReturned(true);
             void loadPendingSelection(pendingId, guildId);
         }
     }, []);
+
+    // Scroll-restore is gated on `!loading` because the root <div> only mounts
+    // once initial state has loaded — before that, the component renders a
+    // bare <p>Loading…</p> and `rootRef.current` is null. Tying it to
+    // `oauthJustReturned` makes sure we only scroll on actual OAuth return,
+    // not on every load.
+    useEffect(() => {
+        if (oauthJustReturned && !loading) {
+            rootRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+            const t = window.setTimeout(() => setOauthJustReturned(false), 2500);
+            return () => window.clearTimeout(t);
+        }
+    }, [oauthJustReturned, loading]);
 
     useEffect(() => {
         if (serverId) {
@@ -201,7 +221,7 @@ export default function BridgeManager({ serverId, hubId, returnTo }: BridgeManag
     }
 
     return (
-        <div className="settings-section">
+        <div ref={rootRef} id="discord-bridge" className="settings-section">
             <h2>Discord Bridge</h2>
             <p className="settings-description">Connect this Space to a Discord Server to sync messages between platforms.</p>
 
@@ -234,7 +254,11 @@ export default function BridgeManager({ serverId, hubId, returnTo }: BridgeManag
             </div>
 
             {discordPendingSelectionId && discordGuilds.length > 0 && (
-                <form className="stack" onSubmit={handleSelectGuild} style={{ marginTop: '2rem', padding: '1rem', border: '1px solid var(--accent)' }}>
+                <form
+                    className={`stack discord-guild-picker${oauthJustReturned ? " just-returned" : ""}`}
+                    onSubmit={handleSelectGuild}
+                    style={{ marginTop: '2rem', padding: '1rem', border: '1px solid var(--accent)' }}
+                >
                     <h3>Complete Connection</h3>
                     <p>Select which Discord server to bridge with:</p>
                     <label htmlFor="guild-select">Discord Server</label>

@@ -155,7 +155,7 @@ export default function SpaceSettingsPage() {
             <BridgeManager
                 serverId={serverId}
                 hubId={server.hubId}
-                returnTo={`/settings/spaces/${serverId}`}
+                returnTo={`/settings/spaces/${serverId}#discord-bridge`}
             />
 
             <hr style={{ margin: '3rem 0', border: 'none', borderTop: '1px solid var(--border)' }} />
