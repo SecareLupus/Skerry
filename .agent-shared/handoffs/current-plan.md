@@ -1,9 +1,21 @@
 ---
 created_by: claude-code
-last_updated: 2026-05-03T17:06:00Z
+last_updated: 2026-05-03T22:30:00Z
 next_agent: either
 status: complete
 ---
+
+> **Note (2026-05-03 22:30):** Sprint 1 Lane C complete — issues #35,
+> #40, #41, #45 all landed on `fix/sprint-1-dm-reactivity` (single
+> branch, four issues bundled). Backend now emits `channel.created` for
+> new DMs and `dm.left` / `channel.deleted` for departures; frontend
+> wires those to `ADD_DM_CHANNEL` / `REMOVE_DM_CHANNEL`, adds a
+> notifications bell + panel in the topbar, and a "Leave Conversation"
+> context-menu item on DM rows. Suite on localhost: shared 16/16,
+> web 11/11, control-plane 123/123, E2E 33/33. Report at
+> `implementation-reports/2026-05-03-2230-sprint-1-dm-reactivity.md`.
+> Open follow-up: per-user SSE fan-out (DM event scoping). No active
+> plan in flight; the user's next request should seed a new one.
 
 > **Note (2026-05-03):** Issue #21 (Settings menu theme persistence)
 > verified fixed on the current build. The Phase 27 FOUC guard

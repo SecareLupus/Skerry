@@ -1,14 +1,15 @@
 import crypto from "node:crypto";
 import type { Category, Channel } from "@skerry/shared";
 import { withDb } from "../../db/client.js";
-import { 
-  ChannelRow, 
-  CategoryRow, 
-  mapChannel, 
-  mapCategory, 
-  validateChannelStyle 
+import {
+  ChannelRow,
+  CategoryRow,
+  mapChannel,
+  mapCategory,
+  validateChannelStyle
 } from "./mapping-helpers.js";
 import type { ScopedAuthContext } from "../../auth/middleware.js";
+import { publishHubEvent } from "../chat-realtime.js";
 
 export async function listChannels(
   serverId: string, 
@@ -534,7 +535,8 @@ export async function inviteToChannel(channelId: string, productUserId: string):
 }
 
 export async function getOrCreateDMChannel(hubId: string, productUserIds: string[]): Promise<Channel> {
-  return withDb(async (db) => {
+  let createdChannel: Channel | null = null;
+  const result = await withDb(async (db) => {
     const dmSrvRow = await db.query<{ id: string }>(
       "select id from servers where hub_id = $1 and type = 'dm' limit 1",
       [hubId]
@@ -629,6 +631,88 @@ export async function getOrCreateDMChannel(hubId: string, productUserIds: string
       displayName: (r as any).display_name
     }));
 
+    createdChannel = channel;
     return channel;
   });
+
+  if (createdChannel) {
+    // Notify hub subscribers so participants' sidebars update without a refresh.
+    // The payload mirrors the listChannels shape so the frontend can route it
+    // through ADD_DM_CHANNEL when the viewer is in `participants`.
+    publishHubEvent(hubId, "channel.created", createdChannel);
+  }
+
+  return result;
+}
+
+export async function leaveDmChannel(channelId: string, productUserId: string): Promise<{
+  hubId: string | null;
+  channelDeleted: boolean;
+}> {
+  const outcome = await withDb(async (db) => {
+    const chRow = await db.query<{ server_id: string; type: string; matrix_room_id: string | null; hub_id: string | null }>(
+      `select ch.server_id, ch.type, ch.matrix_room_id, s.hub_id
+         from channels ch
+         join servers s on s.id = ch.server_id
+        where ch.id = $1`,
+      [channelId]
+    );
+    const ch = chRow.rows[0];
+    if (!ch) {
+      throw new Error("Channel not found.");
+    }
+    if (ch.type !== "dm") {
+      throw new Error("Channel is not a DM.");
+    }
+
+    const membership = await db.query<{ product_user_id: string }>(
+      "select product_user_id from channel_members where channel_id = $1 and product_user_id = $2",
+      [channelId, productUserId]
+    );
+    if (membership.rowCount === 0) {
+      throw new Error("Not a member of this DM.");
+    }
+
+    await db.query(
+      "delete from channel_members where channel_id = $1 and product_user_id = $2",
+      [channelId, productUserId]
+    );
+
+    const remaining = await db.query<{ count: string }>(
+      "select count(*)::text as count from channel_members where channel_id = $1",
+      [channelId]
+    );
+    const remainingCount = Number(remaining.rows[0]?.count ?? "0");
+    let channelDeleted = false;
+
+    if (remainingCount === 0) {
+      await db.query("delete from chat_messages where channel_id = $1", [channelId]);
+      await db.query("delete from channels where id = $1", [channelId]);
+      channelDeleted = true;
+    }
+
+    return { hubId: ch.hub_id, channelDeleted, matrixRoomId: ch.matrix_room_id };
+  });
+
+  if (outcome.matrixRoomId) {
+    try {
+      const { kickUser } = await import("../../matrix/synapse-adapter.js");
+      const { getIdentityByProductUserId } = await import("../identity-service.js");
+      const identity = await getIdentityByProductUserId(productUserId);
+      if (identity?.matrixUserId) {
+        await kickUser({ roomId: outcome.matrixRoomId, userId: identity.matrixUserId, reason: "User left DM" });
+      }
+    } catch (err) {
+      console.warn(`[leaveDmChannel] matrix kick failed for ${channelId}:`, err);
+    }
+  }
+
+  if (outcome.hubId) {
+    publishHubEvent(outcome.hubId, "dm.left", { channelId, userId: productUserId });
+    if (outcome.channelDeleted) {
+      publishHubEvent(outcome.hubId, "channel.deleted", { id: channelId });
+    }
+  }
+
+  return { hubId: outcome.hubId, channelDeleted: outcome.channelDeleted };
 }

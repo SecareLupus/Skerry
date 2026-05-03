@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { ViewerSession } from "../../lib/control-plane";
+import { NotificationsPanel } from "../notifications-panel";
 
 interface ClientTopbarProps {
   dispatch: (action: any) => void;
@@ -60,6 +61,7 @@ export function ClientTopbar({
           >
             🔍
           </button>
+          <NotificationsPanel />
           <Link href="/settings" className="icon-button" title="User Settings" aria-label="User Settings">
             ⚙️
           </Link>

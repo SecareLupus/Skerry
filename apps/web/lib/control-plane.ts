@@ -340,6 +340,13 @@ export async function createDirectMessage(hubId: string, userIds: string[]): Pro
   });
 }
 
+export async function leaveDmChannel(channelId: string): Promise<{ hubId: string | null; channelDeleted: boolean }> {
+  return apiFetch<{ hubId: string | null; channelDeleted: boolean }>(
+    `/v1/channels/${encodeURIComponent(channelId)}/members/me`,
+    { method: "DELETE" }
+  );
+}
+
 export async function fetchUser(userId: string): Promise<IdentityMapping> {
   return apiFetch<IdentityMapping>(`/v1/users/${encodeURIComponent(userId)}`);
 }

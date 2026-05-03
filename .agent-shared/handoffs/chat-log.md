@@ -62,3 +62,25 @@ root cause (Fastify couldn't parse the body, zod 400'd). Bonus:
 9/9 web unit, 16/16 shared, 4/4 ui-regressions E2E, typecheck clean.
 Lane C (#35/#40/#41/#45) still pending — separate session. Next agent:
 either.
+
+## 2026-05-03 22:30 — claude-code
+
+Sprint 1 Lane C: shipped #35, #40, #41, #45 on a single branch
+(`fix/sprint-1-dm-reactivity`). Root cause for #35/#40 collapsed to one
+fix: backend `getOrCreateDMChannel` now publishes `channel.created` to
+the hub, and `use-chat-realtime.ts` routes DM channel.created events
+through `ADD_DM_CHANNEL` when the viewer is in `participants`. #45
+needed a new endpoint (`DELETE /v1/channels/:id/members/me` →
+`leaveDmChannel`) plus a sidebar context-menu entry guarded by the
+existing confirmation modal; `dm.left` SSE event drives `REMOVE_DM_CHANNEL`
+on the frontend. #41 added a `NotificationsPanel` (bell + dropdown)
+to the topbar, surfacing DMs with unread + channels with @-mentions
+(honoring mute state). Tests: 2 new control-plane (leave + non-DM
+guard), 2 new web reducer (REMOVE_DM_CHANNEL with/without active
+selection), 1 new Playwright E2E covering the full lifecycle. Suite on
+localhost: shared 16/16, web 11/11, control-plane 123/123, E2E 33/33.
+One pre-existing concern surfaced and noted in the report: the hub SSE
+stream is not user-scoped, so DM channel.created payloads are visible
+to all hub members on the wire even though the frontend filters them.
+Per-user fan-out is the proper fix — left as follow-up. No active plan;
+next agent: either.

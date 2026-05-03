@@ -244,6 +244,7 @@ type ChatAction =
     | { type: "SET_MEMBERS"; payload: ChatMember[] }
     | { type: "SET_ALL_DM_CHANNELS", payload: Channel[] }
     | { type: "ADD_DM_CHANNEL", payload: Channel }
+    | { type: "REMOVE_DM_CHANNEL", payload: string }
     | { type: "SET_LAST_CHANNEL_BY_SERVER", payload: { serverId: string; channelId: string } }
     | { type: "SET_THREAD_PARENT_ID", payload: string | null }
     | { type: "SET_QUOTING_MESSAGE", payload: MessageItem | null }
@@ -606,6 +607,20 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
                 ? [incoming, ...state.channels]
                 : state.channels;
             return { ...state, allDmChannels: nextDms, channels: nextChannels };
+        }
+        case "REMOVE_DM_CHANNEL": {
+            const channelId = action.payload;
+            const nextDms = state.allDmChannels.filter(c => c.id !== channelId);
+            const nextChannels = state.channels.filter(c => c.id !== channelId);
+            const wasSelected = state.selectedChannelId === channelId;
+            return {
+                ...state,
+                allDmChannels: nextDms,
+                channels: nextChannels,
+                selectedChannelId: wasSelected ? null : state.selectedChannelId,
+                activeChannelData: wasSelected ? null : state.activeChannelData,
+                messages: wasSelected ? [] : state.messages
+            };
         }
         case "SET_LAST_CHANNEL_BY_SERVER":
             return {

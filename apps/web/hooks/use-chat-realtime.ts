@@ -211,7 +211,19 @@ export function useChatRealtime() {
 
     source.addEventListener("channel.created", (event: any) => {
       const data = JSON.parse(event.data);
-      if (data.serverId === selectedServerId) {
+      // DM channels live on a separate "dm" server. Route them through
+      // ADD_DM_CHANNEL when the viewer is a participant so the sidebar
+      // updates without the 60s use-dms poll. Other channel.created events
+      // upsert into the active server's channel list as before.
+      const isDmForViewer =
+        data.type === "dm" &&
+        Array.isArray(data.participants) &&
+        data.participants.some((p: { productUserId: string }) => p.productUserId === viewer?.productUserId);
+      if (isDmForViewer) {
+        dispatch({ type: "ADD_DM_CHANNEL", payload: data });
+        // Refresh notification summary so the new DM gets unread/mention bookkeeping.
+        void fetchNotificationSummary().then(summary => dispatch({ type: "SET_NOTIFICATIONS", payload: summary }));
+      } else if (data.serverId === selectedServerId) {
         dispatch({ type: "UPSERT_CHANNEL", payload: data });
       }
     });
@@ -228,6 +240,9 @@ export function useChatRealtime() {
       if (data.serverId === selectedServerId) {
         dispatch({ type: "DELETE_CHANNEL", payload: data.id });
       }
+      // Always prune from allDmChannels — DM deletion races server-switch and
+      // the DM list is independent of selectedServerId.
+      dispatch({ type: "REMOVE_DM_CHANNEL", payload: data.id });
     });
 
     source.addEventListener("category.created", (event: any) => {
@@ -257,6 +272,16 @@ export function useChatRealtime() {
       if (isViewer && data.state === "left") {
         showToast("You were kicked from the server.", "error");
         dispatch({ type: "SET_MEMBERSHIP_UPDATE", payload: Date.now() });
+      }
+    });
+
+    source.addEventListener("dm.left", (event: any) => {
+      const data = JSON.parse(event.data) as { channelId: string; userId: string };
+      // The leaver removes the DM from their own state. Other participants
+      // stay on the channel; the channel.deleted event handles cleanup if
+      // the DM was emptied.
+      if (data.userId === viewer?.productUserId) {
+        dispatch({ type: "REMOVE_DM_CHANNEL", payload: data.channelId });
       }
     });
 
