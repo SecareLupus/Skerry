@@ -18,6 +18,7 @@ import {
   updateChannel,
   listChannelMembers,
   inviteToChannel,
+  leaveDmChannel,
   moveChannelToCategory
 } from "../services/chat/channel-service.js";
 import {
@@ -416,6 +417,24 @@ export async function registerChannelRoutes(app: FastifyInstance): Promise<void>
 
     await inviteToChannel(params.channelId, payload.productUserId);
     reply.code(204).send();
+  });
+
+  app.delete("/v1/channels/:channelId/members/me", initializedAuthHandlers, async (request, reply) => {
+    const params = z.object({ channelId: z.string().min(1) }).parse(request.params);
+    try {
+      const result = await leaveDmChannel(params.channelId, request.auth!.productUserId);
+      reply.code(200);
+      return result;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to leave DM.";
+      const status = message === "Channel not found." || message === "Not a member of this DM."
+        ? 404
+        : message === "Channel is not a DM."
+          ? 400
+          : 500;
+      reply.code(status).send({ message });
+      return;
+    }
   });
 
   app.patch("/v1/channels/:channelId/category", initializedAuthHandlers, async (request, reply) => {

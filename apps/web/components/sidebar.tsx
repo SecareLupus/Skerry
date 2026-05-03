@@ -6,7 +6,7 @@ import { useChat, ModalType } from "../context/chat-context";
 import { Channel, Server } from "@skerry/shared";
 import { getChannelName, getChannelIcon } from "../lib/channel-utils";
 import { ContextMenu, ContextMenuItem } from "./context-menu";
-import { upsertChannelReadState, joinServer } from "../lib/control-plane";
+import { upsertChannelReadState, joinServer, leaveDmChannel } from "../lib/control-plane";
 
 const cn = (...classes: (string | boolean | undefined)[]) => classes.filter(Boolean).join(" ");
 
@@ -158,6 +158,36 @@ export function Sidebar({
         setContextMenu({ x: e.clientX, y: e.clientY, items });
     };
 
+    const handleDmContextMenu = (e: React.MouseEvent, dm: Channel) => {
+        e.preventDefault();
+        const items: ContextMenuItem[] = [
+            {
+                label: "Leave Conversation",
+                onClick: () => {
+                    dispatch({ type: "SET_ACTIVE_MODAL", payload: "confirmation" });
+                    dispatch({
+                        type: "SET_CONFIRMATION",
+                        payload: {
+                            title: "Leave Conversation",
+                            message: "Leave this direct message? You won't see new messages from this conversation, and other participants will continue to see it.",
+                            confirmLabel: "Leave",
+                            danger: true,
+                            onConfirm: async () => {
+                                try {
+                                    await leaveDmChannel(dm.id);
+                                    dispatch({ type: "REMOVE_DM_CHANNEL", payload: dm.id });
+                                } catch (err) {
+                                    console.error("Failed to leave DM:", err);
+                                }
+                            }
+                        }
+                    });
+                }
+            }
+        ];
+        setContextMenu({ x: e.clientX, y: e.clientY, items });
+    };
+
     const handleServerContextMenu = (e: React.MouseEvent, server: Server) => {
         e.preventDefault();
         const serverChannels = channels.filter(c => c.serverId === server.id);
@@ -303,7 +333,7 @@ export function Sidebar({
                     <ul>
                         {state.allDmChannels?.map((dm) => (
                             <li key={dm.id}>
-                                <div className="list-item-container">
+                                <div className="list-item-container" onContextMenu={(e) => handleDmContextMenu(e, dm)}>
                                     <button
                                         type="button"
                                         className={cn(

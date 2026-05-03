@@ -72,6 +72,56 @@ test("ADD_DM_CHANNEL prepends to state.channels when the DM server is active", (
   assert.equal(next.channels.length, 2);
 });
 
+// #45 — Leaving a DM (or being notified another participant deleted it) drops the
+// channel from both `allDmChannels` and `state.channels`, and clears the active
+// chat surface if that DM was selected, so the user is not stuck reading a stale
+// transcript that no longer exists on the server.
+test("REMOVE_DM_CHANNEL drops the entry and clears active chat when selected", () => {
+  const a = makeDmChannel({ id: "chn_dm_a", serverId: "srv_dm" });
+  const b = makeDmChannel({ id: "chn_dm_b", serverId: "srv_dm" });
+  const state = {
+    ...initialState,
+    allDmChannels: [a, b],
+    channels: [a, b],
+    selectedChannelId: "chn_dm_a",
+    activeChannelData: a,
+    messages: [{ id: "m1", channelId: "chn_dm_a" } as any]
+  };
+
+  const next = chatReducer(state, { type: "REMOVE_DM_CHANNEL", payload: "chn_dm_a" });
+
+  assert.equal(next.allDmChannels.length, 1);
+  assert.equal(next.allDmChannels[0]!.id, "chn_dm_b");
+  assert.equal(next.channels.length, 1);
+  assert.equal(next.channels[0]!.id, "chn_dm_b");
+  assert.equal(next.selectedChannelId, null);
+  assert.equal(next.activeChannelData, null);
+  assert.equal(next.messages.length, 0);
+});
+
+// REMOVE_DM_CHANNEL must not blow away the active chat when the removed DM
+// is a different one — common case: another user we DM'd leaves their DM
+// while we're reading a third channel.
+test("REMOVE_DM_CHANNEL leaves selection alone when a different DM is removed", () => {
+  const a = makeDmChannel({ id: "chn_dm_a", serverId: "srv_dm" });
+  const b = makeDmChannel({ id: "chn_dm_b", serverId: "srv_dm" });
+  const state = {
+    ...initialState,
+    allDmChannels: [a, b],
+    channels: [a, b],
+    selectedChannelId: "chn_dm_b",
+    activeChannelData: b,
+    messages: [{ id: "m1", channelId: "chn_dm_b" } as any]
+  };
+
+  const next = chatReducer(state, { type: "REMOVE_DM_CHANNEL", payload: "chn_dm_a" });
+
+  assert.equal(next.selectedChannelId, "chn_dm_b");
+  assert.equal(next.activeChannelData, b);
+  assert.equal(next.messages.length, 1);
+  assert.equal(next.allDmChannels.length, 1);
+});
+
 // And conversely: when a non-DM server is active, don't pollute its channel list.
 test("ADD_DM_CHANNEL leaves state.channels untouched when a non-DM server is active", () => {
   const textChannel = {

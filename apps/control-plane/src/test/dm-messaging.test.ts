@@ -222,6 +222,127 @@ test("DM creation fails with invalid payload (empty userIds)", async (t) => {
   }
 });
 
+test("non-creator can leave a DM and creator's view persists", async (t) => {
+  // #45 — Before this change there was no leave endpoint at all, so any
+  // non-creator was stuck in the DM. The minimum guarantee: a participant
+  // can DELETE /v1/channels/:id/members/me, the channel survives for
+  // remaining members, and a subsequent leave by the last member tears the
+  // channel down.
+  if (!pool) { t.skip("DATABASE_URL not configured."); return; }
+  if (!config.setupBootstrapToken) { t.skip("SETUP_BOOTSTRAP_TOKEN not configured."); return; }
+
+  const app = await buildApp();
+
+  try {
+    const adminIdentity = await upsertIdentityMapping({
+      provider: "dev", oidcSubject: "dm_leave_admin",
+      email: "dm-leave-admin@dev.local", preferredUsername: "dm-leave-admin", avatarUrl: null
+    });
+    const otherIdentity = await upsertIdentityMapping({
+      provider: "dev", oidcSubject: "dm_leave_other",
+      email: "dm-leave-other@dev.local", preferredUsername: "dm-leave-other", avatarUrl: null
+    });
+    const adminCookie = createAuthCookie({ productUserId: adminIdentity.productUserId, provider: "dev", oidcSubject: "dm_leave_admin" });
+    const otherCookie = createAuthCookie({ productUserId: otherIdentity.productUserId, provider: "dev", oidcSubject: "dm_leave_other" });
+
+    await app.inject({
+      method: "POST", url: "/auth/bootstrap-admin",
+      headers: { cookie: adminCookie },
+      payload: { setupToken: config.setupBootstrapToken, hubName: "Leave Hub" }
+    });
+    const hubId = (await app.inject({ method: "GET", url: "/v1/bootstrap/context", headers: { cookie: adminCookie } })).json().hubId as string;
+
+    const dmRes = await app.inject({
+      method: "POST", url: `/v1/hubs/${hubId}/dms`,
+      headers: { cookie: adminCookie },
+      payload: { userIds: [otherIdentity.productUserId] }
+    });
+    const channelId = dmRes.json().id as string;
+
+    // Non-creator (other) leaves the DM.
+    const leaveRes = await app.inject({
+      method: "DELETE", url: `/v1/channels/${channelId}/members/me`,
+      headers: { cookie: otherCookie }
+    });
+    assert.equal(leaveRes.statusCode, 200, "Non-creator should be allowed to leave");
+    assert.equal(leaveRes.json().channelDeleted, false, "Channel must survive while one member remains");
+
+    // Other can no longer see the DM in their channel listing.
+    const dmServerRow = await pool!.query(
+      "select s.id from servers s join channels ch on ch.server_id = s.id where ch.id = $1",
+      [channelId]
+    );
+    const dmServerId = dmServerRow.rows[0].id;
+    const otherChannelsRes = await app.inject({
+      method: "GET", url: `/v1/servers/${dmServerId}/channels`,
+      headers: { cookie: otherCookie }
+    });
+    const otherChannels = otherChannelsRes.json().items as { id: string }[];
+    assert.equal(otherChannels.find(c => c.id === channelId), undefined, "Leaver's channel listing must not include the DM");
+
+    // Creator still sees it.
+    const adminChannelsRes = await app.inject({
+      method: "GET", url: `/v1/servers/${dmServerId}/channels`,
+      headers: { cookie: adminCookie }
+    });
+    const adminChannels = adminChannelsRes.json().items as { id: string }[];
+    assert.ok(adminChannels.find(c => c.id === channelId), "Creator should still see the DM after other member leaves");
+
+    // Last member leaves → channel is torn down.
+    const finalLeaveRes = await app.inject({
+      method: "DELETE", url: `/v1/channels/${channelId}/members/me`,
+      headers: { cookie: adminCookie }
+    });
+    assert.equal(finalLeaveRes.statusCode, 200);
+    assert.equal(finalLeaveRes.json().channelDeleted, true, "Last leave should delete the channel");
+
+    const postFinalRes = await app.inject({
+      method: "DELETE", url: `/v1/channels/${channelId}/members/me`,
+      headers: { cookie: adminCookie }
+    });
+    assert.equal(postFinalRes.statusCode, 404, "Re-leave on a deleted channel returns 404");
+  } finally {
+    await app.close();
+  }
+});
+
+test("leave-DM endpoint refuses non-DM channels", async (t) => {
+  if (!pool) { t.skip("DATABASE_URL not configured."); return; }
+  if (!config.setupBootstrapToken) { t.skip("SETUP_BOOTSTRAP_TOKEN not configured."); return; }
+
+  const app = await buildApp();
+
+  try {
+    const adminIdentity = await upsertIdentityMapping({
+      provider: "dev", oidcSubject: "dm_leave_guard",
+      email: "dm-leave-guard@dev.local", preferredUsername: "dm-leave-guard", avatarUrl: null
+    });
+    const adminCookie = createAuthCookie({ productUserId: adminIdentity.productUserId, provider: "dev", oidcSubject: "dm_leave_guard" });
+
+    await app.inject({
+      method: "POST", url: "/auth/bootstrap-admin",
+      headers: { cookie: adminCookie },
+      payload: { setupToken: config.setupBootstrapToken, hubName: "Guard Hub" }
+    });
+    const ctx = (await app.inject({ method: "GET", url: "/v1/bootstrap/context", headers: { cookie: adminCookie } })).json();
+    // The bootstrap creates a default text channel; pick the first one.
+    const channels = (await app.inject({
+      method: "GET", url: `/v1/servers/${ctx.defaultServerId}/channels`,
+      headers: { cookie: adminCookie }
+    })).json().items as { id: string; type: string }[];
+    const textChannel = channels.find(c => c.type !== "dm");
+    assert.ok(textChannel, "Expected a default text channel from bootstrap");
+
+    const leaveRes = await app.inject({
+      method: "DELETE", url: `/v1/channels/${textChannel!.id}/members/me`,
+      headers: { cookie: adminCookie }
+    });
+    assert.equal(leaveRes.statusCode, 400, "Leave endpoint should reject non-DM channels");
+  } finally {
+    await app.close();
+  }
+});
+
 test("DM channel listing reflects messages from both participants in order", async (t) => {
   if (!pool) { t.skip("DATABASE_URL not configured."); return; }
   if (!config.setupBootstrapToken) { t.skip("SETUP_BOOTSTRAP_TOKEN not configured."); return; }
