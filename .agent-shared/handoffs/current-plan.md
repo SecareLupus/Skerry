@@ -1,9 +1,19 @@
 ---
 created_by: claude-code
-last_updated: 2026-05-02
+last_updated: 2026-05-03T17:06:00Z
 next_agent: either
 status: complete
 ---
+
+> **Note (2026-05-03):** Issue #21 (Settings menu theme persistence)
+> verified fixed on the current build. The Phase 27 FOUC guard
+> (`fe54478`) already addresses it; this turn added a Playwright
+> regression test that exercises the literal repro (seed
+> `localStorage.theme=dark`, navigate to `/settings`, reload, assert no
+> flash to light) so the path stays covered. Branch
+> `fix/issue-21-settings-theme`, report at
+> `implementation-reports/2026-05-03-1706-issue-21-settings-theme.md`.
+> No active plan is in flight.
 
 > **Note (2026-05-02):** Phase 27 merged via PR #37 (`edfb91e`). A
 > follow-up fix for Issue #22 (Discord Bridge OAuth scroll/state

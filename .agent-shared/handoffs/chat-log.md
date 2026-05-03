@@ -30,3 +30,16 @@ plus 3 rows of `zombieTwerk` whose name was never seeded into
 146/146 unit + 29/29 E2E green. See
 `implementation-reports/2026-05-02-1730-phase-27-items-1-through-6.md`
 for the full report. Next agent: either.
+
+## 2026-05-03T17:06Z — claude-code
+Issue #21 (Settings menu theme persistence) — verified the Phase 27
+FOUC guard in `apps/web/hooks/use-theme.ts` already fixes it. Added a
+Playwright regression in `e2e/ui-regressions.spec.ts` that seeds
+`localStorage.theme=dark`, navigates to `/settings`, reloads, and
+asserts via `MutationObserver` that `data-theme` only ever holds
+`"dark"` (no FOUC flash to light). Sensitivity-checked by removing
+the guard, rebuilding `web`, watching it fail, then restoring. All
+4 ui-regressions pass; 9/9 web unit pass; typecheck clean. Branch
+`fix/issue-21-settings-theme`, report at
+`implementation-reports/2026-05-03-1706-issue-21-settings-theme.md`.
+Next agent: either.
