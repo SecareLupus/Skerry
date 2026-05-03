@@ -5,6 +5,13 @@ next_agent: either
 status: complete
 ---
 
+> **Note (2026-05-02):** Phase 27 merged via PR #37 (`edfb91e`). A
+> follow-up fix for Issue #22 (Discord Bridge OAuth scroll/state
+> restore) merged separately via PR #47 (`72aaae4`, commits `29785c3`
+> + `61134c9` + `171c2de`) and the corresponding TODO.md entry has been
+> checked off. No active plan is in flight; the user's next request
+> should seed a new plan.
+
 # Plan: Phase 27 — BugFixesAndPolish Retry
 
 ## Goal
