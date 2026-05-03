@@ -698,7 +698,7 @@ export function ChatClient() {
   }
 
   return (
-    <>
+    <ChatHandlersProvider value={{ handleServerChange, handleChannelChange, refreshChatState }}>
       <main className="app">
       <ClientTopbar
         dispatch={dispatch}
@@ -953,9 +953,7 @@ export function ChatClient() {
         </section >
       )}
 
-      <ChatHandlersProvider value={{ handleServerChange, handleChannelChange, refreshChatState }}>
-        <ModalManager />
-      </ChatHandlersProvider>
+      <ModalManager />
       <ClientModals
         {...state}
         activeModal={activeModal}
@@ -1033,6 +1031,6 @@ export function ChatClient() {
 
 </main>
 
-    </>
+    </ChatHandlersProvider>
   );
 }
