@@ -87,21 +87,26 @@ export function DMPickerModal() {
                     {error && <div className="error-message">{error}</div>}
 
                     <ul className="user-results-list">
-                        {results.map((user) => (
-                            <li key={user.productUserId} className="user-result-item" onClick={() => handleSelectUser(user)}>
-                                <div className="user-avatar-placeholder">
-                                    {user.avatarUrl ? (
-                                        <img src={user.avatarUrl} alt="" />
-                                    ) : (
-                                        (user.displayName ?? "U").charAt(0).toUpperCase()
-                                    )}
-                                </div>
-                                <div className="user-info">
-                                    <span className="display-name">{user.displayName ?? "Unknown User"}</span>
-                                    {user.matrixUserId && <span className="matrix-id">{user.matrixUserId}</span>}
-                                </div>
-                            </li>
-                        ))}
+                        {results.map((user) => {
+                            const matrixLocalpart = user.matrixUserId?.replace(/^@/, "").split(":")[0] ?? null;
+                            const renderedName =
+                                user.displayName ?? user.preferredUsername ?? matrixLocalpart ?? "Unknown User";
+                            return (
+                                <li key={user.productUserId} className="user-result-item" onClick={() => handleSelectUser(user)}>
+                                    <div className="user-avatar-placeholder">
+                                        {user.avatarUrl ? (
+                                            <img src={user.avatarUrl} alt="" />
+                                        ) : (
+                                            renderedName.charAt(0).toUpperCase()
+                                        )}
+                                    </div>
+                                    <div className="user-info">
+                                        <span className="display-name">{renderedName}</span>
+                                        {user.matrixUserId && <span className="matrix-id">{user.matrixUserId}</span>}
+                                    </div>
+                                </li>
+                            );
+                        })}
                         {!loading && query && results.length === 0 && (
                             <li className="no-results">No users found for &quot;{query}&quot;</li>
                         )}

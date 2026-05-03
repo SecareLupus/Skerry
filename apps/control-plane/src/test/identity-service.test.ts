@@ -85,4 +85,17 @@ test("identity service lifecycle", async (t) => {
   const searchResults2 = await searchIdentities("some");
   assert.equal(searchResults2.length, 1);
   assert.equal(searchResults2[0]?.productUserId, identity2.productUserId);
+
+  // 9. Self-exclusion: passing excludingProductUserId filters that user out
+  // (regression for #39: opening "New DM" was returning the requester among
+  // their own search results, and clicking themselves errored out downstream).
+  const broadResults = await searchIdentities("e");
+  const broadIds = broadResults.map((r) => r.productUserId).sort();
+  assert.deepEqual(broadIds, [identity1.productUserId, identity2.productUserId].sort());
+
+  const excludedResults = await searchIdentities("e", {
+    excludingProductUserId: identity1.productUserId
+  });
+  assert.equal(excludedResults.length, 1);
+  assert.equal(excludedResults[0]?.productUserId, identity2.productUserId);
 });

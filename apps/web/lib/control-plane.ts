@@ -335,6 +335,7 @@ export async function searchUsers(query: string): Promise<IdentityMapping[]> {
 export async function createDirectMessage(hubId: string, userIds: string[]): Promise<Channel> {
   return apiFetch<Channel>(`/v1/hubs/${encodeURIComponent(hubId)}/dms`, {
     method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ userIds })
   });
 }

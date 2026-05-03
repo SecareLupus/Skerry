@@ -278,16 +278,20 @@ export async function isPreferredUsernameTaken(input: {
   });
 }
 
-export async function searchIdentities(query: string): Promise<IdentityMapping[]> {
+export async function searchIdentities(
+  query: string,
+  options: { excludingProductUserId?: string } = {}
+): Promise<IdentityMapping[]> {
   const normalizedQuery = `%${query.trim().toLowerCase()}%`;
   return withDb(async (db) => {
     const rows = await db.query<IdentityRow>(
       `select distinct on (product_user_id) *
        from identity_mappings
        where (lower(preferred_username) like $1 or lower(email) like $1)
+         and ($2::text is null or product_user_id <> $2)
        order by product_user_id, (preferred_username is not null) desc, updated_at desc
        limit 10`,
-      [normalizedQuery]
+      [normalizedQuery, options.excludingProductUserId ?? null]
     );
     return rows.rows.map(mapRow);
   });

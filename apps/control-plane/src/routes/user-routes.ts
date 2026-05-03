@@ -24,7 +24,11 @@ export async function registerUserRoutes(app: FastifyInstance): Promise<void> {
 
   app.get("/v1/users/search", initializedAuthHandlers, async (request) => {
     const query = z.object({ q: z.string().min(1) }).parse(request.query);
-    return { items: await searchIdentities(query.q) };
+    return {
+      items: await searchIdentities(query.q, {
+        excludingProductUserId: request.auth!.productUserId
+      })
+    };
   });
 
   app.get("/v1/users/:userId", initializedAuthHandlers, async (request, reply) => {

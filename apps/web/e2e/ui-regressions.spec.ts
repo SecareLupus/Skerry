@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { resetPlatform, bootstrapAdmin } from './helpers';
+import { resetPlatform, bootstrapAdmin, loginAndOnboard } from './helpers';
 
 // Regression tests for UI bugs:
 // - Bug 1 (Phase 27): theme toggle button now flips data-theme on the document
@@ -64,6 +64,64 @@ test.describe('UI regressions', () => {
       line.includes('useChatHandlers must be used within a ChatHandlersProvider')
     );
     expect(providerError, providerError).toBeUndefined();
+  });
+
+  test('#39: New DM modal renders preferred-username fallback and excludes self', async ({ page, browser }) => {
+    // Seed a second identity in the DB by completing onboarding in a separate
+    // context. Alice never joins the hub — she just needs an `identity_mappings`
+    // row so that admin's user-search hits her. Onboarding sets only
+    // preferred_username (display_name stays NULL), which is exactly the
+    // situation that produced "Unknown User" rows in the modal pre-fix.
+    const aliceContext = await browser.newContext();
+    try {
+      const alicePage = await aliceContext.newPage();
+      await alicePage.goto('/');
+      await loginAndOnboard(alicePage, 'alice-dev', 'alice');
+      await alicePage.close();
+
+      const consoleErrors: string[] = [];
+      page.on('console', (msg) => {
+        if (msg.type() === 'error') consoleErrors.push(msg.text());
+      });
+
+      await page.getByTestId('back-to-servers').click();
+      await page.getByRole('button', { name: 'New Message' }).click();
+      await expect(page.getByRole('heading', { name: 'New Direct Message' })).toBeVisible({
+        timeout: 5000,
+      });
+
+      // Type a query that matches BOTH alice and the admin (both have an "a"
+      // in their preferred_username). Pre-fix, the admin would appear in their
+      // own results and clicking would create a self-DM that errored downstream.
+      await page.getByPlaceholder('Type a username...').fill('a');
+
+      const aliceRow = page.locator('.user-result-item', { hasText: 'alice' });
+      await expect(aliceRow).toBeVisible({ timeout: 5000 });
+
+      // Self-exclusion: admin's own preferred_username ('admin') must not appear.
+      await expect(page.locator('.user-result-item', { hasText: /^admin$/ })).toHaveCount(0);
+
+      // Display-name fallback: alice has display_name=NULL, but the modal must
+      // render her preferred_username, never the literal string "Unknown User".
+      await expect(page.locator('.user-result-item', { hasText: 'Unknown User' })).toHaveCount(0);
+
+      await aliceRow.click();
+
+      // Modal closes and the DM is created. The sidebar's DMs section gets
+      // populated with the new conversation. We don't assert specific UI here
+      // beyond modal-dismissal + no console errors, since the surrounding DM
+      // list reactivity is the subject of #35/#40.
+      await expect(page.getByRole('heading', { name: 'New Direct Message' })).toBeHidden({
+        timeout: 10000,
+      });
+
+      const dmFailures = consoleErrors.filter((line) =>
+        /Failed to create DM|TypeError|Cannot read|undefined is not/.test(line)
+      );
+      expect(dmFailures, dmFailures.join('\n')).toEqual([]);
+    } finally {
+      await aliceContext.close();
+    }
   });
 
   test('#22: OAuth return scrolls the BridgeManager into view', async ({ page }) => {
