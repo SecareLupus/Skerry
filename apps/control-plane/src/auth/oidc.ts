@@ -18,6 +18,7 @@ interface OidcProfile {
   email: string | null;
   username?: string;
   preferredUsername: string | null;
+  displayName: string | null;
   avatarUrl: string | null;
 }
 
@@ -221,6 +222,7 @@ async function exchangeDiscordCode(
     id: string;
     email?: string;
     username?: string;
+    global_name?: string;
     avatar?: string;
   };
 
@@ -231,6 +233,7 @@ async function exchangeDiscordCode(
       email: profile.email ?? null,
       username: profile.username,
       preferredUsername: null,
+      displayName: profile.global_name ?? profile.username ?? null,
       avatarUrl: profile.avatar ? `https://cdn.discordapp.com/avatars/${profile.id}/${profile.avatar}.png` : null
     },
     accessToken: tokenJson.access_token,
@@ -280,6 +283,7 @@ async function exchangeGoogleCode(
   const profile = (await userResponse.json()) as {
     sub: string;
     email?: string;
+    name?: string;
     picture?: string;
   };
 
@@ -289,6 +293,7 @@ async function exchangeGoogleCode(
       oidcSubject: profile.sub,
       email: profile.email ?? null,
       preferredUsername: null,
+      displayName: profile.name ?? null,
       avatarUrl: profile.picture ?? null
     },
     accessToken: tokenJson.access_token,
@@ -359,6 +364,7 @@ async function exchangeTwitchCode(
       email: profile.email ?? null,
       username: profile.login || profile.display_name,
       preferredUsername: null,
+      displayName: profile.display_name || profile.login || null,
       avatarUrl: profile.profile_image_url ?? null
     },
     accessToken: tokenJson.access_token,

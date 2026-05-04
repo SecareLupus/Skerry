@@ -69,7 +69,7 @@ export function ClientTopbar({
             {realtimeState === "live" ? "Live" : realtimeState === "polling" ? "Polling" : "Offline"}
           </span>
           <span aria-live="polite" className="topbar-id">
-            Signed in as {viewer?.identity?.preferredUsername ?? "Guest"}
+            Signed in as {viewer?.identity?.preferredUsername ?? viewer?.identity?.displayName ?? "Guest"}
             {isMasquerading && (
               <span className="masquerade-indicator">
                 {" "}(Masquerading as <span className="masquerade-role">{masqRole}</span>

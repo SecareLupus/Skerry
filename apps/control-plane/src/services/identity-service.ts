@@ -79,6 +79,7 @@ export async function upsertIdentityMapping(input: {
   oidcSubject: string;
   email: string | null;
   preferredUsername: string | null;
+  displayName?: string | null;
   avatarUrl: string | null;
   productUserId?: string;
   accessToken?: string | null;
@@ -90,7 +91,7 @@ export async function upsertIdentityMapping(input: {
 
   const identity = await withDb(async (db) => {
     let finalPreferredUsername = input.preferredUsername;
-    let displayName = null;
+    let displayName: string | null = input.displayName ?? null;
     let bio = null;
     let customStatus = null;
     let theme = "dark"; // Default to dark if not found
@@ -108,7 +109,7 @@ export async function upsertIdentityMapping(input: {
         const row = existing.rows[0];
         // Inherit existing values if they are more "complete" than what the new provider gives
         finalPreferredUsername = row.preferred_username || input.preferredUsername;
-        displayName = row.display_name;
+        displayName = row.display_name ?? displayName;
         bio = row.bio;
         customStatus = row.custom_status;
         theme = row.theme || "dark";
