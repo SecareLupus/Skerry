@@ -89,14 +89,58 @@ Plan`), one PR per issue. The user is near a weekly model-usage cap, so
     creation. Report at
     `implementation-reports/2026-05-07-1450-issue-23-invite-management-and-badges.md`.
 
+- [ ] **Permissions sprint** (must land before #34 per user request).
+  Three slices, separate PRs, foundation first.
+  - [ ] **P1 — Role enum cleanup.** Drop `user` and `visitor` from
+    the `Role` enum (they're tier classifiers derived from
+    membership, not granted roles). Migration: ensure matching
+    `hub_members` row exists before deleting `role='user'`
+    bindings; drop `role='visitor'` bindings (always empty). Rewire
+    `voice.token.issue` from "user role" to "is hub member" check.
+    Update `MasqueradeParamsSchema` enum and frontend usages of
+    `binding.role === 'user'`. Document `space_moderator` boundary
+    in code comment. **Must not break bridged Discord user lists
+    in bridged rooms** — verify what role bindings bridged Discord
+    identities currently carry before running the migration.
+  - [ ] **P3 — Default Space Owner = Hub.** `servers.owner_user_id`
+    becomes nullable; null means hub-owned (any hub manager can
+    manage). New-space creation flow gets a "owned by you / owned
+    by hub" choice (default: hub). Existing data preserved.
+    Auto-join policy + join_policy controls exposed in Space
+    Settings UI.
+  - [ ] **P2 — Audience tiers, cascade, and capability split.**
+    Largest slice.
+    - Replace per-resource `*_access` columns with a normalized
+      `channel_access_rules` table keyed on
+      (channel_id, audience_tier, capability) where capability is
+      one of {visibility, read, write}. Same shape for spaces.
+    - Audience tier ladder: `visitor`, `hub_member`, `space_member`,
+      `space_moderator`, `space_admin` (owner inherits admin;
+      hub admin spans hubs).
+    - Visibility resolution: Hub → Space → Room cascade with
+      narrower-tier override at each step. Hub-level lockout
+      (no public default server) is **not** overridable by
+      spaces — visitor access is bounded above by the hub.
+    - **Split `canManageServer` into specific capability gates:**
+      `canModerateServer` (chat cleanup), `canEditServerSettings`
+      (rename, configure), `canManageServerRoles`,
+      `canManageRooms`. `space_moderator` joins the moderation
+      gate but stays excluded from settings/roles/rooms gates —
+      matches the user's "moderators clean up chat but don't edit
+      space/room settings" intent.
+  - **Out of scope:** per-hub `permissionMatrix` overrides. Future
+    sprint.
+
 - [ ] **Issue #34** — Onboarding Display Name. Pending.
   - Context: Not yet investigated this session. Read the issue + code
-    before scoping.
+    before scoping. **Blocked on the permissions sprint per user
+    request.**
 
 - [ ] **Issue #38** — Changing Server Permissions Does Not Update Backend.
   Pending.
   - Context: Not yet investigated this session. Read the issue + code
-    before scoping.
+    before scoping. **Likely related to or subsumed by P2 of the
+    permissions sprint** — re-scope after P1/P3 land.
 
 ## Open Questions
 
