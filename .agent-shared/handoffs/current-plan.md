@@ -1,9 +1,31 @@
 ---
 created_by: claude-code
-last_updated: 2026-05-07T13:30:00Z
-next_agent: user
+last_updated: 2026-05-07T14:50:00Z
+next_agent: either
 status: in-progress
 ---
+
+> **Note (2026-05-07 14:50):** Issue #23 Slice C (invite management
+> + default badges + redemption audits + role_bindings dedup)
+> landed on the same branch (PR #92). User scoped Slice C explicitly
+> after rejecting "merge as-is + separate ticket": invite-only
+> cleanup, with the broader permissions sprint carved out. Backend
+> shipped in commit `b767da7` (3 migrations, list/revoke endpoints,
+> defaultBadgeIds, audit logs, idempotent redemption, 4 new
+> integration tests); UI in the next commit (settings invite-
+> management page + badge picker in create modal). Web 12/12,
+> shared 16/16, typecheck clean. Control-plane integration tests
+> **not** run (no docker stack) — six untested cases between B and
+> C. Pangolin verification still owed for Slice A. Implementation
+> report at
+> `implementation-reports/2026-05-07-1450-issue-23-invite-management-and-badges.md`.
+>
+> **Issue #23 is now feature-complete on PR #92.** Remaining before
+> merge: run the control-plane integration suite, exercise Slice A
+> on pangolin. The "permissions sprint" referenced in Slice C
+> scoping is a future milestone (own ticket); the dead
+> `canManageServer`-without-`canManageHub` branch in invite creation
+> stays as-is for the sprint to activate or delete.
 
 > **Note (2026-05-07 13:30):** Issue #23 Slice B (default role +
 > default server on invites) landed on the same branch as Slice A
@@ -16,15 +38,6 @@ status: in-progress
 > was updated for Slice A). Slice A pangolin verification still owed.
 > Implementation report at
 > `implementation-reports/2026-05-07-1330-issue-23-default-role-and-server.md`.
->
-> **Slice C decision deferred to user.** The issue body is fully
-> covered by A + B. Slice C as originally framed
-> ("broader permissions/invites cleanup") is too vague to implement
-> without direction. The Slice B report enumerates concrete candidates
-> for a follow-up ticket. Asked the user whether to (a) merge PR #92
-> against #23 and file Slice C as a separate ticket, or (b) lock in a
-> concrete C scope for this PR. **next_agent: user** until they
-> answer.
 
 > **Note (2026-05-07 12:16):** Issue #23 Slice A (unauthenticated
 > invite redeem + modal title) landed on
@@ -68,11 +81,13 @@ Plan`), one PR per issue. The user is near a weekly model-usage cap, so
     `INVITE_BAKEABLE_ROLES`, route validation, modal pickers, two new
     control-plane integration tests (NOT run this session). Report at
     `implementation-reports/2026-05-07-1330-issue-23-default-role-and-server.md`.
-  - [ ] **Slice C** — Broader permissions/invites cleanup. Vague.
-    Awaiting user decision: merge PR #92 against #23 and file C as a
-    separate ticket, or lock in a concrete C scope for this PR. The
-    Slice B report lists four concrete candidate items for a follow-up
-    ticket.
+  - [x] **Slice C** — Invite management + default badges + audits +
+    dedup. On the same branch + PR #92. Backend in `b767da7`, UI in
+    the next commit. Carve-out: the broader "permissions sprint"
+    is its own future ticket — Slice C deliberately does not touch
+    the `canManageHub`-vs-`canManageServer` gating on invite
+    creation. Report at
+    `implementation-reports/2026-05-07-1450-issue-23-invite-management-and-badges.md`.
 
 - [ ] **Issue #34** — Onboarding Display Name. Pending.
   - Context: Not yet investigated this session. Read the issue + code

@@ -160,3 +160,37 @@ Slice B report): hub-invite list/revoke endpoints; role_bindings
 dedup gap (pre-existing — `on conflict do nothing` against PK is
 effectively a no-op); the dead `canManageServer` path in invite
 creation; documenting the join_policy bypass behavior of invites.
+
+## 2026-05-07 14:50 — claude-code
+
+User chose to scope and ship Slice C in PR #92 rather than spinning
+it off. Final scope: invite-only cleanup with the broader permissions
+sprint carved out. Two commits:
+
+- `b767da7` (backend): three migrations — `revoked_at` column,
+  `hub_invite_default_badges` join table, and a `role_bindings`
+  duplicate-cleanup-plus-unique-index that finally makes the
+  redemption `on conflict` clause idempotent. New endpoints `GET
+  /v1/hubs/:hubId/invites` and `DELETE
+  /v1/hubs/:hubId/invites/:inviteId` (soft delete via `revoked_at`).
+  `getHubInvite` filters out revoked rows so the public splash 404s
+  and `useHubInvite` rejects them. `useHubInvite` now also writes
+  `role_assignment_audit_logs` entries (only when a fresh binding
+  actually lands) and applies `defaultBadgeIds` to `user_badges`.
+  Documented the join_policy bypass decision as a code comment.
+  Four new integration tests written; not run this session
+  (no docker stack).
+- `<this commit>` (UI): new `/settings/hub/invites` page — table of
+  active invites with click-to-copy id, role/server/badge columns,
+  uses, created date, and a confirm-then-revoke button. Wired into
+  the settings sidebar as "Hub Invites" gated on `canManageHub`.
+  `InviteModals` gains a badge multi-select fieldset that fetches
+  badges from every server in the hub on modal open.
+
+Issue #23 is now feature-complete on PR #92. Remaining before
+merge: control-plane integration suite run; Slice A pangolin
+verification (the OIDC roundtrip needs a real provider). The
+permissions sprint referenced during Slice C scoping is a future
+milestone; the dead `canManageServer`-without-`canManageHub`
+branch in invite creation stays for that sprint to activate or
+delete. Web 12/12, shared 16/16, typecheck clean. Next agent: either.

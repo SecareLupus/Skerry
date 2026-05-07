@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { createHubInvite, inviteToChannel } from "../../lib/control-plane";
-import type { IdentityMapping, InviteBakeableRole, Role, Server } from "@skerry/shared";
+import { createHubInvite, fetchBadges, inviteToChannel } from "../../lib/control-plane";
+import type { Badge, IdentityMapping, InviteBakeableRole, Role, Server } from "@skerry/shared";
 import { INVITE_BAKEABLE_ROLES } from "@skerry/shared";
 
 interface InviteModalsProps {
@@ -42,6 +42,8 @@ export function InviteModals({
 }: InviteModalsProps) {
   const [defaultRole, setDefaultRole] = useState<"" | Role>("");
   const [defaultServerId, setDefaultServerId] = useState<string>("");
+  const [defaultBadgeIds, setDefaultBadgeIds] = useState<string[]>([]);
+  const [hubBadges, setHubBadges] = useState<Badge[]>([]);
 
   const inviteHubId = activeServer?.hubId || activeServer?.id || null;
   const serversInHub = useMemo(
@@ -55,8 +57,26 @@ export function InviteModals({
     if (!isCreatingHubInvite) {
       setDefaultRole("");
       setDefaultServerId("");
+      setDefaultBadgeIds([]);
     }
   }, [isCreatingHubInvite]);
+
+  // Load badges from every server in the hub when the modal opens.
+  useEffect(() => {
+    if (!isCreatingHubInvite || serversInHub.length === 0) {
+      setHubBadges([]);
+      return;
+    }
+    let cancelled = false;
+    void Promise.all(serversInHub.map((s) => fetchBadges(s.id).catch(() => [] as Badge[])))
+      .then((results) => {
+        if (cancelled) return;
+        setHubBadges(results.flat());
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isCreatingHubInvite, serversInHub]);
   useEffect(() => {
     if (!isCreatingHubInvite && !isInviting) return;
     const onKey = (e: KeyboardEvent) => {
@@ -182,6 +202,45 @@ export function InviteModals({
                     </small>
                   ) : null}
                 </label>
+                {hubBadges.length > 0 ? (
+                  <fieldset
+                    data-testid="invite-default-badges"
+                    style={{
+                      border: "1px solid var(--border)",
+                      borderRadius: "6px",
+                      padding: "0.5rem 0.75rem",
+                      marginBottom: "1rem",
+                      maxHeight: "140px",
+                      overflowY: "auto"
+                    }}
+                  >
+                    <legend style={{ fontSize: "0.85rem", padding: "0 0.25rem" }}>
+                      Default badges (optional)
+                    </legend>
+                    {hubBadges.map((badge) => {
+                      const checked = defaultBadgeIds.includes(badge.id);
+                      return (
+                        <label
+                          key={badge.id}
+                          style={{ display: "flex", gap: "0.5rem", alignItems: "center", fontSize: "0.85rem", padding: "0.15rem 0" }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(e) => {
+                              setDefaultBadgeIds((prev) =>
+                                e.target.checked
+                                  ? [...prev, badge.id]
+                                  : prev.filter((id) => id !== badge.id)
+                              );
+                            }}
+                          />
+                          <span>{badge.name}</span>
+                        </label>
+                      );
+                    })}
+                  </fieldset>
+                ) : null}
                 <button
                   className="primary"
                   onClick={async () => {
@@ -198,7 +257,8 @@ export function InviteModals({
                       }
                       const invite = await createHubInvite(hubId, {
                         defaultRole: defaultRole === "" ? undefined : defaultRole,
-                        defaultServerId: defaultServerId === "" ? undefined : defaultServerId
+                        defaultServerId: defaultServerId === "" ? undefined : defaultServerId,
+                        defaultBadgeIds: defaultBadgeIds.length > 0 ? defaultBadgeIds : undefined
                       });
                       // Use /invite/ which is the established splash redirect route
                       const url = `${window.location.origin}/invite/${invite.id}`;
