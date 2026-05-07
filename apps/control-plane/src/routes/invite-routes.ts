@@ -5,6 +5,8 @@ import { canManageHub, canManageServer } from "../services/policy-service.js";
 import {
   createHubInvite,
   getHubInvite,
+  listHubInvites,
+  revokeHubInvite,
   useHubInvite
 } from "../services/chat/server-service.js";
 import { withDb } from "../db/client.js";
@@ -23,7 +25,8 @@ export async function registerInviteRoutes(app: FastifyInstance): Promise<void> 
       expiresAt: z.string().datetime().optional(),
       maxUses: z.number().int().min(1).optional(),
       defaultRole: inviteRoleSchema.optional(),
-      defaultServerId: z.string().min(1).optional()
+      defaultServerId: z.string().min(1).optional(),
+      defaultBadgeIds: z.array(z.string().min(1)).max(20).optional()
     }).parse(request.body ?? {});
 
     const productUserId = request.auth!.productUserId;
@@ -85,17 +88,82 @@ export async function registerInviteRoutes(app: FastifyInstance): Promise<void> 
       }
     }
 
+    const badgeIds = payload.defaultBadgeIds ?? [];
+    if (badgeIds.length > 0) {
+      const badgeRows = await withDb((db) =>
+        db.query<{ id: string; hub_id: string }>(
+          "select id, hub_id from badges where id = any($1::text[])",
+          [badgeIds]
+        )
+      );
+      const found = new Set(badgeRows.rows.map((b) => b.id));
+      const missing = badgeIds.filter((id) => !found.has(id));
+      if (missing.length > 0) {
+        reply.code(400).send({
+          message: `Unknown badge id(s): ${missing.join(", ")}`,
+          code: "invite_invalid_default_badge"
+        });
+        return;
+      }
+      const fromOtherHub = badgeRows.rows.filter((b) => b.hub_id !== params.hubId);
+      if (fromOtherHub.length > 0) {
+        reply.code(400).send({
+          message: "One or more defaultBadgeIds belong to a different hub.",
+          code: "invite_invalid_default_badge"
+        });
+        return;
+      }
+    }
+
     const invite = await createHubInvite({
       hubId: params.hubId,
       createdByUserId: productUserId,
       expiresAt: payload.expiresAt,
       maxUses: payload.maxUses,
       defaultRole: payload.defaultRole ?? null,
-      defaultServerId: payload.defaultServerId ?? null
+      defaultServerId: payload.defaultServerId ?? null,
+      defaultBadgeIds: badgeIds
     });
 
     reply.code(201);
     return invite;
+  });
+
+  app.get("/v1/hubs/:hubId/invites", initializedAuthHandlers, async (request, reply) => {
+    const params = z.object({ hubId: z.string().min(1) }).parse(request.params);
+    const allowed = await canManageHub({
+      productUserId: request.auth!.productUserId,
+      hubId: params.hubId
+    });
+    if (!allowed) {
+      reply.code(403).send({ message: "Forbidden: insufficient hub management scope." });
+      return;
+    }
+    const items = await listHubInvites(params.hubId);
+    return { items };
+  });
+
+  app.delete("/v1/hubs/:hubId/invites/:inviteId", initializedAuthHandlers, async (request, reply) => {
+    const params = z
+      .object({ hubId: z.string().min(1), inviteId: z.string().min(1) })
+      .parse(request.params);
+    const allowed = await canManageHub({
+      productUserId: request.auth!.productUserId,
+      hubId: params.hubId
+    });
+    if (!allowed) {
+      reply.code(403).send({ message: "Forbidden: insufficient hub management scope." });
+      return;
+    }
+    const revoked = await revokeHubInvite({
+      inviteId: params.inviteId,
+      hubId: params.hubId
+    });
+    if (!revoked) {
+      reply.code(404).send({ message: "Invite not found or already revoked." });
+      return;
+    }
+    reply.code(204).send();
   });
 
   app.get("/v1/invites/:inviteId", async (request, reply) => {

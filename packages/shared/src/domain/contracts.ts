@@ -310,6 +310,15 @@ export interface HubInvite {
     createdAt: string;
     defaultRole: Role | null;
     defaultServerId: string | null;
+    /** Badge IDs applied on redemption. Empty array if none. */
+    defaultBadgeIds: string[];
+    /**
+     * When non-null, the invite was revoked at this timestamp. Revoked invites
+     * are not returned by `getHubInvite` (so the public splash 404s) and
+     * `useHubInvite` rejects them. Already-redeemed users keep their
+     * bindings.
+     */
+    revokedAt: string | null;
 }
 
 /**

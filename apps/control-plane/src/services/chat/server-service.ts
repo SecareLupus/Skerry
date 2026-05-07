@@ -254,8 +254,31 @@ const INVITE_RETURNING_COLUMNS = `
   uses_count as "usesCount",
   created_at as "createdAt",
   default_role as "defaultRole",
-  default_server_id as "defaultServerId"
+  default_server_id as "defaultServerId",
+  revoked_at as "revokedAt"
 `;
+
+type InviteRowWithoutBadges = Omit<HubInvite, "defaultBadgeIds">;
+
+async function loadDefaultBadgeIds(
+  db: { query: <T = unknown>(sql: string, params?: unknown[]) => Promise<{ rows: T[] }> },
+  inviteIds: string[]
+): Promise<Map<string, string[]>> {
+  if (inviteIds.length === 0) return new Map();
+  const res = await db.query<{ invite_id: string; badge_id: string }>(
+    `select invite_id, badge_id
+       from hub_invite_default_badges
+      where invite_id = any($1::text[])`,
+    [inviteIds]
+  );
+  const map = new Map<string, string[]>();
+  for (const row of res.rows) {
+    const list = map.get(row.invite_id) ?? [];
+    list.push(row.badge_id);
+    map.set(row.invite_id, list);
+  }
+  return map;
+}
 
 export async function createHubInvite(input: {
   hubId: string;
@@ -264,10 +287,11 @@ export async function createHubInvite(input: {
   maxUses?: number | null;
   defaultRole?: HubInvite["defaultRole"] | null;
   defaultServerId?: string | null;
+  defaultBadgeIds?: string[];
 }): Promise<HubInvite> {
   return withDb(async (db) => {
     const id = `inv_${crypto.randomUUID().replaceAll("-", "")}`;
-    const res = await db.query<HubInvite>(
+    const res = await db.query<InviteRowWithoutBadges>(
       `insert into hub_invites
          (id, hub_id, created_by_user_id, expires_at, max_uses, default_role, default_server_id)
        values ($1, $2, $3, $4, $5, $6, $7)
@@ -282,22 +306,82 @@ export async function createHubInvite(input: {
         input.defaultServerId ?? null
       ]
     );
-    return res.rows[0]!;
+    const row = res.rows[0]!;
+
+    const badgeIds = (input.defaultBadgeIds ?? []).filter(Boolean);
+    if (badgeIds.length > 0) {
+      const values: string[] = [];
+      const params: unknown[] = [id];
+      badgeIds.forEach((badgeId, idx) => {
+        params.push(badgeId);
+        values.push(`($1, $${idx + 2})`);
+      });
+      await db.query(
+        `insert into hub_invite_default_badges (invite_id, badge_id)
+         values ${values.join(", ")}
+         on conflict (invite_id, badge_id) do nothing`,
+        params
+      );
+    }
+
+    return { ...row, defaultBadgeIds: [...badgeIds] };
   });
 }
 
 export async function getHubInvite(inviteId: string): Promise<HubInvite | null> {
   return withDb(async (db) => {
-    const res = await db.query(
-      `select ${INVITE_RETURNING_COLUMNS} from hub_invites where id = $1`,
+    const res = await db.query<InviteRowWithoutBadges>(
+      `select ${INVITE_RETURNING_COLUMNS}
+         from hub_invites
+        where id = $1
+          and revoked_at is null`,
       [inviteId]
     );
-    return res.rows[0] ?? null;
+    const row = res.rows[0];
+    if (!row) return null;
+    const badgeMap = await loadDefaultBadgeIds(db, [row.id]);
+    return { ...row, defaultBadgeIds: badgeMap.get(row.id) ?? [] };
+  });
+}
+
+/** Hub-manager listing of active invites (revoked invites are excluded). */
+export async function listHubInvites(hubId: string): Promise<HubInvite[]> {
+  return withDb(async (db) => {
+    const res = await db.query<InviteRowWithoutBadges>(
+      `select ${INVITE_RETURNING_COLUMNS}
+         from hub_invites
+        where hub_id = $1
+          and revoked_at is null
+        order by created_at desc`,
+      [hubId]
+    );
+    if (res.rows.length === 0) return [];
+    const badgeMap = await loadDefaultBadgeIds(db, res.rows.map((r) => r.id));
+    return res.rows.map((row) => ({
+      ...row,
+      defaultBadgeIds: badgeMap.get(row.id) ?? []
+    }));
+  });
+}
+
+export async function revokeHubInvite(input: { inviteId: string; hubId: string }): Promise<boolean> {
+  return withDb(async (db) => {
+    const res = await db.query(
+      `update hub_invites
+          set revoked_at = now()
+        where id = $1
+          and hub_id = $2
+          and revoked_at is null`,
+      [input.inviteId, input.hubId]
+    );
+    return (res.rowCount ?? 0) > 0;
   });
 }
 
 export async function useHubInvite(input: { inviteId: string; productUserId: string }): Promise<{ hubId: string }> {
   return withDb(async (db) => {
+    // `getHubInvite` already filters out revoked invites — a revoked invite
+    // is treated identically to one that never existed (404).
     const invite = await getHubInvite(input.inviteId);
     if (!invite) throw new Error("Invite not found");
 
@@ -312,10 +396,18 @@ export async function useHubInvite(input: { inviteId: string; productUserId: str
     const isSpaceScopedRole = role.startsWith("space_");
     const serverIdForBinding = isSpaceScopedRole ? invite.defaultServerId : null;
 
-    await db.query(
+    // Idempotent role binding insert. The `role_bindings_natural_key` unique
+    // index added in migration 033 makes the conflict target meaningful: a
+    // user re-redeeming the same invite gets exactly one binding, not N.
+    const bindingRes = await db.query<{ id: string }>(
       `insert into role_bindings (id, product_user_id, role, hub_id, server_id)
        values ($1, $2, $3, $4, $5)
-       on conflict do nothing`,
+       on conflict (product_user_id, role,
+                    coalesce(hub_id, ''),
+                    coalesce(server_id, ''),
+                    coalesce(channel_id, ''))
+       do nothing
+       returning id`,
       [
         `rb_${crypto.randomUUID().replaceAll("-", "")}`,
         input.productUserId,
@@ -325,14 +417,55 @@ export async function useHubInvite(input: { inviteId: string; productUserId: str
       ]
     );
 
+    // Audit only if a new binding actually landed. The inviter (created_by)
+    // is the actor of record — the redeemer is the target. This matches the
+    // shape of explicit /v1/roles/grant audit entries so downstream tooling
+    // doesn't need to special-case invite-driven grants.
+    if (bindingRes.rowCount && bindingRes.rowCount > 0) {
+      await db.query(
+        `insert into role_assignment_audit_logs
+           (id, actor_user_id, target_user_id, role, hub_id, server_id)
+         values ($1, $2, $3, $4, $5, $6)`,
+        [
+          `ral_${crypto.randomUUID().replaceAll("-", "")}`,
+          invite.createdByUserId,
+          input.productUserId,
+          role,
+          invite.hubId,
+          serverIdForBinding
+        ]
+      );
+    }
+
+    // Apply default badges. NB: `user_badges` has a unique
+    // (product_user_id, badge_id) constraint, so re-redemption is naturally
+    // idempotent here too.
+    if (invite.defaultBadgeIds.length > 0) {
+      const values: string[] = [];
+      const params: unknown[] = [input.productUserId];
+      invite.defaultBadgeIds.forEach((badgeId, idx) => {
+        params.push(badgeId);
+        values.push(`($1, $${idx + 2})`);
+      });
+      await db.query(
+        `insert into user_badges (product_user_id, badge_id)
+         values ${values.join(", ")}
+         on conflict (product_user_id, badge_id) do nothing`,
+        params
+      );
+    }
+
     await db.query("update hub_invites set uses_count = uses_count + 1 where id = $1", [input.inviteId]);
 
     // Ensure full membership state is created (hub_members, server_members
-    // for any auto_join_hub_members servers).
+    // for any auto_join_hub_members servers). NB: when `defaultServerId` is
+    // set, the named server is joined unconditionally below — this
+    // intentionally bypasses the server's `join_policy` (open/approval/invite),
+    // because the invite link IS the consent mechanism. The hub admin who
+    // issued the invite stands in for any per-server approval that would
+    // otherwise apply.
     await joinHub(invite.hubId, input.productUserId);
 
-    // If the invite names a specific server, make sure the user is a member
-    // of it even if it isn't auto_join.
     if (invite.defaultServerId) {
       await db.query(
         `insert into server_members (server_id, product_user_id)

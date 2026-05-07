@@ -676,6 +676,7 @@ export async function createHubInvite(
     maxUses?: number;
     defaultRole?: HubInvite["defaultRole"];
     defaultServerId?: string;
+    defaultBadgeIds?: string[];
   } = {}
 ): Promise<HubInvite> {
   return apiFetch<HubInvite>(`/v1/hubs/${encodeURIComponent(hubId)}/invites`, {
@@ -683,6 +684,19 @@ export async function createHubInvite(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(options)
   });
+}
+
+export async function listHubInvites(hubId: string): Promise<{ items: HubInvite[] }> {
+  return apiFetch<{ items: HubInvite[] }>(
+    `/v1/hubs/${encodeURIComponent(hubId)}/invites`
+  );
+}
+
+export async function revokeHubInvite(hubId: string, inviteId: string): Promise<void> {
+  await apiFetch<void>(
+    `/v1/hubs/${encodeURIComponent(hubId)}/invites/${encodeURIComponent(inviteId)}`,
+    { method: "DELETE" }
+  );
 }
 
 export async function fetchHubInvite(inviteId: string): Promise<HubInvite> {
