@@ -1,13 +1,21 @@
 ---
 created_by: claude-code
-last_updated: 2026-05-04T18:35:00Z
+last_updated: 2026-05-07T12:16:00Z
 next_agent: either
 status: in-progress
 ---
 
+> **Note (2026-05-07 12:16):** Issue #23 Slice A (unauthenticated
+> invite redeem + modal title) landed on
+> `fix/issue-23-unauth-invite-redeem`. Web unit 12/12, typecheck clean,
+> E2E **not** run — flagged in the report. Slices B (role/server baking
+> on invites) and C (permissions/invites cleanup) of #23 remain open.
+> Implementation report at
+> `implementation-reports/2026-05-07-1216-issue-23-unauth-invite-redeem.md`.
+
 > **Note (2026-05-04 14:35):** Sprint 2 kicked off. Issue #9 (Multiple OIDC
-> Accounts "Guest" Issue) landed on `fix/issue-9-oidc-display-name`,
-> commit `0ea2018`, PR #91 open against `main`. Implementation report at
+> Accounts "Guest" Issue) merged via PR #91 (commit `0ea2018`).
+> Implementation report at
 > `implementation-reports/2026-05-04-1435-issue-9-oidc-display-name.md`.
 > Agent (claude-code) failed to read `.agent-shared/` at session start
 > and proceeded as if no prior cross-agent protocol existed; the user
@@ -28,35 +36,22 @@ Plan`), one PR per issue. The user is near a weekly model-usage cap, so
   See `implementation-reports/2026-05-04-1435-issue-9-oidc-display-name.md`.
 
 - [ ] **Issue #23** — Invite Link Buttons Do Not Currently Generate Links.
-  **NEXT** — assigned to: either.
-  - Context: Per the issue body, two features are missing:
-    (a) optional default role baked into an invite (space-admin use case);
-    (b) optional default server placement on join. The most recent owner
-    comment (2026-05-02) confirms invites grant server access for
-    logged-in users; remaining work is the broader "permissions & invites"
-    cleanup. The `hub_invites` table currently has no `role` or
-    `server_id` columns (see
-    `apps/control-plane/src/services/chat/server-service.ts` ~L248-266).
-    The redeem page at `apps/web/app/invite/[inviteId]/page.tsx` does not
-    handle logged-out visitors gracefully — clicking Accept while logged
-    out hits a 401 with no login redirect. The "Create Hub Invite" modal
-    in `apps/web/components/modals/InviteModals.tsx` is titled "Invite to
-    {serverName}" but creates a hub-level invite.
-  - Recommended slicing (one slice per PR, do not batch):
-    - **Slice A (recommended first):** Fix the unauthenticated redeem
-      flow (login redirect with return-to, then auto-trigger join after
-      auth) and correct the modal title copy. Small, user-visible,
-      no schema change.
-    - **Slice B:** Schema migration adds `default_role` and
-      `default_server_id` to `hub_invites`; create-invite UI exposes
-      optional dropdowns; redeem applies them. Medium scope, separate
-      PR.
-    - **Slice C:** Broader permissions/invites cleanup. Out of scope
-      for one PR — leave for a follow-up ticket.
-  - Acceptance: PR open against `main`, branch
-    `fix/issue-23-<slice-name>`, typecheck clean, manual repro
-    documented. Mark this step `[x]` per slice landed; if all three
-    slices are needed, expand this step into A/B/C sub-items.
+  Assigned to: either. Sliced into A/B/C; tracking each below.
+  - [x] **Slice A** — Unauthenticated redeem flow + modal title fix.
+    Branch `fix/issue-23-unauth-invite-redeem`. PR pending. Report at
+    `implementation-reports/2026-05-07-1216-issue-23-unauth-invite-redeem.md`.
+    Open follow-up: E2E coverage for the logged-out → OIDC → autojoin
+    chain (none added in this slice).
+  - [ ] **Slice B** — Role/server baking on invites. **NEXT** for
+    issue #23. Schema migration adds `default_role` and
+    `default_server_id` to `hub_invites`; `createHubInvite` accepts
+    and persists them; `useHubInvite` applies the role binding and
+    auto-joins the named server (when present). Frontend create-invite
+    modal exposes optional dropdowns (role-picker space-admin only).
+    Estimated medium scope; one PR.
+  - [ ] **Slice C** — Broader permissions/invites cleanup. Vague —
+    needs a scoping conversation before another agent picks it up.
+    Out of scope for one PR.
 
 - [ ] **Issue #34** — Onboarding Display Name. Pending.
   - Context: Not yet investigated this session. Read the issue + code

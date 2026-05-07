@@ -1,21 +1,30 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
-import { fetchHubInvite, joinHubByInvite } from "../../../lib/control-plane";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import {
+    ControlPlaneApiError,
+    fetchAuthProviders,
+    fetchHubInvite,
+    joinHubByInvite,
+    providerLoginUrl
+} from "../../../lib/control-plane";
 import type { HubInvite } from "@skerry/shared";
 import { useToast } from "../../../components/toast-provider";
 
 export default function InvitePage() {
     const params = useParams();
     const router = useRouter();
+    const searchParams = useSearchParams();
     const inviteId = params.inviteId as string;
+    const autojoin = searchParams.get("autojoin") === "1";
     const { showToast } = useToast();
 
     const [invite, setInvite] = useState<HubInvite | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [joining, setJoining] = useState(false);
+    const autojoinTriggeredRef = useRef(false);
 
     useEffect(() => {
         if (!inviteId) return;
@@ -28,7 +37,7 @@ export default function InvitePage() {
             .finally(() => setLoading(false));
     }, [inviteId]);
 
-    const handleJoin = async () => {
+    const handleJoin = useCallback(async () => {
         setJoining(true);
         try {
             await joinHubByInvite(inviteId);
@@ -38,10 +47,29 @@ export default function InvitePage() {
                 window.location.href = "/";
             }, 500);
         } catch (err: any) {
+            if (err instanceof ControlPlaneApiError && err.statusCode === 401) {
+                try {
+                    const { primaryProvider } = await fetchAuthProviders();
+                    const returnTo = `${window.location.origin}/invite/${encodeURIComponent(inviteId)}?autojoin=1`;
+                    window.location.href = providerLoginUrl(primaryProvider, { returnTo });
+                    return;
+                } catch (providerErr: any) {
+                    showToast(providerErr?.message || "Failed to start sign-in", "error");
+                    setJoining(false);
+                    return;
+                }
+            }
             showToast(err.message || "Failed to join", "error");
             setJoining(false);
         }
-    };
+    }, [inviteId, showToast]);
+
+    useEffect(() => {
+        if (!autojoin || loading || error || !invite) return;
+        if (autojoinTriggeredRef.current) return;
+        autojoinTriggeredRef.current = true;
+        void handleJoin();
+    }, [autojoin, loading, error, invite, handleJoin]);
 
     if (loading) {
         return (

@@ -100,7 +100,7 @@ export function InviteModals({
       <div className="modal-backdrop" data-testid="hub-invite-modal" onClick={() => { setIsCreatingHubInvite(false); setLastInviteUrl(null); }}>
         <div className="modal-panel" onClick={(e) => e.stopPropagation()} style={{ width: "400px" }}>
           <header className="modal-header">
-            <h2>Invite to {activeServer?.name}</h2>
+            <h2>Create Hub Invite Link</h2>
             <button type="button" className="ghost" data-testid="close-invite-modal" onClick={() => { setIsCreatingHubInvite(false); setLastInviteUrl(null); }}>×</button>
           </header>
           <div className="stack" style={{ padding: "1.5rem", textAlign: "center" }}>

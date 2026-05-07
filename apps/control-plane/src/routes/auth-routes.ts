@@ -33,6 +33,19 @@ import { MasqueradeParamsSchema } from "@skerry/shared";
 
 const providerSchema = z.enum(["discord", "keycloak", "google", "github", "twitch", "dev"]);
 
+function sanitizeWebReturnTo(candidate: string | undefined): string | undefined {
+  if (!candidate) return undefined;
+  let parsed: URL;
+  try {
+    parsed = new URL(candidate);
+  } catch {
+    return undefined;
+  }
+  const allowed = new URL(config.webBaseUrl);
+  if (parsed.origin !== allowed.origin) return undefined;
+  return parsed.toString();
+}
+
 function providerEnabled(provider: IdentityProvider): boolean {
   if (provider === "discord") {
     return Boolean(config.oidc.discordClientId);
@@ -182,7 +195,15 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
       reply.code(404).send({ message: `Provider ${provider} is not enabled.` });
       return;
     }
-    const redirect = createAuthorizationRedirect({ provider, intent: "login" });
+    const query = z
+      .object({ returnTo: z.string().url().optional() })
+      .parse(request.query);
+    const safeReturnTo = sanitizeWebReturnTo(query.returnTo);
+    const redirect = createAuthorizationRedirect({
+      provider,
+      intent: "login",
+      returnTo: safeReturnTo
+    });
     reply.redirect(redirect, 302);
   });
 
@@ -316,10 +337,12 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
       oidcSubject: identity.oidcSubject
     });
 
-    const destinationUrl = new URL(config.webBaseUrl);
+    const safeReturnTo =
+      exchanged.intent === "login" ? sanitizeWebReturnTo(exchanged.returnTo) : undefined;
+    const destinationUrl = new URL(safeReturnTo ?? config.webBaseUrl);
     if (exchanged.intent === "link") {
       destinationUrl.searchParams.set("linked", profile.provider);
-    } else if (profile.username) {
+    } else if (!safeReturnTo && profile.username) {
       destinationUrl.searchParams.set("suggestedUsername", profile.username);
     }
     const destination = destinationUrl.toString();

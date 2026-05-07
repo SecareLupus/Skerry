@@ -106,3 +106,24 @@ implementation report
 and updated `current-plan.md` to reflect Sprint 2 status. Plan now
 lists #9 done, #23 next (with three slice options for the user to
 pick), then #34 and #38 pending. Next agent: either.
+
+## 2026-05-07 12:16 — claude-code
+
+Issue #23 Slice A — unauthenticated invite redeem + modal title fix.
+Backend: OIDC state now carries an optional `returnTo`;
+`createAuthorizationRedirect` accepts and persists it; the callback
+honors it on `intent="login"` after running it through a same-origin
+guard (`sanitizeWebReturnTo`). Frontend: `providerLoginUrl` switched
+to options-shape `{ username?, returnTo? }` (one call site updated in
+`auth-overlay.tsx`); `/invite/[id]` page detects `ControlPlaneApiError`
+401 on join, fetches `primaryProvider`, and redirects to the OIDC
+login with `returnTo=<origin>/invite/<id>?autojoin=1`; on return,
+`?autojoin=1` re-triggers join exactly once via a ref-guard. Modal
+title in `InviteModals.tsx` changed from "Invite to {serverName}"
+(misleading — invite is hub-scope) to "Create Hub Invite Link";
+matching E2E heading matcher updated. Web unit 12/12 (incl. new
+`providerLoginUrl` returnTo test), typecheck clean for changed files;
+**E2E not run** (no docker stack this session) and **no manual
+verification on pangolin** — both flagged in the report. Slice B
+(role/server baking) remains the next #23 sub-step. Branch
+`fix/issue-23-unauth-invite-redeem`. Next agent: either.

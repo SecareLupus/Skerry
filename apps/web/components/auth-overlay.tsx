@@ -79,7 +79,7 @@ export function AuthOverlay() {
                                             key={provider.provider}
                                             onSubmit={(event) => {
                                                 event.preventDefault();
-                                                window.location.href = providerLoginUrl("dev", devUsername);
+                                                window.location.href = providerLoginUrl("dev", { username: devUsername });
                                             }}
                                             className="stack"
                                             style={{ marginTop: "1rem", borderTop: "1px solid var(--border)", paddingTop: "1rem" }}

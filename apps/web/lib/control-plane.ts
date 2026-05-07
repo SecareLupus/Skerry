@@ -973,13 +973,24 @@ export function connectMessageStream(
   };
 }
 
-export function providerLoginUrl(provider: string, username?: string): string {
+export function providerLoginUrl(
+  provider: string,
+  options?: { username?: string; returnTo?: string }
+): string {
   if (provider === "dev") {
-    const query = username ? `?username=${encodeURIComponent(username)}` : "";
-    return `${controlPlaneBaseUrl}/auth/dev-login${query}`;
+    const params = new URLSearchParams();
+    if (options?.username) params.set("username", options.username);
+    if (options?.returnTo) params.set("redirectTo", options.returnTo);
+    const query = params.toString();
+    return `${controlPlaneBaseUrl}/auth/dev-login${query ? `?${query}` : ""}`;
   }
 
-  return `${controlPlaneBaseUrl}/auth/login/${encodeURIComponent(provider)}`;
+  const params = new URLSearchParams();
+  if (options?.returnTo) params.set("returnTo", options.returnTo);
+  const query = params.toString();
+  return `${controlPlaneBaseUrl}/auth/login/${encodeURIComponent(provider)}${
+    query ? `?${query}` : ""
+  }`;
 }
 
 export function providerLinkUrl(provider: string): string {

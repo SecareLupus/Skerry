@@ -28,7 +28,7 @@ test.describe('Invites', () => {
     const inviteModal = page.getByTestId('hub-invite-modal');
     await expect(inviteModal).toBeVisible({ timeout: 10000 });
     await expect(
-      inviteModal.getByRole('heading', { name: /^Invite to /i })
+      inviteModal.getByRole('heading', { name: /Create Hub Invite Link/i })
     ).toBeVisible();
 
     await inviteModal.getByRole('button', { name: 'Generate Invite Link' }).click();
