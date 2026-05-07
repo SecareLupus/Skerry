@@ -13,7 +13,17 @@ test("providerLoginUrl builds Discord auth route", () => {
 });
 
 test("providerLoginUrl builds developer login route", () => {
-  assert.equal(providerLoginUrl("dev", "alice"), "http://control-plane:4000/auth/dev-login?username=alice");
+  assert.equal(
+    providerLoginUrl("dev", { username: "alice" }),
+    "http://control-plane:4000/auth/dev-login?username=alice"
+  );
+});
+
+test("providerLoginUrl appends a returnTo for OIDC providers", () => {
+  assert.equal(
+    providerLoginUrl("discord", { returnTo: "https://app.example/invite/abc?autojoin=1" }),
+    "http://control-plane:4000/auth/login/discord?returnTo=https%3A%2F%2Fapp.example%2Finvite%2Fabc%3Fautojoin%3D1"
+  );
 });
 
 test("providerLinkUrl builds OAuth linking route", () => {

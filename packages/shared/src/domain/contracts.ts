@@ -308,7 +308,31 @@ export interface HubInvite {
     maxUses: number | null;
     usesCount: number;
     createdAt: string;
+    defaultRole: Role | null;
+    defaultServerId: string | null;
+    /** Badge IDs applied on redemption. Empty array if none. */
+    defaultBadgeIds: string[];
+    /**
+     * When non-null, the invite was revoked at this timestamp. Revoked invites
+     * are not returned by `getHubInvite` (so the public splash 404s) and
+     * `useHubInvite` rejects them. Already-redeemed users keep their
+     * bindings.
+     */
+    revokedAt: string | null;
 }
+
+/**
+ * Roles that are allowed to be baked into an invite link. Hub-level
+ * ownership/admin roles and space_owner are intentionally excluded —
+ * those should only be granted by a deliberate admin action, not via a
+ * shareable URL.
+ */
+export const INVITE_BAKEABLE_ROLES = [
+    "user",
+    "space_moderator",
+    "space_admin"
+] as const satisfies ReadonlyArray<Role>;
+export type InviteBakeableRole = (typeof INVITE_BAKEABLE_ROLES)[number];
 
 export interface DiscordBridgeConnection {
     id: string;

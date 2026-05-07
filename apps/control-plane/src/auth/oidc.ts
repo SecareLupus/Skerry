@@ -10,6 +10,7 @@ interface OidcStateEntry {
   verifier: string;
   intent: OidcIntent;
   productUserId?: string;
+  returnTo?: string;
 }
 
 interface OidcProfile {
@@ -55,6 +56,7 @@ export function createAuthorizationRedirect(input: {
   provider: IdentityProvider;
   intent: OidcIntent;
   productUserId?: string;
+  returnTo?: string;
 }): string {
   if (!isSupportedProvider(input.provider)) {
     throw new Error("Provider does not support direct OIDC in current milestone.");
@@ -68,7 +70,8 @@ export function createAuthorizationRedirect(input: {
     provider,
     verifier,
     intent: input.intent,
-    productUserId: input.productUserId
+    productUserId: input.productUserId,
+    returnTo: input.returnTo
   });
 
   const redirectUri = callbackUrl(provider);
@@ -123,6 +126,7 @@ interface OidcExchangeResult {
   tokenExpiresAt?: string;
   intent: OidcIntent;
   productUserId?: string;
+  returnTo?: string;
 }
 
 export async function exchangeAuthorizationCode(input: ExchangeTokenInput): Promise<OidcExchangeResult> {
@@ -137,7 +141,8 @@ export async function exchangeAuthorizationCode(input: ExchangeTokenInput): Prom
     return {
       ...exchangeResult,
       intent: stateEntry.intent,
-      productUserId: stateEntry.productUserId
+      productUserId: stateEntry.productUserId,
+      returnTo: stateEntry.returnTo
     };
   }
 
@@ -146,7 +151,8 @@ export async function exchangeAuthorizationCode(input: ExchangeTokenInput): Prom
     return {
       ...exchangeResult,
       intent: stateEntry.intent,
-      productUserId: stateEntry.productUserId
+      productUserId: stateEntry.productUserId,
+      returnTo: stateEntry.returnTo
     };
   }
 

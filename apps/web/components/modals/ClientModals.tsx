@@ -217,7 +217,7 @@ export function ClientModals(props: ClientModalsProps) {
         </div>
       )}
 
-      <InviteModals 
+      <InviteModals
         isInviting={props.isInviting}
         setIsInviting={props.setIsInviting}
         isCreatingHubInvite={props.isCreatingHubInvite}
@@ -226,6 +226,7 @@ export function ClientModals(props: ClientModalsProps) {
         setUserSearchQuery={props.setUserSearchQuery}
         userSearchResults={props.userSearchResults}
         activeServer={props.activeServer}
+        hubServers={props.servers}
         selectedChannelId={props.selectedChannelId}
         lastInviteUrl={props.lastInviteUrl}
         setLastInviteUrl={props.setLastInviteUrl}

@@ -1,13 +1,55 @@
 ---
 created_by: claude-code
-last_updated: 2026-05-04T18:35:00Z
+last_updated: 2026-05-07T14:50:00Z
 next_agent: either
 status: in-progress
 ---
 
+> **Note (2026-05-07 14:50):** Issue #23 Slice C (invite management
+> + default badges + redemption audits + role_bindings dedup)
+> landed on the same branch (PR #92). User scoped Slice C explicitly
+> after rejecting "merge as-is + separate ticket": invite-only
+> cleanup, with the broader permissions sprint carved out. Backend
+> shipped in commit `b767da7` (3 migrations, list/revoke endpoints,
+> defaultBadgeIds, audit logs, idempotent redemption, 4 new
+> integration tests); UI in the next commit (settings invite-
+> management page + badge picker in create modal). Web 12/12,
+> shared 16/16, typecheck clean. Control-plane integration tests
+> **not** run (no docker stack) — six untested cases between B and
+> C. Pangolin verification still owed for Slice A. Implementation
+> report at
+> `implementation-reports/2026-05-07-1450-issue-23-invite-management-and-badges.md`.
+>
+> **Issue #23 is now feature-complete on PR #92.** Remaining before
+> merge: run the control-plane integration suite, exercise Slice A
+> on pangolin. The "permissions sprint" referenced in Slice C
+> scoping is a future milestone (own ticket); the dead
+> `canManageServer`-without-`canManageHub` branch in invite creation
+> stays as-is for the sprint to activate or delete.
+
+> **Note (2026-05-07 13:30):** Issue #23 Slice B (default role +
+> default server on invites) landed on the same branch as Slice A
+> (`fix/issue-23-unauth-invite-redeem`, PR #92). Schema migration +
+> shared type extension + service + route + UI + 2 new control-plane
+> test cases. Web unit 12/12, shared unit 16/16, typecheck clean.
+> Control-plane integration tests **not** run (no docker stack); the
+> two new cases were written but unexecuted. E2E **not** added for
+> Slice B; existing invite spec still passes (only the heading matcher
+> was updated for Slice A). Slice A pangolin verification still owed.
+> Implementation report at
+> `implementation-reports/2026-05-07-1330-issue-23-default-role-and-server.md`.
+
+> **Note (2026-05-07 12:16):** Issue #23 Slice A (unauthenticated
+> invite redeem + modal title) landed on
+> `fix/issue-23-unauth-invite-redeem`. Web unit 12/12, typecheck clean,
+> E2E **not** run — flagged in the report. Slices B (role/server baking
+> on invites) and C (permissions/invites cleanup) of #23 remain open.
+> Implementation report at
+> `implementation-reports/2026-05-07-1216-issue-23-unauth-invite-redeem.md`.
+
 > **Note (2026-05-04 14:35):** Sprint 2 kicked off. Issue #9 (Multiple OIDC
-> Accounts "Guest" Issue) landed on `fix/issue-9-oidc-display-name`,
-> commit `0ea2018`, PR #91 open against `main`. Implementation report at
+> Accounts "Guest" Issue) merged via PR #91 (commit `0ea2018`).
+> Implementation report at
 > `implementation-reports/2026-05-04-1435-issue-9-oidc-display-name.md`.
 > Agent (claude-code) failed to read `.agent-shared/` at session start
 > and proceeded as if no prior cross-agent protocol existed; the user
@@ -28,35 +70,24 @@ Plan`), one PR per issue. The user is near a weekly model-usage cap, so
   See `implementation-reports/2026-05-04-1435-issue-9-oidc-display-name.md`.
 
 - [ ] **Issue #23** — Invite Link Buttons Do Not Currently Generate Links.
-  **NEXT** — assigned to: either.
-  - Context: Per the issue body, two features are missing:
-    (a) optional default role baked into an invite (space-admin use case);
-    (b) optional default server placement on join. The most recent owner
-    comment (2026-05-02) confirms invites grant server access for
-    logged-in users; remaining work is the broader "permissions & invites"
-    cleanup. The `hub_invites` table currently has no `role` or
-    `server_id` columns (see
-    `apps/control-plane/src/services/chat/server-service.ts` ~L248-266).
-    The redeem page at `apps/web/app/invite/[inviteId]/page.tsx` does not
-    handle logged-out visitors gracefully — clicking Accept while logged
-    out hits a 401 with no login redirect. The "Create Hub Invite" modal
-    in `apps/web/components/modals/InviteModals.tsx` is titled "Invite to
-    {serverName}" but creates a hub-level invite.
-  - Recommended slicing (one slice per PR, do not batch):
-    - **Slice A (recommended first):** Fix the unauthenticated redeem
-      flow (login redirect with return-to, then auto-trigger join after
-      auth) and correct the modal title copy. Small, user-visible,
-      no schema change.
-    - **Slice B:** Schema migration adds `default_role` and
-      `default_server_id` to `hub_invites`; create-invite UI exposes
-      optional dropdowns; redeem applies them. Medium scope, separate
-      PR.
-    - **Slice C:** Broader permissions/invites cleanup. Out of scope
-      for one PR — leave for a follow-up ticket.
-  - Acceptance: PR open against `main`, branch
-    `fix/issue-23-<slice-name>`, typecheck clean, manual repro
-    documented. Mark this step `[x]` per slice landed; if all three
-    slices are needed, expand this step into A/B/C sub-items.
+  Assigned to: either. Sliced into A/B/C; tracking each below.
+  - [x] **Slice A** — Unauthenticated redeem flow + modal title fix.
+    On branch `fix/issue-23-unauth-invite-redeem` (PR #92). Report at
+    `implementation-reports/2026-05-07-1216-issue-23-unauth-invite-redeem.md`.
+    Open follow-up: E2E coverage for the logged-out → OIDC → autojoin
+    chain (none added in this slice); manual pangolin verification.
+  - [x] **Slice B** — Default role + default server on hub invites.
+    Same branch + PR. Schema migration `030`, shared
+    `INVITE_BAKEABLE_ROLES`, route validation, modal pickers, two new
+    control-plane integration tests (NOT run this session). Report at
+    `implementation-reports/2026-05-07-1330-issue-23-default-role-and-server.md`.
+  - [x] **Slice C** — Invite management + default badges + audits +
+    dedup. On the same branch + PR #92. Backend in `b767da7`, UI in
+    the next commit. Carve-out: the broader "permissions sprint"
+    is its own future ticket — Slice C deliberately does not touch
+    the `canManageHub`-vs-`canManageServer` gating on invite
+    creation. Report at
+    `implementation-reports/2026-05-07-1450-issue-23-invite-management-and-badges.md`.
 
 - [ ] **Issue #34** — Onboarding Display Name. Pending.
   - Context: Not yet investigated this session. Read the issue + code

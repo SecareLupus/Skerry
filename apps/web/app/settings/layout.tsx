@@ -30,6 +30,7 @@ export default function SettingsLayout({
     { label: "User Settings", href: "/settings", icon: "👤" },
     { label: "Hub Settings", href: "/settings/hub", icon: "⚙️", hidden: !canManageHub },
     { label: "Hub Members", href: "/settings/hub/members", icon: "👥", hidden: !canManageHub },
+    { label: "Hub Invites", href: "/settings/hub/invites", icon: "🔗", hidden: !canManageHub },
     { 
       label: "Space Settings", 
       href: `/settings/spaces/${selectedServerId}`, 

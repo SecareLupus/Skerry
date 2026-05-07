@@ -669,12 +669,34 @@ export async function deleteChannel(input: { channelId: string; serverId: string
   });
 }
 
-export async function createHubInvite(hubId: string, options: { expiresAt?: string; maxUses?: number } = {}): Promise<HubInvite> {
+export async function createHubInvite(
+  hubId: string,
+  options: {
+    expiresAt?: string;
+    maxUses?: number;
+    defaultRole?: HubInvite["defaultRole"];
+    defaultServerId?: string;
+    defaultBadgeIds?: string[];
+  } = {}
+): Promise<HubInvite> {
   return apiFetch<HubInvite>(`/v1/hubs/${encodeURIComponent(hubId)}/invites`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(options)
   });
+}
+
+export async function listHubInvites(hubId: string): Promise<{ items: HubInvite[] }> {
+  return apiFetch<{ items: HubInvite[] }>(
+    `/v1/hubs/${encodeURIComponent(hubId)}/invites`
+  );
+}
+
+export async function revokeHubInvite(hubId: string, inviteId: string): Promise<void> {
+  await apiFetch<void>(
+    `/v1/hubs/${encodeURIComponent(hubId)}/invites/${encodeURIComponent(inviteId)}`,
+    { method: "DELETE" }
+  );
 }
 
 export async function fetchHubInvite(inviteId: string): Promise<HubInvite> {
@@ -973,13 +995,24 @@ export function connectMessageStream(
   };
 }
 
-export function providerLoginUrl(provider: string, username?: string): string {
+export function providerLoginUrl(
+  provider: string,
+  options?: { username?: string; returnTo?: string }
+): string {
   if (provider === "dev") {
-    const query = username ? `?username=${encodeURIComponent(username)}` : "";
-    return `${controlPlaneBaseUrl}/auth/dev-login${query}`;
+    const params = new URLSearchParams();
+    if (options?.username) params.set("username", options.username);
+    if (options?.returnTo) params.set("redirectTo", options.returnTo);
+    const query = params.toString();
+    return `${controlPlaneBaseUrl}/auth/dev-login${query ? `?${query}` : ""}`;
   }
 
-  return `${controlPlaneBaseUrl}/auth/login/${encodeURIComponent(provider)}`;
+  const params = new URLSearchParams();
+  if (options?.returnTo) params.set("returnTo", options.returnTo);
+  const query = params.toString();
+  return `${controlPlaneBaseUrl}/auth/login/${encodeURIComponent(provider)}${
+    query ? `?${query}` : ""
+  }`;
 }
 
 export function providerLinkUrl(provider: string): string {
