@@ -424,15 +424,16 @@ export async function useHubInvite(input: { inviteId: string; productUserId: str
     if (bindingRes.rowCount && bindingRes.rowCount > 0) {
       await db.query(
         `insert into role_assignment_audit_logs
-           (id, actor_user_id, target_user_id, role, hub_id, server_id)
-         values ($1, $2, $3, $4, $5, $6)`,
+           (id, actor_user_id, target_user_id, role, hub_id, server_id, channel_id, outcome, reason)
+         values ($1, $2, $3, $4, $5, $6, null, 'granted', $7)`,
         [
-          `ral_${crypto.randomUUID().replaceAll("-", "")}`,
+          `raal_${crypto.randomUUID().replaceAll("-", "")}`,
           invite.createdByUserId,
           input.productUserId,
           role,
           invite.hubId,
-          serverIdForBinding
+          serverIdForBinding,
+          `invite ${invite.id}`
         ]
       );
     }
