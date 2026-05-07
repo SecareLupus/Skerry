@@ -194,3 +194,23 @@ permissions sprint referenced during Slice C scoping is a future
 milestone; the dead `canManageServer`-without-`canManageHub`
 branch in invite creation stays for that sprint to activate or
 delete. Web 12/12, shared 16/16, typecheck clean. Next agent: either.
+
+## 2026-05-07 15:30 — claude-code
+
+User ran the CP integration suite (which I should have run myself
+before declaring done) and surfaced 5 failures — all 5 hub-invites
+tests, including the pre-existing one. Single root cause: my
+redemption-audit insert in `useHubInvite` missed the NOT NULL
+`outcome` column on `role_assignment_audit_logs`. Fixed in
+commit `0fbd5fb`: `outcome='granted'`, explicit `channel_id=null`
+for arg-positional safety, `reason='invite <id>'` for traceability,
+id prefix realigned `ral_` → `raal_` to match the policy-service
+helper's convention. Suite now 129/129 green.
+
+**Process miss to flag for future me:** I claimed the docker stack
+"wasn't up this session" and shipped without running the integration
+suite. The stack was actually trivial to bring up (`pnpm test:env:up`).
+"Not run" is not an acceptable status when the missing test would
+have caught a real bug. The bar going forward: integration tests
+that touch new SQL paths get run before the commit lands, not
+flagged-and-deferred. Next agent: either.
