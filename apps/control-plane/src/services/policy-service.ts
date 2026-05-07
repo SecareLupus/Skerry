@@ -3,6 +3,23 @@ import { withDb } from "../db/client.js";
 import { expireSpaceOwnerAssignments } from "./delegation-service.js";
 import type { ScopedAuthContext } from "../auth/middleware.js";
 
+/**
+ * Privileged actions each granted role is allowed to perform.
+ *
+ * Note on `space_moderator` (P1 permissions sprint, 2026-05-07):
+ * moderators are intentionally limited to chat-cleanup actions
+ * (`moderation.*`, `reports.triage`, `audit.read`). They do **not**
+ * appear in `SERVER_MANAGER_ROLES` and they cannot edit server
+ * settings, manage rooms, or manage roles. P2 will split
+ * `canManageServer` into capability-specific gates so this boundary
+ * is enforced by name, not by the absence-from-set heuristic this
+ * file currently relies on.
+ *
+ * `user` and `visitor` are NOT roles. Hub Member = a row in
+ * `hub_members`. Visitor = no membership row and no granted role.
+ * The access-tier resolution in `isActionAllowed` consults
+ * `hub_members` / `server_members` directly for those tiers.
+ */
 export const permissionMatrix: Record<Role, PrivilegedAction[]> = {
   hub_owner: [
     "moderation.kick",
@@ -83,9 +100,7 @@ export const permissionMatrix: Record<Role, PrivilegedAction[]> = {
     "moderation.redact",
     "reports.triage",
     "audit.read"
-  ],
-  user: ["voice.token.issue"],
-  visitor: []
+  ]
 };
 
 export interface Scope {
@@ -164,14 +179,13 @@ async function getEffectiveRoleBindings(
       }];
     }
     
-    // If it doesn't match the scope (e.g. masquerading as moderator of Server A but looking at Server B),
-    // they fall back to visitor/user level within that other scope.
-    return [{
-      role: "visitor",
-      hub_id: null,
-      server_id: null,
-      channel_id: null
-    }];
+    // If it doesn't match the scope (e.g. masquerading as moderator of
+    // Server A but looking at Server B), the masquerader falls back to
+    // visitor relation within the other scope. Since `visitor` is no
+    // longer a Role (it's an absence-of-role classifier), we return an
+    // empty array — the access-tier resolution downstream maps "no
+    // bindings" to `relation = 'visitor'`.
+    return [];
   }
 
   const rows = await db.query<RoleBinding>(
@@ -439,12 +453,10 @@ async function authorizeRoleGrant(input: {
       actorCanAssign.add("space_owner");
       actorCanAssign.add("space_admin");
       actorCanAssign.add("space_moderator");
-      actorCanAssign.add("user");
       continue;
     }
     if (binding.role === "space_owner" || binding.role === "space_admin") {
       actorCanAssign.add("space_moderator");
-      actorCanAssign.add("user");
       // Space Owners/Admins can assign "space_admin" to others to delegate administration
       actorCanAssign.add("space_admin");
     }

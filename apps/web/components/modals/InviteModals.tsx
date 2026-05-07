@@ -20,7 +20,6 @@ interface InviteModalsProps {
 }
 
 const ROLE_PICKER_LABELS: Record<InviteBakeableRole, string> = {
-  user: "Standard user",
   space_moderator: "Space moderator",
   space_admin: "Space admin"
 };
@@ -170,8 +169,8 @@ export function InviteModals({
                     }}
                     style={{ width: "100%" }}
                   >
-                    <option value="">Standard user (default)</option>
-                    {INVITE_BAKEABLE_ROLES.filter((r) => r !== "user").map((r) => (
+                    <option value="">No additional role (member only)</option>
+                    {INVITE_BAKEABLE_ROLES.map((r) => (
                       <option key={r} value={r}>
                         {ROLE_PICKER_LABELS[r]}
                       </option>

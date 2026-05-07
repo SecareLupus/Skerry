@@ -22,7 +22,7 @@ export async function registerModerationRoutes(app: FastifyInstance): Promise<vo
     const payload = z
       .object({
         productUserId: z.string().min(1),
-        role: z.enum(["hub_admin", "space_admin", "space_moderator", "user"]),
+        role: z.enum(["hub_admin", "space_admin", "space_moderator"]),
         hubId: z.string().optional(),
         serverId: z.string().optional(),
         channelId: z.string().optional()

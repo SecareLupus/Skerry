@@ -1,9 +1,24 @@
 ---
 created_by: claude-code
-last_updated: 2026-05-07T14:50:00Z
+last_updated: 2026-05-07T19:44:00Z
 next_agent: either
 status: in-progress
 ---
+
+> **Note (2026-05-07 19:44):** Permissions sprint **P1 (Role enum
+> cleanup)** landed on `feat/permissions-sprint-p1-role-cleanup`.
+> Migration 034 backfills `hub_members` for non-bridged identities
+> with `role='user'` bindings and drops every `role='user'` /
+> `role='visitor'` binding. Bridged Discord identities are protected
+> via the `matrix_user_id NOT LIKE '@discord_%'` guard. `Role` enum
+> reduced to 5 values; `INVITE_BAKEABLE_ROLES` reduced to two;
+> `useHubInvite` no longer writes a role binding when `defaultRole`
+> is null (plain hub membership covers it). All suites green:
+> shared 16/16, web 12/12, **control-plane 129/129 (run on the
+> live test stack)**. Implementation report at
+> `implementation-reports/2026-05-07-1944-permissions-sprint-p1-role-cleanup.md`.
+> Next: P3 (Default Space Owner = Hub), then P2 (audience tiers +
+> cascade + capability split).
 
 > **Note (2026-05-07 14:50):** Issue #23 Slice C (invite management
 > + default badges + redemption audits + role_bindings dedup)
@@ -91,7 +106,7 @@ Plan`), one PR per issue. The user is near a weekly model-usage cap, so
 
 - [ ] **Permissions sprint** (must land before #34 per user request).
   Three slices, separate PRs, foundation first.
-  - [ ] **P1 — Role enum cleanup.** Drop `user` and `visitor` from
+  - [x] **P1 — Role enum cleanup.** Drop `user` and `visitor` from
     the `Role` enum (they're tier classifiers derived from
     membership, not granted roles). Migration: ensure matching
     `hub_members` row exists before deleting `role='user'`

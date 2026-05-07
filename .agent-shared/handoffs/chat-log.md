@@ -214,3 +214,38 @@ suite. The stack was actually trivial to bring up (`pnpm test:env:up`).
 have caught a real bug. The bar going forward: integration tests
 that touch new SQL paths get run before the commit lands, not
 flagged-and-deferred. Next agent: either.
+
+## 2026-05-07 19:44 — claude-code
+
+Permissions sprint **P1 (Role enum cleanup)** shipped on
+`feat/permissions-sprint-p1-role-cleanup` (off `main` post-#92-merge).
+Migration 034 backfills `hub_members` for non-bridged identities with
+`role='user'` bindings, then drops every `role='user'` and
+`role='visitor'` binding. `Role` enum reduced to 5 values.
+`permissionMatrix` loses dead `user`/`visitor` entries.
+`INVITE_BAKEABLE_ROLES` reduced to two. `useHubInvite` no longer
+writes a role binding when `defaultRole` is null — plain hub
+membership covers it. Route z.enums tightened in `auth-routes.ts`,
+`channel-routes.ts`, `moderation-routes.ts`. Frontend masquerade
+drawer/modal, role-grant modal, and invite modal updated to drop the
+removed options. Tests rewritten where they relied on the old
+no-defaultRole role-binding behaviour (now hub_members), with a
+separate idempotency case kept on the role-binding path using
+`defaultRole: "space_moderator"`. `voice.token.issue` needed no
+rewiring — already routed through the access-tier system, so the
+`permissionMatrix.user = ["voice.token.issue"]` line was dead code.
+
+Bridged Discord users — the explicit "must not break" constraint —
+investigated up front: they live in `identity_mappings` with
+`provider='discord'` and `matrix_user_id LIKE '@discord_%'`, get no
+role bindings or membership rows, and are filtered from
+`listHubMembers` by matrix-id pattern. Migration's bridge guard is
+defensive in expected data.
+
+All suites green on the live test stack: shared 16/16, web 12/12,
+**control-plane 129/129** (run before commit, per the
+feedback_run_integration_tests memory rule). Implementation report
+at
+`implementation-reports/2026-05-07-1944-permissions-sprint-p1-role-cleanup.md`.
+Plan: P1 done; P3 (default Space Owner = Hub) next, then P2
+(audience tiers + cascade + capability split). Next agent: either.

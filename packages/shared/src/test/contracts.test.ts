@@ -70,9 +70,7 @@ test("Contract: Role union is exhaustive", () => {
     "hub_admin",
     "space_owner",
     "space_admin",
-    "space_moderator",
-    "user",
-    "visitor"
+    "space_moderator"
   ];
   for (const v of all) {
     switch (v) {
@@ -81,14 +79,12 @@ test("Contract: Role union is exhaustive", () => {
       case "space_owner":
       case "space_admin":
       case "space_moderator":
-      case "user":
-      case "visitor":
         break;
       default:
         assertNever(v);
     }
   }
-  assert.equal(all.length, 7);
+  assert.equal(all.length, 5);
 });
 
 test("Contract: ChannelType union is exhaustive", () => {
@@ -277,8 +273,8 @@ test("Contract: MasqueradeParamsSchema accepts a valid full payload", () => {
 });
 
 test("Contract: MasqueradeParamsSchema accepts minimal payload (role only)", () => {
-  const parsed = MasqueradeParamsSchema.parse({ role: "user" });
-  assert.equal(parsed.role, "user");
+  const parsed = MasqueradeParamsSchema.parse({ role: "space_moderator" });
+  assert.equal(parsed.role, "space_moderator");
   assert.equal(parsed.serverId, undefined);
   assert.equal(parsed.badgeIds, undefined);
 });

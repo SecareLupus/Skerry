@@ -491,7 +491,7 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
     }
 
     const { role, serverId, badgeIds } = z.object({
-      role: z.enum(["hub_owner", "hub_admin", "space_owner", "space_admin", "space_moderator", "user", "visitor"]),
+      role: z.enum(["hub_owner", "hub_admin", "space_owner", "space_admin", "space_moderator"]),
       serverId: z.string().optional(),
       badgeIds: z.array(z.string()).optional()
     }).parse(request.body);

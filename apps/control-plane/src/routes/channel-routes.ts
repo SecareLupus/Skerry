@@ -222,7 +222,7 @@ export async function registerChannelRoutes(app: FastifyInstance): Promise<void>
         lock: z.boolean().optional(),
         slowModeSeconds: z.number().int().min(0).max(600).optional(),
         postingRestrictedToRoles: z
-          .array(z.enum(["hub_admin", "space_owner", "space_moderator", "user"]))
+          .array(z.enum(["hub_admin", "space_owner", "space_moderator"]))
           .optional(),
         reason: z.string().min(3)
       })
