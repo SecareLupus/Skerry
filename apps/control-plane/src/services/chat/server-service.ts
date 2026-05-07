@@ -245,21 +245,42 @@ export async function listServerMembers(serverId: string): Promise<{
   });
 }
 
+const INVITE_RETURNING_COLUMNS = `
+  id,
+  hub_id as "hubId",
+  created_by_user_id as "createdByUserId",
+  expires_at as "expiresAt",
+  max_uses as "maxUses",
+  uses_count as "usesCount",
+  created_at as "createdAt",
+  default_role as "defaultRole",
+  default_server_id as "defaultServerId"
+`;
+
 export async function createHubInvite(input: {
   hubId: string;
   createdByUserId: string;
   expiresAt?: string | null;
   maxUses?: number | null;
+  defaultRole?: HubInvite["defaultRole"] | null;
+  defaultServerId?: string | null;
 }): Promise<HubInvite> {
   return withDb(async (db) => {
     const id = `inv_${crypto.randomUUID().replaceAll("-", "")}`;
     const res = await db.query<HubInvite>(
-      `insert into hub_invites (id, hub_id, created_by_user_id, expires_at, max_uses)
-       values ($1, $2, $3, $4, $5)
-       returning id, hub_id as "hubId", created_by_user_id as "createdByUserId", 
-                 expires_at as "expiresAt", max_uses as "maxUses", 
-                 uses_count as "usesCount", created_at as "createdAt"`,
-      [id, input.hubId, input.createdByUserId, input.expiresAt ?? null, input.maxUses ?? null]
+      `insert into hub_invites
+         (id, hub_id, created_by_user_id, expires_at, max_uses, default_role, default_server_id)
+       values ($1, $2, $3, $4, $5, $6, $7)
+       returning ${INVITE_RETURNING_COLUMNS}`,
+      [
+        id,
+        input.hubId,
+        input.createdByUserId,
+        input.expiresAt ?? null,
+        input.maxUses ?? null,
+        input.defaultRole ?? null,
+        input.defaultServerId ?? null
+      ]
     );
     return res.rows[0]!;
   });
@@ -268,10 +289,7 @@ export async function createHubInvite(input: {
 export async function getHubInvite(inviteId: string): Promise<HubInvite | null> {
   return withDb(async (db) => {
     const res = await db.query(
-      `select id, hub_id as "hubId", created_by_user_id as "createdByUserId", 
-              expires_at as "expiresAt", max_uses as "maxUses", 
-              uses_count as "usesCount", created_at as "createdAt"
-       from hub_invites where id = $1`,
+      `select ${INVITE_RETURNING_COLUMNS} from hub_invites where id = $1`,
       [inviteId]
     );
     return res.rows[0] ?? null;
@@ -290,18 +308,40 @@ export async function useHubInvite(input: { inviteId: string; productUserId: str
       throw new Error("Invite reached max uses");
     }
 
+    const role = invite.defaultRole ?? "user";
+    const isSpaceScopedRole = role.startsWith("space_");
+    const serverIdForBinding = isSpaceScopedRole ? invite.defaultServerId : null;
+
     await db.query(
-      `insert into role_bindings (id, product_user_id, role, hub_id)
-       values ($1, $2, $3, $4)
+      `insert into role_bindings (id, product_user_id, role, hub_id, server_id)
+       values ($1, $2, $3, $4, $5)
        on conflict do nothing`,
-      [`rb_${crypto.randomUUID().replaceAll("-", "")}`, input.productUserId, "user", invite.hubId]
+      [
+        `rb_${crypto.randomUUID().replaceAll("-", "")}`,
+        input.productUserId,
+        role,
+        invite.hubId,
+        serverIdForBinding
+      ]
     );
 
     await db.query("update hub_invites set uses_count = uses_count + 1 where id = $1", [input.inviteId]);
-    
-    // Ensure full membership state is created (hub_members, server_members)
+
+    // Ensure full membership state is created (hub_members, server_members
+    // for any auto_join_hub_members servers).
     await joinHub(invite.hubId, input.productUserId);
-    
+
+    // If the invite names a specific server, make sure the user is a member
+    // of it even if it isn't auto_join.
+    if (invite.defaultServerId) {
+      await db.query(
+        `insert into server_members (server_id, product_user_id)
+         values ($1, $2)
+         on conflict (server_id, product_user_id) do nothing`,
+        [invite.defaultServerId, input.productUserId]
+      );
+    }
+
     return { hubId: invite.hubId };
   });
 }

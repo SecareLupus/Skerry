@@ -18,6 +18,96 @@ beforeEach(async () => {
 const bootstrap = (app: Awaited<ReturnType<typeof buildApp>>) =>
   bootstrapHub(app, { prefix: "inv", hubName: "Hub Invite Hub" });
 
+test("hub invite with defaultRole + defaultServerId applies role binding and server membership", async (t) => {
+  if (!pool) { t.skip("DATABASE_URL not configured."); return; }
+  if (!config.setupBootstrapToken) { t.skip("SETUP_BOOTSTRAP_TOKEN not configured."); return; }
+
+  const app = await buildApp();
+  try {
+    const { adminCookie, hubId, defaultServerId } = await bootstrap(app);
+
+    const createRes = await app.inject({
+      method: "POST",
+      url: `/v1/hubs/${hubId}/invites`,
+      headers: { cookie: adminCookie },
+      payload: {
+        defaultRole: "space_moderator",
+        defaultServerId
+      }
+    });
+    assert.equal(createRes.statusCode, 201);
+    const invite = createRes.json() as {
+      id: string;
+      defaultRole: string | null;
+      defaultServerId: string | null;
+    };
+    assert.equal(invite.defaultRole, "space_moderator");
+    assert.equal(invite.defaultServerId, defaultServerId);
+
+    const newUserIdentity = await upsertIdentityMapping({
+      provider: "dev",
+      oidcSubject: "invite_default_joiner",
+      email: "invite-default-joiner@dev.local",
+      preferredUsername: "invite-default-joiner",
+      avatarUrl: null
+    });
+    const newUserCookie = createAuthCookie({
+      productUserId: newUserIdentity.productUserId,
+      provider: "dev",
+      oidcSubject: "invite_default_joiner"
+    });
+
+    const joinRes = await app.inject({
+      method: "POST",
+      url: `/v1/invites/${invite.id}/join`,
+      headers: { cookie: newUserCookie }
+    });
+    assert.ok(
+      joinRes.statusCode === 200 || joinRes.statusCode === 204,
+      `Expected 200 or 204, got ${joinRes.statusCode}`
+    );
+
+    const rb = await pool.query<{ role: string; server_id: string | null }>(
+      `select role, server_id from role_bindings
+       where product_user_id = $1 and hub_id = $2`,
+      [newUserIdentity.productUserId, hubId]
+    );
+    assert.equal(rb.rows.length, 1);
+    assert.equal(rb.rows[0]?.role, "space_moderator");
+    assert.equal(rb.rows[0]?.server_id, defaultServerId);
+
+    const sm = await pool.query<{ count: string }>(
+      `select count(*)::text as count from server_members
+       where server_id = $1 and product_user_id = $2`,
+      [defaultServerId, newUserIdentity.productUserId]
+    );
+    assert.equal(sm.rows[0]?.count, "1");
+  } finally {
+    await app.close();
+  }
+});
+
+test("hub invite rejects space_moderator without defaultServerId", async (t) => {
+  if (!pool) { t.skip("DATABASE_URL not configured."); return; }
+  if (!config.setupBootstrapToken) { t.skip("SETUP_BOOTSTRAP_TOKEN not configured."); return; }
+
+  const app = await buildApp();
+  try {
+    const { adminCookie, hubId } = await bootstrap(app);
+
+    const res = await app.inject({
+      method: "POST",
+      url: `/v1/hubs/${hubId}/invites`,
+      headers: { cookie: adminCookie },
+      payload: { defaultRole: "space_moderator" }
+    });
+    assert.equal(res.statusCode, 400);
+    assert.equal(res.json().code, "invite_role_requires_server");
+  } finally {
+    await app.close();
+  }
+});
+
 test("hub invite can be created, looked up, and used to join by a new member", async (t) => {
   if (!pool) { t.skip("DATABASE_URL not configured."); return; }
   if (!config.setupBootstrapToken) { t.skip("SETUP_BOOTSTRAP_TOKEN not configured."); return; }

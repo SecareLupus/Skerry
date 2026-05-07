@@ -127,3 +127,36 @@ matching E2E heading matcher updated. Web unit 12/12 (incl. new
 verification on pangolin** — both flagged in the report. Slice B
 (role/server baking) remains the next #23 sub-step. Branch
 `fix/issue-23-unauth-invite-redeem`. Next agent: either.
+
+## 2026-05-07 13:30 — claude-code
+
+Issue #23 Slice B (default role + default server) layered onto the
+same branch (PR #92 grows in scope rather than spawning a separate
+PR — user explicitly redirected the framing mid-session).
+Schema migration 030 adds `default_role` + `default_server_id` to
+`hub_invites`. Shared contracts grow `INVITE_BAKEABLE_ROLES`
+(`user`, `space_moderator`, `space_admin` — hub admin/owner roles
+deliberately not bakeable). `createHubInvite` route validates that
+defaultServerId belongs to the named hub, that space-scoped roles
+require a server, and (vestigially, since the route already requires
+hub-manager) that space-role bakers be hub managers OR managers of
+the named server. `useHubInvite` writes the role binding with
+`server_id` set when the role is space-scoped, and falls back to
+`server_members` insert when defaultServerId is set so non-auto-join
+servers still receive the new member. Modal gains a role picker and a
+server picker; space-scoped role without a server is blocked
+client-side. Two new control-plane integration tests added
+(NOT run — no docker stack this session). Web unit 12/12, shared unit
+16/16, typecheck clean for changed files.
+
+Slice C (vague "permissions/invites cleanup") was NOT implemented —
+the issue body is fully satisfied by A+B and Slice C as I had framed
+it was an extension I invented from the owner's most recent comment,
+not a strict requirement of #23. Asked the user to choose: merge
+PR #92 against #23 and file C as a separate ticket (recommended), or
+lock in a concrete C scope for this PR. **next_agent set to user**
+until they answer. Concrete candidates if Slice C is pursued (per
+Slice B report): hub-invite list/revoke endpoints; role_bindings
+dedup gap (pre-existing — `on conflict do nothing` against PK is
+effectively a no-op); the dead `canManageServer` path in invite
+creation; documenting the join_policy bypass behavior of invites.

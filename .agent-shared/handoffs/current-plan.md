@@ -1,9 +1,30 @@
 ---
 created_by: claude-code
-last_updated: 2026-05-07T12:16:00Z
-next_agent: either
+last_updated: 2026-05-07T13:30:00Z
+next_agent: user
 status: in-progress
 ---
+
+> **Note (2026-05-07 13:30):** Issue #23 Slice B (default role +
+> default server on invites) landed on the same branch as Slice A
+> (`fix/issue-23-unauth-invite-redeem`, PR #92). Schema migration +
+> shared type extension + service + route + UI + 2 new control-plane
+> test cases. Web unit 12/12, shared unit 16/16, typecheck clean.
+> Control-plane integration tests **not** run (no docker stack); the
+> two new cases were written but unexecuted. E2E **not** added for
+> Slice B; existing invite spec still passes (only the heading matcher
+> was updated for Slice A). Slice A pangolin verification still owed.
+> Implementation report at
+> `implementation-reports/2026-05-07-1330-issue-23-default-role-and-server.md`.
+>
+> **Slice C decision deferred to user.** The issue body is fully
+> covered by A + B. Slice C as originally framed
+> ("broader permissions/invites cleanup") is too vague to implement
+> without direction. The Slice B report enumerates concrete candidates
+> for a follow-up ticket. Asked the user whether to (a) merge PR #92
+> against #23 and file Slice C as a separate ticket, or (b) lock in a
+> concrete C scope for this PR. **next_agent: user** until they
+> answer.
 
 > **Note (2026-05-07 12:16):** Issue #23 Slice A (unauthenticated
 > invite redeem + modal title) landed on
@@ -38,20 +59,20 @@ Plan`), one PR per issue. The user is near a weekly model-usage cap, so
 - [ ] **Issue #23** — Invite Link Buttons Do Not Currently Generate Links.
   Assigned to: either. Sliced into A/B/C; tracking each below.
   - [x] **Slice A** — Unauthenticated redeem flow + modal title fix.
-    Branch `fix/issue-23-unauth-invite-redeem`. PR pending. Report at
+    On branch `fix/issue-23-unauth-invite-redeem` (PR #92). Report at
     `implementation-reports/2026-05-07-1216-issue-23-unauth-invite-redeem.md`.
     Open follow-up: E2E coverage for the logged-out → OIDC → autojoin
-    chain (none added in this slice).
-  - [ ] **Slice B** — Role/server baking on invites. **NEXT** for
-    issue #23. Schema migration adds `default_role` and
-    `default_server_id` to `hub_invites`; `createHubInvite` accepts
-    and persists them; `useHubInvite` applies the role binding and
-    auto-joins the named server (when present). Frontend create-invite
-    modal exposes optional dropdowns (role-picker space-admin only).
-    Estimated medium scope; one PR.
-  - [ ] **Slice C** — Broader permissions/invites cleanup. Vague —
-    needs a scoping conversation before another agent picks it up.
-    Out of scope for one PR.
+    chain (none added in this slice); manual pangolin verification.
+  - [x] **Slice B** — Default role + default server on hub invites.
+    Same branch + PR. Schema migration `030`, shared
+    `INVITE_BAKEABLE_ROLES`, route validation, modal pickers, two new
+    control-plane integration tests (NOT run this session). Report at
+    `implementation-reports/2026-05-07-1330-issue-23-default-role-and-server.md`.
+  - [ ] **Slice C** — Broader permissions/invites cleanup. Vague.
+    Awaiting user decision: merge PR #92 against #23 and file C as a
+    separate ticket, or lock in a concrete C scope for this PR. The
+    Slice B report lists four concrete candidate items for a follow-up
+    ticket.
 
 - [ ] **Issue #34** — Onboarding Display Name. Pending.
   - Context: Not yet investigated this session. Read the issue + code

@@ -669,7 +669,15 @@ export async function deleteChannel(input: { channelId: string; serverId: string
   });
 }
 
-export async function createHubInvite(hubId: string, options: { expiresAt?: string; maxUses?: number } = {}): Promise<HubInvite> {
+export async function createHubInvite(
+  hubId: string,
+  options: {
+    expiresAt?: string;
+    maxUses?: number;
+    defaultRole?: HubInvite["defaultRole"];
+    defaultServerId?: string;
+  } = {}
+): Promise<HubInvite> {
   return apiFetch<HubInvite>(`/v1/hubs/${encodeURIComponent(hubId)}/invites`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

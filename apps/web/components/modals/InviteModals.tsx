@@ -1,6 +1,7 @@
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createHubInvite, inviteToChannel } from "../../lib/control-plane";
-import type { Server, IdentityMapping } from "@skerry/shared";
+import type { IdentityMapping, InviteBakeableRole, Role, Server } from "@skerry/shared";
+import { INVITE_BAKEABLE_ROLES } from "@skerry/shared";
 
 interface InviteModalsProps {
   isInviting: boolean;
@@ -11,11 +12,18 @@ interface InviteModalsProps {
   setUserSearchQuery: (val: string) => void;
   userSearchResults: IdentityMapping[];
   activeServer?: Server;
+  hubServers: Server[];
   selectedChannelId: string | null;
   lastInviteUrl: string | null;
   setLastInviteUrl: (val: string | null) => void;
   showToast: (message: string, type: "success" | "error") => void;
 }
+
+const ROLE_PICKER_LABELS: Record<InviteBakeableRole, string> = {
+  user: "Standard user",
+  space_moderator: "Space moderator",
+  space_admin: "Space admin"
+};
 
 export function InviteModals({
   isInviting,
@@ -26,11 +34,29 @@ export function InviteModals({
   setUserSearchQuery,
   userSearchResults,
   activeServer,
+  hubServers,
   selectedChannelId,
   lastInviteUrl,
   setLastInviteUrl,
   showToast
 }: InviteModalsProps) {
+  const [defaultRole, setDefaultRole] = useState<"" | Role>("");
+  const [defaultServerId, setDefaultServerId] = useState<string>("");
+
+  const inviteHubId = activeServer?.hubId || activeServer?.id || null;
+  const serversInHub = useMemo(
+    () => hubServers.filter((s) => s.hubId === inviteHubId || s.id === inviteHubId),
+    [hubServers, inviteHubId]
+  );
+  const isSpaceScopedRole = defaultRole.startsWith("space_");
+
+  // Reset pickers when the modal closes so reopening doesn't show stale selections.
+  useEffect(() => {
+    if (!isCreatingHubInvite) {
+      setDefaultRole("");
+      setDefaultServerId("");
+    }
+  }, [isCreatingHubInvite]);
   useEffect(() => {
     if (!isCreatingHubInvite && !isInviting) return;
     const onKey = (e: KeyboardEvent) => {
@@ -103,12 +129,59 @@ export function InviteModals({
             <h2>Create Hub Invite Link</h2>
             <button type="button" className="ghost" data-testid="close-invite-modal" onClick={() => { setIsCreatingHubInvite(false); setLastInviteUrl(null); }}>×</button>
           </header>
-          <div className="stack" style={{ padding: "1.5rem", textAlign: "center" }}>
+          <div className="stack" style={{ padding: "1.5rem", textAlign: "left" }}>
             {!lastInviteUrl ? (
               <>
-                <p style={{ fontSize: "0.9rem", opacity: 0.8, marginBottom: "1.5rem" }}>
+                <p style={{ fontSize: "0.9rem", opacity: 0.8, marginBottom: "1rem" }}>
                   This will create a link that anyone can use to join this hub.
                 </p>
+                <label className="stack" style={{ gap: "0.25rem", marginBottom: "0.75rem", fontSize: "0.85rem" }}>
+                  <span>Default role</span>
+                  <select
+                    data-testid="invite-default-role"
+                    value={defaultRole}
+                    onChange={(e) => {
+                      const next = e.target.value as "" | Role;
+                      setDefaultRole(next);
+                      // Space-scoped roles need a server; clear non-applicable selection.
+                      if (next && !next.startsWith("space_")) {
+                        // hub-wide role; the server picker remains optional.
+                      }
+                    }}
+                    style={{ width: "100%" }}
+                  >
+                    <option value="">Standard user (default)</option>
+                    {INVITE_BAKEABLE_ROLES.filter((r) => r !== "user").map((r) => (
+                      <option key={r} value={r}>
+                        {ROLE_PICKER_LABELS[r]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="stack" style={{ gap: "0.25rem", marginBottom: "1rem", fontSize: "0.85rem" }}>
+                  <span>
+                    Place new members in
+                    {isSpaceScopedRole ? <span aria-hidden="true"> *</span> : null}
+                  </span>
+                  <select
+                    data-testid="invite-default-server"
+                    value={defaultServerId}
+                    onChange={(e) => setDefaultServerId(e.target.value)}
+                    style={{ width: "100%" }}
+                  >
+                    <option value="">Any server (auto-join only)</option>
+                    {serversInHub.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                  {isSpaceScopedRole && !defaultServerId ? (
+                    <small style={{ color: "var(--danger, #c33)" }}>
+                      A space-scoped role requires a target server.
+                    </small>
+                  ) : null}
+                </label>
                 <button
                   className="primary"
                   onClick={async () => {
@@ -119,12 +192,19 @@ export function InviteModals({
                         showToast("Could not determine Hub ID", "error");
                         return;
                       }
-                      const invite = await createHubInvite(hubId);
+                      if (isSpaceScopedRole && !defaultServerId) {
+                        showToast("Pick a server for the space-scoped role.", "error");
+                        return;
+                      }
+                      const invite = await createHubInvite(hubId, {
+                        defaultRole: defaultRole === "" ? undefined : defaultRole,
+                        defaultServerId: defaultServerId === "" ? undefined : defaultServerId
+                      });
                       // Use /invite/ which is the established splash redirect route
                       const url = `${window.location.origin}/invite/${invite.id}`;
                       setLastInviteUrl(url);
-                    } catch (e) {
-                      showToast("Failed to create invite", "error");
+                    } catch (e: any) {
+                      showToast(e?.message || "Failed to create invite", "error");
                     }
                   }}
                   style={{ width: "100%" }}
