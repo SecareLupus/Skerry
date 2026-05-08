@@ -87,10 +87,6 @@ export async function createServerWorkflow(input: {
       name: string;
       matrix_space_id: string | null;
       type: "default" | "dm";
-      hub_admin_access: string;
-      space_member_access: string;
-      hub_member_access: string;
-      visitor_access: string;
       auto_join_hub_members: boolean;
       created_by_user_id: string;
       owner_user_id: string | null;
@@ -98,8 +94,8 @@ export async function createServerWorkflow(input: {
       join_policy: string;
       icon_url: string | null;
     }>(
-      `insert into servers (id, hub_id, name, type, matrix_space_id, created_by_user_id, owner_user_id, auto_join_hub_members, hub_admin_access, space_member_access, hub_member_access, visitor_access, join_policy)
-       values ($1, $2, $3, 'default', $4, $5, $6, true, 'chat', 'chat', 'chat', 'hidden', 'open')
+      `insert into servers (id, hub_id, name, type, matrix_space_id, created_by_user_id, owner_user_id, auto_join_hub_members, join_policy)
+       values ($1, $2, $3, 'default', $4, $5, $6, true, 'open')
        returning *`,
       [id, input.hubId, input.name, matrixSpaceId, input.productUserId, ownerUserId]
     );
@@ -109,6 +105,11 @@ export async function createServerWorkflow(input: {
       throw new Error("Server creation failed.");
     }
 
+    // P2.cleanup: legacy `*_access` columns are gone. Seed the
+    // rules table with default tier levels — visitor=hidden,
+    // everyone else=chat. Settings UI surfaces these for editing.
+    await seedDefaultSpaceAccessRules(db, value.id);
+
     return {
       id: value.id,
       hubId: value.hub_id,
@@ -116,10 +117,12 @@ export async function createServerWorkflow(input: {
       type: value.type,
       matrixSpaceId: value.matrix_space_id,
       iconUrl: value.icon_url,
-      hubAdminAccess: value.hub_admin_access as any,
-      spaceMemberAccess: value.space_member_access as any,
-      hubMemberAccess: value.hub_member_access as any,
-      visitorAccess: value.visitor_access as any,
+      hubAdminAccess: "chat" as const,
+      spaceAdminAccess: "chat" as const,
+      spaceModeratorAccess: "chat" as const,
+      spaceMemberAccess: "chat" as const,
+      hubMemberAccess: "chat" as const,
+      visitorAccess: "hidden" as const,
       autoJoinHubMembers: value.auto_join_hub_members,
       createdByUserId: value.created_by_user_id,
       ownerUserId: value.owner_user_id,
@@ -181,12 +184,12 @@ export async function createChannelWorkflow(input: {
     );
     const position = (posRow.rows[0]?.max_pos ?? -1) + 1;
 
-    const defaultVisitorAccess = input.type === "landing" ? "read" : "hidden";
+    const defaultVisitorLevel = input.type === "landing" ? "read" : "hidden";
 
     const created = await db.query<ChannelRow>(
       `insert into channels
-       (id, server_id, category_id, name, type, matrix_room_id, position, topic, icon_url, style_content, voice_sfu_room_id, voice_max_participants, video_enabled, video_max_participants, hub_admin_access, space_member_access, hub_member_access, visitor_access)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'chat', 'chat', 'chat', $15)
+       (id, server_id, category_id, name, type, matrix_room_id, position, topic, icon_url, style_content, voice_sfu_room_id, voice_max_participants, video_enabled, video_max_participants)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
        returning *`,
       [
         id,
@@ -202,8 +205,7 @@ export async function createChannelWorkflow(input: {
         voiceRoomId,
         input.type === "voice" ? 25 : null,
         false,
-        input.type === "voice" ? 4 : null,
-        defaultVisitorAccess
+        input.type === "voice" ? 4 : null
       ]
     );
 
@@ -211,6 +213,11 @@ export async function createChannelWorkflow(input: {
     if (!value) {
       throw new Error("Channel creation failed.");
     }
+
+    // P2.cleanup: seed the channel's access rules. Defaults match
+    // the pre-cleanup column defaults (visitor=hidden|read for
+    // landing channels; everyone else=chat).
+    await seedDefaultChannelAccessRules(db, value.id, defaultVisitorLevel);
 
     const matrixSpaceId = server.matrix_space_id;
     if (matrixSpaceId && matrixRoomId) {
@@ -228,10 +235,12 @@ export async function createChannelWorkflow(input: {
       isLocked: value.is_locked,
       slowModeSeconds: value.slow_mode_seconds,
       postingRestrictedToRoles: (value.posting_restricted_to_roles ?? []) as Channel["postingRestrictedToRoles"],
-      hubAdminAccess: value.hub_admin_access as any,
-      spaceMemberAccess: value.space_member_access as any,
-      hubMemberAccess: value.hub_member_access as any,
-      visitorAccess: value.visitor_access as any,
+      hubAdminAccess: "chat" as const,
+      spaceAdminAccess: "chat" as const,
+      spaceModeratorAccess: "chat" as const,
+      spaceMemberAccess: "chat" as const,
+      hubMemberAccess: "chat" as const,
+      visitorAccess: defaultVisitorLevel as any,
       voiceMetadata:
         value.voice_sfu_room_id && value.voice_max_participants
           ? {
@@ -256,4 +265,50 @@ export async function createChannelWorkflow(input: {
 
   await storeIdempotency(input.idempotencyKey, input, channel);
   return channel;
+}
+
+/**
+ * Seed default access rules for a newly-created server. P2.cleanup
+ * removed the legacy `*_access` columns and their auto-sync trigger;
+ * create paths now insert rule rows directly.
+ */
+export async function seedDefaultSpaceAccessRules(
+  db: { query: (sql: string, params?: unknown[]) => Promise<unknown> },
+  serverId: string
+): Promise<void> {
+  await db.query(
+    `insert into space_access_rules (server_id, audience_tier, level) values
+       ($1, 'visitor', 'hidden'),
+       ($1, 'hub_member', 'chat'),
+       ($1, 'space_member', 'chat'),
+       ($1, 'space_moderator', 'chat'),
+       ($1, 'space_admin', 'chat'),
+       ($1, 'hub_admin', 'chat')
+     on conflict (server_id, audience_tier) do nothing`,
+    [serverId]
+  );
+}
+
+/**
+ * Seed default access rules for a newly-created channel. The visitor
+ * level is pulled from the caller — landing channels default to
+ * 'read' (publicly viewable but no posting), everything else defaults
+ * to 'hidden'.
+ */
+export async function seedDefaultChannelAccessRules(
+  db: { query: (sql: string, params?: unknown[]) => Promise<unknown> },
+  channelId: string,
+  visitorLevel: "hidden" | "locked" | "read" | "chat"
+): Promise<void> {
+  await db.query(
+    `insert into channel_access_rules (channel_id, audience_tier, level) values
+       ($1, 'visitor', $2),
+       ($1, 'hub_member', 'chat'),
+       ($1, 'space_member', 'chat'),
+       ($1, 'space_moderator', 'chat'),
+       ($1, 'space_admin', 'chat'),
+       ($1, 'hub_admin', 'chat')
+     on conflict (channel_id, audience_tier) do nothing`,
+    [channelId, visitorLevel]
+  );
 }
