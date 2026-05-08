@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { requireAuth, requireInitialized } from "../auth/middleware.js";
-import { canManageHub, canManageServer } from "../services/policy-service.js";
+import { canManageHub, canManageServerRoles } from "../services/policy-service.js";
 import {
   createHubInvite,
   getHubInvite,
@@ -73,7 +73,7 @@ export async function registerInviteRoutes(app: FastifyInstance): Promise<void> 
       // Otherwise the caller must be a manager of the named server.
       if (!isHubManager) {
         const canManageNamedServer = payload.defaultServerId
-          ? await canManageServer({
+          ? await canManageServerRoles({
               productUserId,
               serverId: payload.defaultServerId
             })

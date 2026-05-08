@@ -10,7 +10,14 @@ Land remaining Sprint 2 issues. **No batching, one PR per issue.**
     - [x] **P1**: Role enum cleanup.
     - [x] **P3**: Default Space Owner = Hub
       (`feat/permissions-sprint-p3-default-space-owner`).
-    - [ ] **P2**: Audience tiers, cascade, and capability split.
+    - [/] **P2**: Audience tiers, cascade, and capability split.
+        - [x] **P2.a**: Capability split (`canModerateServer` /
+          `canEditServerSettings` / `canManageServerRoles` /
+          `canManageRooms`) on
+          `feat/permissions-sprint-p2a-capability-gates`.
+        - [ ] **P2.b**: Normalized access rules table + tier
+          expansion + Hub→Space→Room cascade + room read/write
+          split.
 - [ ] **Issue #34**: Onboarding Display Name (Blocked on permissions).
 - [ ] **Issue #38**: Server Permissions Persistence (Likely subsumed by P2).
 

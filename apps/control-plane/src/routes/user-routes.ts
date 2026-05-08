@@ -11,7 +11,7 @@ import { updateUserPresence } from "../services/presence-service.js";
 import {
   listAllowedActions,
   listRoleBindings,
-  canManageServer
+  canEditServerSettings
 } from "../services/policy-service.js";
 import {
   getUserSettings,
@@ -105,7 +105,7 @@ export async function registerUserRoutes(app: FastifyInstance): Promise<void> {
 
     if (query.productUserId) {
       // If previewing someone else, must have manage scope for that context
-      const allowed = await canManageServer({
+      const allowed = await canEditServerSettings({
         productUserId: request.auth!.productUserId,
         serverId: query.serverId,
         authContext: request.auth
