@@ -13,6 +13,8 @@ interface SpaceModalsProps {
   setSpaceSettingsTab: (tab: "general" | "permissions") => void;
   spaceName: string;
   setSpaceName: (name: string) => void;
+  spaceOwnership: "hub" | "self";
+  setSpaceOwnership: (val: "hub" | "self") => void;
   renameSpaceId: string;
   renameSpaceName: string;
   renameSpaceIconUrl: string | null;
@@ -34,6 +36,8 @@ export function SpaceModals({
   setSpaceSettingsTab,
   spaceName,
   setSpaceName,
+  spaceOwnership,
+  setSpaceOwnership,
   renameSpaceId,
   renameSpaceName,
   renameSpaceIconUrl,
@@ -66,6 +70,37 @@ export function SpaceModals({
           maxLength={80}
           required
         />
+
+        <fieldset className="constrained-stack" style={{ border: "1px solid var(--border)", borderRadius: "6px", padding: "0.5rem 0.75rem" }}>
+          <legend style={{ fontSize: "0.85rem", padding: "0 0.25rem" }}>Ownership</legend>
+          <label style={{ display: "flex", gap: "0.5rem", alignItems: "flex-start", fontSize: "0.85rem", padding: "0.25rem 0" }}>
+            <input
+              type="radio"
+              name="space-ownership"
+              value="hub"
+              checked={spaceOwnership === "hub"}
+              onChange={() => setSpaceOwnership("hub")}
+            />
+            <span>
+              <strong>Owned by the Hub</strong> — any hub admin can manage this space.
+              Recommended unless you specifically want a single named owner.
+            </span>
+          </label>
+          <label style={{ display: "flex", gap: "0.5rem", alignItems: "flex-start", fontSize: "0.85rem", padding: "0.25rem 0" }}>
+            <input
+              type="radio"
+              name="space-ownership"
+              value="self"
+              checked={spaceOwnership === "self"}
+              onChange={() => setSpaceOwnership("self")}
+            />
+            <span>
+              <strong>Owned by me</strong> — you become the named space_owner.
+              Hub admins still retain management rights at the hub level.
+            </span>
+          </label>
+        </fieldset>
+
         <button type="submit" disabled={mutatingStructure}>Create Space</button>
       </form>
     );
@@ -156,14 +191,15 @@ export function SpaceModals({
         ) : (() => {
           const serverToEdit = servers.find(s => s.id === renameSpaceId) || activeServer;
           return (
-            <PermissionsEditor 
+            <PermissionsEditor
               serverId={renameSpaceId}
               initialAccess={{
                 hubAdminAccess: serverToEdit?.hubAdminAccess ?? 'chat',
                 spaceMemberAccess: serverToEdit?.spaceMemberAccess ?? 'chat',
                 hubMemberAccess: serverToEdit?.hubMemberAccess ?? 'chat',
                 visitorAccess: serverToEdit?.visitorAccess ?? 'hidden',
-                joinPolicy: serverToEdit?.joinPolicy
+                joinPolicy: serverToEdit?.joinPolicy,
+                autoJoinHubMembers: serverToEdit?.autoJoinHubMembers ?? false
               }}
               onSaveDefaults={async (access) => {
                 await updateServerSettings(renameSpaceId, access);

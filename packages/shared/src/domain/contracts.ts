@@ -150,7 +150,13 @@ export interface Server {
     type: "default" | "dm";
     matrixSpaceId: string | null;
     createdByUserId: string;
-    ownerUserId: string;
+    /**
+     * Explicit space owner. `null` means the space is owned by the hub
+     * itself — any hub manager may manage it, no individual user holds
+     * the owner role. P3 of the permissions sprint (2026-05-08) made
+     * this the default for newly-created spaces.
+     */
+    ownerUserId: string | null;
     startingChannelId?: string | null;
     iconUrl?: string | null;
     hubAdminAccess: AccessLevel;

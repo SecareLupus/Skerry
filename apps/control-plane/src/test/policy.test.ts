@@ -77,3 +77,62 @@ test("grantRole and canManageServer integration", async (t) => {
   assert.equal(auditLogs.rows[0].role, "space_moderator");
   assert.equal(auditLogs.rows[0].outcome, "granted");
 });
+
+test("hub-owned server (null owner_user_id): hub admin manages, random user does not", async (t) => {
+  if (!pool) { t.skip("DATABASE_URL not configured."); return; }
+
+  // Hub with explicit owner; one server with NULL owner (hub-owned).
+  await pool.query("insert into hubs (id, name, owner_user_id) values ('hub_p3', 'P3 Hub', 'owner_p3')");
+  await pool.query(
+    `insert into servers (id, hub_id, name, type, created_by_user_id, owner_user_id)
+     values ('srv_huboned', 'hub_p3', 'Hub-Owned', 'default', 'owner_p3', null)`
+  );
+
+  // The hub owner (synthesized as hub_owner via getEffectiveRoleBindings)
+  // can manage the hub-owned server.
+  const ownerCanManage = await canManageServer({
+    productUserId: "owner_p3",
+    serverId: "srv_huboned"
+  });
+  assert.equal(ownerCanManage, true, "hub owner should manage hub-owned server");
+
+  // A random unrelated user cannot.
+  const randomCanManage = await canManageServer({
+    productUserId: "rando_p3",
+    serverId: "srv_huboned"
+  });
+  assert.equal(randomCanManage, false, "rando should not manage hub-owned server");
+
+  // A user with hub_admin binding can.
+  await pool.query(
+    `insert into role_bindings (id, product_user_id, role, hub_id)
+     values ('rb_p3_admin', 'admin_p3', 'hub_admin', 'hub_p3')`
+  );
+  const adminCanManage = await canManageServer({
+    productUserId: "admin_p3",
+    serverId: "srv_huboned"
+  });
+  assert.equal(adminCanManage, true, "hub_admin should manage hub-owned server");
+});
+
+test("hub-owned server (null owner): no synthetic space_owner binding for any user", async (t) => {
+  if (!pool) { t.skip("DATABASE_URL not configured."); return; }
+
+  await pool.query("insert into hubs (id, name, owner_user_id) values ('hub_p3b', 'P3b Hub', 'owner_p3b')");
+  await pool.query(
+    `insert into servers (id, hub_id, name, type, created_by_user_id, owner_user_id)
+     values ('srv_huboned_b', 'hub_p3b', 'Hub-Owned B', 'default', 'owner_p3b', null)`
+  );
+
+  // listAllowedActions for an unrelated user with no role bindings: should be empty.
+  const allowed = await listAllowedActions({
+    productUserId: "rando_p3b",
+    scope: { hubId: "hub_p3b", serverId: "srv_huboned_b" }
+  });
+  // Visitor relation has no privileged actions in the matrix.
+  assert.equal(
+    allowed.includes("moderation.ban"),
+    false,
+    "random user must not get space_owner-derived actions on hub-owned server"
+  );
+});

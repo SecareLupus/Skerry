@@ -49,7 +49,8 @@ export async function registerServerRoutes(app: FastifyInstance): Promise<void> 
     const payload = z
       .object({
         hubId: z.string().min(1),
-        name: z.string().min(2).max(80)
+        name: z.string().min(2).max(80),
+        ownership: z.enum(["hub", "self"]).optional()
       })
       .parse(request.body);
 
@@ -241,7 +242,8 @@ export async function registerServerRoutes(app: FastifyInstance): Promise<void> 
       iconUrl: z.string().url().nullable().optional(),
       visibility: z.string().optional(),
       visitorPrivacy: z.string().optional(),
-      joinPolicy: z.enum(["open", "approval", "invite"]).optional()
+      joinPolicy: z.enum(["open", "approval", "invite"]).optional(),
+      autoJoinHubMembers: z.boolean().optional()
     }).parse(request.body);
 
     const allowed = await canManageServer({
