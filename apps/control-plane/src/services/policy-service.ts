@@ -119,6 +119,21 @@ interface RoleBinding {
 
 const HUB_MANAGER_ROLES: Role[] = ["hub_owner", "hub_admin"];
 const SERVER_MANAGER_ROLES: Role[] = ["hub_owner", "hub_admin", "space_owner", "space_admin"];
+/**
+ * Role set for chat-cleanup actions (kick/ban/timeout/etc.).
+ * `space_moderator` joins this set but is intentionally excluded from
+ * `SERVER_MANAGER_ROLES` — moderators don't edit settings, manage
+ * roles, or manage rooms. P2.a of the permissions sprint
+ * (2026-05-08) makes this boundary enforced by named capability
+ * gates instead of by absence-from-set.
+ */
+const SERVER_MODERATION_ROLES: Role[] = [
+  "hub_owner",
+  "hub_admin",
+  "space_owner",
+  "space_admin",
+  "space_moderator"
+];
 
 
 export async function fetchServerScope(
@@ -805,11 +820,31 @@ export async function canManageHub(input: {
   });
 }
 
-export async function canManageServer(input: {
+interface ServerCapabilityInput {
   productUserId: string;
   serverId: string;
   authContext?: ScopedAuthContext;
-}): Promise<boolean> {
+}
+
+/**
+ * Shared evaluator for server-scoped capability gates. The four
+ * exported gates (`canModerateServer`, `canEditServerSettings`,
+ * `canManageServerRoles`, `canManageRooms`) differ only in which
+ * roles satisfy them.
+ *
+ * Special-case: when `allowedRoles` includes the manager set
+ * (settings/roles/rooms gates), an explicit `space_owner` on the
+ * server *or* an active space-owner delegation also satisfies the
+ * gate — these are owner-equivalent paths that pre-date the
+ * role_bindings model. Moderation alone (`canModerateServer`)
+ * doesn't need that shortcut because admins/owners are already in
+ * the role set.
+ */
+async function evaluateServerCapability(
+  input: ServerCapabilityInput,
+  allowedRoles: ReadonlyArray<Role>,
+  options: { ownerEquivalentShortcut: boolean } = { ownerEquivalentShortcut: true }
+): Promise<boolean> {
   const isMasquerading = Boolean(input.authContext?.isMasquerading);
 
   if (!isMasquerading) {
@@ -825,7 +860,7 @@ export async function canManageServer(input: {
       return false;
     }
 
-    if (!isMasquerading) {
+    if (!isMasquerading && options.ownerEquivalentShortcut) {
       if (serverRow.ownerUserId === input.productUserId) {
         return true;
       }
@@ -849,7 +884,7 @@ export async function canManageServer(input: {
 
     return rows.some(
       (binding) =>
-        SERVER_MANAGER_ROLES.includes(binding.role) &&
+        allowedRoles.includes(binding.role) &&
         bindingMatchesScope(binding, {
           hubId: serverRow.hubId,
           serverId: input.serverId
@@ -857,6 +892,61 @@ export async function canManageServer(input: {
     );
   });
 }
+
+/**
+ * Gate for chat-cleanup actions: kick, ban, timeout, warn, strike,
+ * redact, channel lock/unlock, slow mode, reports triage, audit
+ * read. Granted to hub managers, space owners/admins, and
+ * space_moderators.
+ */
+export function canModerateServer(input: ServerCapabilityInput): Promise<boolean> {
+  // Moderators don't get the owner-equivalent shortcut because they
+  // shouldn't be able to moderate solely by virtue of being the
+  // server's listed owner if the role-binding system would otherwise
+  // exclude them. In practice the manager set already covers
+  // owners/admins, so this is a no-op simplification — keeping it
+  // explicit for clarity.
+  return evaluateServerCapability(input, SERVER_MODERATION_ROLES, {
+    ownerEquivalentShortcut: true
+  });
+}
+
+/**
+ * Gate for editing server settings: rename the space, change icon,
+ * change starting channel, configure access tiers, change join
+ * policy, manage badges, etc. NOT granted to space_moderators.
+ */
+export function canEditServerSettings(input: ServerCapabilityInput): Promise<boolean> {
+  return evaluateServerCapability(input, SERVER_MANAGER_ROLES);
+}
+
+/**
+ * Gate for managing roles within the server: granting/revoking
+ * space_moderator/space_admin, transferring ownership, delegating
+ * space-owner duties. NOT granted to space_moderators.
+ */
+export function canManageServerRoles(input: ServerCapabilityInput): Promise<boolean> {
+  return evaluateServerCapability(input, SERVER_MANAGER_ROLES);
+}
+
+/**
+ * Gate for managing rooms within the server: create/rename/delete
+ * channels and categories, change channel settings, move channels
+ * between categories. NOT granted to space_moderators.
+ */
+export function canManageRooms(input: ServerCapabilityInput): Promise<boolean> {
+  return evaluateServerCapability(input, SERVER_MANAGER_ROLES);
+}
+
+/**
+ * @deprecated Use one of the named capability gates
+ * (`canModerateServer`, `canEditServerSettings`,
+ * `canManageServerRoles`, `canManageRooms`) instead. Kept as a thin
+ * alias for `canEditServerSettings` so any caller still using it
+ * gets the most-restrictive interpretation by default. Remove once
+ * no external callers remain.
+ */
+export const canManageServer = canEditServerSettings;
 
 export async function canManageDiscordBridge(input: {
   productUserId: string;

@@ -136,3 +136,75 @@ test("hub-owned server (null owner): no synthetic space_owner binding for any us
     "random user must not get space_owner-derived actions on hub-owned server"
   );
 });
+
+test("space_moderator can moderate but cannot edit settings, manage roles, or manage rooms", async (t) => {
+  if (!pool) { t.skip("DATABASE_URL not configured."); return; }
+
+  const { canModerateServer, canEditServerSettings, canManageServerRoles, canManageRooms } =
+    await import("../services/policy-service.js");
+
+  // Hub + server, hub-owned (null owner) so no owner-equivalent shortcut applies.
+  await pool.query("insert into hubs (id, name, owner_user_id) values ('hub_p2a', 'P2a Hub', 'owner_p2a')");
+  await pool.query(
+    `insert into servers (id, hub_id, name, type, created_by_user_id, owner_user_id)
+     values ('srv_p2a', 'hub_p2a', 'P2a Space', 'default', 'owner_p2a', null)`
+  );
+
+  // Grant a user `space_moderator` on the server.
+  await pool.query(
+    `insert into role_bindings (id, product_user_id, role, hub_id, server_id)
+     values ('rb_p2a_mod', 'mod_p2a', 'space_moderator', 'hub_p2a', 'srv_p2a')`
+  );
+
+  const input = { productUserId: "mod_p2a", serverId: "srv_p2a" };
+
+  assert.equal(await canModerateServer(input), true, "moderator should be allowed to moderate");
+  assert.equal(await canEditServerSettings(input), false, "moderator should NOT be allowed to edit settings");
+  assert.equal(await canManageServerRoles(input), false, "moderator should NOT be allowed to manage roles");
+  assert.equal(await canManageRooms(input), false, "moderator should NOT be allowed to manage rooms");
+});
+
+test("space_admin satisfies all four server-capability gates", async (t) => {
+  if (!pool) { t.skip("DATABASE_URL not configured."); return; }
+
+  const { canModerateServer, canEditServerSettings, canManageServerRoles, canManageRooms } =
+    await import("../services/policy-service.js");
+
+  await pool.query("insert into hubs (id, name, owner_user_id) values ('hub_p2b', 'P2b Hub', 'owner_p2b')");
+  await pool.query(
+    `insert into servers (id, hub_id, name, type, created_by_user_id, owner_user_id)
+     values ('srv_p2b', 'hub_p2b', 'P2b Space', 'default', 'owner_p2b', null)`
+  );
+
+  await pool.query(
+    `insert into role_bindings (id, product_user_id, role, hub_id, server_id)
+     values ('rb_p2b_admin', 'admin_p2b', 'space_admin', 'hub_p2b', 'srv_p2b')`
+  );
+
+  const input = { productUserId: "admin_p2b", serverId: "srv_p2b" };
+  assert.equal(await canModerateServer(input), true);
+  assert.equal(await canEditServerSettings(input), true);
+  assert.equal(await canManageServerRoles(input), true);
+  assert.equal(await canManageRooms(input), true);
+});
+
+test("plain hub member fails every server-capability gate", async (t) => {
+  if (!pool) { t.skip("DATABASE_URL not configured."); return; }
+
+  const { canModerateServer, canEditServerSettings, canManageServerRoles, canManageRooms } =
+    await import("../services/policy-service.js");
+
+  await pool.query("insert into hubs (id, name, owner_user_id) values ('hub_p2c', 'P2c Hub', 'owner_p2c')");
+  await pool.query(
+    `insert into servers (id, hub_id, name, type, created_by_user_id, owner_user_id)
+     values ('srv_p2c', 'hub_p2c', 'P2c Space', 'default', 'owner_p2c', null)`
+  );
+  // No role bindings; just hub membership.
+  await pool.query("insert into hub_members (hub_id, product_user_id) values ('hub_p2c', 'member_p2c')");
+
+  const input = { productUserId: "member_p2c", serverId: "srv_p2c" };
+  assert.equal(await canModerateServer(input), false);
+  assert.equal(await canEditServerSettings(input), false);
+  assert.equal(await canManageServerRoles(input), false);
+  assert.equal(await canManageRooms(input), false);
+});

@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { requireAuth, requireInitialized } from "../auth/middleware.js";
-import { canManageServer } from "../services/policy-service.js";
+import { canEditServerSettings } from "../services/policy-service.js";
 import {
   listServerStickers,
   createServerSticker,
@@ -23,7 +23,7 @@ export async function registerStickerRoutes(app: FastifyInstance): Promise<void>
       url: z.string().url()
     }).parse(request.body);
 
-    const allowed = await canManageServer({
+    const allowed = await canEditServerSettings({
       productUserId: request.auth!.productUserId,
       serverId: params.serverId,
       authContext: request.auth
@@ -40,7 +40,7 @@ export async function registerStickerRoutes(app: FastifyInstance): Promise<void>
 
   app.delete("/v1/servers/:serverId/stickers/:stickerId", initializedAuthHandlers, async (request, reply) => {
     const params = z.object({ serverId: z.string().min(1), stickerId: z.string().min(1) }).parse(request.params);
-    const allowed = await canManageServer({
+    const allowed = await canEditServerSettings({
       productUserId: request.auth!.productUserId,
       serverId: params.serverId,
       authContext: request.auth

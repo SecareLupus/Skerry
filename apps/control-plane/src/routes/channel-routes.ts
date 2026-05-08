@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { requireAuth, requireInitialized } from "../auth/middleware.js";
 import {
-  canManageServer
+  canManageRooms
 } from "../services/policy-service.js";
 import {
   createChannelWorkflow
@@ -53,7 +53,7 @@ export async function registerChannelRoutes(app: FastifyInstance): Promise<void>
       })
       .parse(request.body);
 
-    const allowed = await canManageServer({
+    const allowed = await canManageRooms({
       productUserId: request.auth!.productUserId,
       serverId: payload.serverId,
       authContext: request.auth
@@ -87,7 +87,7 @@ export async function registerChannelRoutes(app: FastifyInstance): Promise<void>
     const params = z.object({ channelId: z.string().min(1) }).parse(request.params);
     const query = z.object({ serverId: z.string().min(1) }).parse(request.query);
 
-    const allowed = await canManageServer({
+    const allowed = await canManageRooms({
       productUserId: request.auth!.productUserId,
       serverId: query.serverId,
       authContext: request.auth
@@ -114,7 +114,7 @@ export async function registerChannelRoutes(app: FastifyInstance): Promise<void>
   app.get("/v1/channels/:channelId/settings", initializedAuthHandlers, async (request, reply) => {
     const params = z.object({ channelId: z.string().min(1) }).parse(request.params);
     const query = z.object({ serverId: z.string().min(1) }).parse(request.query);
-    const allowed = await canManageServer({
+    const allowed = await canManageRooms({
       productUserId: request.auth!.productUserId,
       serverId: query.serverId,
       authContext: request.auth
@@ -138,7 +138,7 @@ export async function registerChannelRoutes(app: FastifyInstance): Promise<void>
       visitorAccess: z.enum(["hidden", "locked", "read", "chat"]).optional()
     }).parse(request.body);
 
-    const allowed = await canManageServer({
+    const allowed = await canManageRooms({
       productUserId: request.auth!.productUserId,
       serverId: payload.serverId,
       authContext: request.auth
@@ -247,7 +247,7 @@ export async function registerChannelRoutes(app: FastifyInstance): Promise<void>
       })
       .parse(request.body);
 
-    const allowed = await canManageServer({
+    const allowed = await canManageRooms({
       productUserId: request.auth!.productUserId,
       serverId: payload.serverId,
       authContext: request.auth
@@ -296,7 +296,7 @@ export async function registerChannelRoutes(app: FastifyInstance): Promise<void>
       })
       .parse(request.body);
 
-    const allowed = await canManageServer({
+    const allowed = await canManageRooms({
       productUserId: request.auth!.productUserId,
       serverId: payload.serverId,
       authContext: request.auth
@@ -321,7 +321,7 @@ export async function registerChannelRoutes(app: FastifyInstance): Promise<void>
       })
       .parse(request.body);
 
-    const allowed = await canManageServer({
+    const allowed = await canManageRooms({
       productUserId: request.auth!.productUserId,
       serverId: payload.serverId,
       authContext: request.auth
@@ -351,7 +351,7 @@ export async function registerChannelRoutes(app: FastifyInstance): Promise<void>
     const params = z.object({ categoryId: z.string().min(1) }).parse(request.params);
     const query = z.object({ serverId: z.string().min(1) }).parse(request.query);
 
-    const allowed = await canManageServer({
+    const allowed = await canManageRooms({
       productUserId: request.auth!.productUserId,
       serverId: query.serverId,
       authContext: request.auth
@@ -383,7 +383,7 @@ export async function registerChannelRoutes(app: FastifyInstance): Promise<void>
       })
       .parse(request.body);
 
-    const allowed = await canManageServer({
+    const allowed = await canManageRooms({
       productUserId: request.auth!.productUserId,
       serverId: payload.serverId,
       authContext: request.auth
@@ -446,7 +446,7 @@ export async function registerChannelRoutes(app: FastifyInstance): Promise<void>
       })
       .parse(request.body);
 
-    const allowed = await canManageServer({
+    const allowed = await canManageRooms({
       productUserId: request.auth!.productUserId,
       serverId: payload.serverId,
       authContext: request.auth

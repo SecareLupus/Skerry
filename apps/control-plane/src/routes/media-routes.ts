@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { z } from "zod";
 import { requireAuth, requireInitialized } from "../auth/middleware.js";
 import {
-  canManageServer
+  canEditServerSettings
 } from "../services/policy-service.js";
 import {
   getIdentityByProductUserId
@@ -58,7 +58,7 @@ export async function registerMediaRoutes(app: FastifyInstance): Promise<void> {
       })
       .parse(request.body);
 
-    const allowed = await canManageServer({
+    const allowed = await canEditServerSettings({
       productUserId: request.auth!.productUserId,
       serverId: payload.serverId,
       authContext: request.auth

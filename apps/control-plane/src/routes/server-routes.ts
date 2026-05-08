@@ -3,7 +3,8 @@ import { z } from "zod";
 import { requireAuth, requireInitialized } from "../auth/middleware.js";
 import {
   canManageHub,
-  canManageServer,
+  canEditServerSettings,
+  canManageServerRoles,
   fetchServerScope
 } from "../services/policy-service.js";
 import {
@@ -87,7 +88,7 @@ export async function registerServerRoutes(app: FastifyInstance): Promise<void> 
     const params = z.object({ serverId: z.string().min(1) }).parse(request.params);
     const payload = z.object({ name: z.string().min(2).max(80) }).parse(request.body);
 
-    const canManage = await canManageServer({
+    const canManage = await canEditServerSettings({
       productUserId: request.auth!.productUserId,
       serverId: params.serverId,
       authContext: request.auth
@@ -114,7 +115,7 @@ export async function registerServerRoutes(app: FastifyInstance): Promise<void> 
       return;
     }
 
-    const allowed = await canManageServer({
+    const allowed = await canEditServerSettings({
       productUserId: request.auth!.productUserId,
       serverId: params.serverId,
       authContext: request.auth
@@ -154,7 +155,7 @@ export async function registerServerRoutes(app: FastifyInstance): Promise<void> 
       description: z.string().optional()
     }).parse(request.body);
 
-    const allowed = await canManageServer({
+    const allowed = await canEditServerSettings({
       productUserId: request.auth!.productUserId,
       serverId: payload.serverId,
       authContext: request.auth
@@ -223,7 +224,7 @@ export async function registerServerRoutes(app: FastifyInstance): Promise<void> 
 
   app.get("/v1/servers/:serverId/settings", initializedAuthHandlers, async (request, reply) => {
     const params = z.object({ serverId: z.string().min(1) }).parse(request.params);
-    const allowed = await canManageServer({
+    const allowed = await canEditServerSettings({
       productUserId: request.auth!.productUserId,
       serverId: params.serverId,
       authContext: request.auth
@@ -246,7 +247,7 @@ export async function registerServerRoutes(app: FastifyInstance): Promise<void> 
       autoJoinHubMembers: z.boolean().optional()
     }).parse(request.body);
 
-    const allowed = await canManageServer({
+    const allowed = await canEditServerSettings({
       productUserId: request.auth!.productUserId,
       serverId: params.serverId,
       authContext: request.auth
@@ -269,7 +270,7 @@ export async function registerServerRoutes(app: FastifyInstance): Promise<void> 
       })
       .parse(request.body);
 
-    const allowed = await canManageServer({
+    const allowed = await canManageServerRoles({
       productUserId: request.auth!.productUserId,
       serverId: params.serverId,
       authContext: request.auth
@@ -296,7 +297,7 @@ export async function registerServerRoutes(app: FastifyInstance): Promise<void> 
   app.get("/v1/servers/:serverId/delegation/space-owners", initializedAuthHandlers, async (request, reply) => {
     const params = z.object({ serverId: z.string().min(1) }).parse(request.params);
     await expireSpaceOwnerAssignments({ serverId: params.serverId });
-    const allowed = await canManageServer({
+    const allowed = await canManageServerRoles({
       productUserId: request.auth!.productUserId,
       serverId: params.serverId,
       authContext: request.auth
@@ -321,7 +322,7 @@ export async function registerServerRoutes(app: FastifyInstance): Promise<void> 
       })
       .parse(request.body);
 
-    const canManage = await canManageServer({
+    const canManage = await canManageServerRoles({
       productUserId: request.auth!.productUserId,
       serverId: params.serverId,
       authContext: request.auth
@@ -351,7 +352,7 @@ export async function registerServerRoutes(app: FastifyInstance): Promise<void> 
 
   app.get("/v1/servers/:serverId/members", initializedAuthHandlers, async (request, reply) => {
     const params = z.object({ serverId: z.string().min(1) }).parse(request.params);
-    const allowed = await canManageServer({
+    const allowed = await canEditServerSettings({
       productUserId: request.auth!.productUserId,
       serverId: params.serverId,
       authContext: request.auth
@@ -383,7 +384,7 @@ export async function registerServerRoutes(app: FastifyInstance): Promise<void> 
        return;
     }
 
-    const allowed = await canManageServer({
+    const allowed = await canManageServerRoles({
       productUserId: request.auth!.productUserId,
       serverId,
       authContext: request.auth
