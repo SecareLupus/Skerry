@@ -118,6 +118,14 @@ export async function bootstrapAdmin(input: {
         [defaultChannelId, defaultServerId, "general"]
       );
 
+      // P2.cleanup: seed default access rules for both servers + the
+      // bootstrap channel. The legacy `*_access` columns are gone.
+      const { seedDefaultSpaceAccessRules, seedDefaultChannelAccessRules } =
+        await import("./provisioning-service.js");
+      await seedDefaultSpaceAccessRules(db, defaultServerId);
+      await seedDefaultSpaceAccessRules(db, dmServerId);
+      await seedDefaultChannelAccessRules(db, defaultChannelId, "hidden");
+
       await db.query(
         `insert into role_bindings (id, product_user_id, role, hub_id, server_id, channel_id)
          values ($1, $2, 'hub_admin', $3, null, null)`,
