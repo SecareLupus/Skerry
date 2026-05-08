@@ -453,17 +453,29 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.post("/auth/onboarding/username", { preHandler: requireAuth }, async (request, reply) => {
+    // Issue #34: the UI labels this field "Display Name" — the API
+    // payload key is still `username` for backwards compatibility but
+    // the validation now matches display-name semantics. Spaces are
+    // allowed; the storage column (`identity_mappings.preferred_username`)
+    // and the surrounding helpers retain their pre-#34 names.
     const payload = z
       .object({
         username: z
           .string()
           .min(3)
           .max(40)
-          .regex(/^[a-zA-Z0-9._-]+$/)
+          .regex(/^[\p{L}\p{N}._\- ]+$/u, "Display name may include letters, numbers, spaces, dots, underscores, and hyphens.")
       })
       .parse(request.body);
 
-    const normalizedUsername = payload.username.trim();
+    const normalizedUsername = payload.username.trim().replace(/\s+/g, " ");
+    if (normalizedUsername.length < 3) {
+      reply.code(400).send({
+        message: "Display name must be at least 3 characters after trimming.",
+        code: "display_name_too_short"
+      });
+      return;
+    }
     const taken = await isPreferredUsernameTaken({
       preferredUsername: normalizedUsername,
       excludingProductUserId: request.auth!.productUserId

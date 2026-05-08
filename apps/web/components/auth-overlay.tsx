@@ -139,21 +139,21 @@ export function AuthOverlay() {
     if (viewer.needsOnboarding) {
         return (
             <section className="panel">
-                <h2>Choose Username</h2>
-                <p>Complete onboarding by picking your handle. This is used for mentions and display.</p>
+                <h2>Choose Display Name</h2>
+                <p>Complete onboarding by picking the name shown next to your messages. Spaces are allowed.</p>
                 <form onSubmit={handleOnboardingUsername} className="stack">
-                    <label htmlFor="onboarding-username">Username</label>
+                    <label htmlFor="onboarding-username">Display Name</label>
                     <input
                         id="onboarding-username"
                         value={onboardingUsername}
                         onChange={(event) => setOnboardingUsername(event.target.value)}
                         minLength={3}
                         maxLength={40}
-                        pattern="^[a-zA-Z0-9._-]+$"
+                        pattern="^[\p{L}\p{N}._\- ]+$"
                         required
                     />
                     <button type="submit" disabled={savingOnboarding}>
-                        {savingOnboarding ? "Saving..." : "Save Username"}
+                        {savingOnboarding ? "Saving..." : "Save Display Name"}
                     </button>
                 </form>
             </section>
