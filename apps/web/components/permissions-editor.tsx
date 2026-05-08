@@ -13,6 +13,7 @@ interface PermissionsEditorProps {
         hubMemberAccess: AccessLevel;
         visitorAccess: AccessLevel;
         joinPolicy?: JoinPolicy;
+        autoJoinHubMembers?: boolean;
     };
     onSaveDefaults: (access: {
         hubAdminAccess: AccessLevel;
@@ -20,6 +21,7 @@ interface PermissionsEditorProps {
         hubMemberAccess: AccessLevel;
         visitorAccess: AccessLevel;
         joinPolicy?: JoinPolicy;
+        autoJoinHubMembers?: boolean;
     }) => Promise<void>;
 }
 
@@ -119,7 +121,7 @@ export function PermissionsEditor({
                     {!channelId && (
                         <>
                             <label>Join Policy</label>
-                            <select 
+                            <select
                                 value={access.joinPolicy || "open"}
                                 onChange={(e) => setAccess({ ...access, joinPolicy: e.target.value as JoinPolicy })}
                             >
@@ -127,6 +129,20 @@ export function PermissionsEditor({
                                 <option value="approval">Approval (Admins must approve)</option>
                                 <option value="invite">Invite Only (Explicit invite required)</option>
                             </select>
+
+                            <label htmlFor="auto-join-hub-members">Auto-join new hub members</label>
+                            <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                                <input
+                                    id="auto-join-hub-members"
+                                    type="checkbox"
+                                    checked={access.autoJoinHubMembers ?? false}
+                                    onChange={(e) => setAccess({ ...access, autoJoinHubMembers: e.target.checked })}
+                                />
+                                <span style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>
+                                    When enabled, anyone who joins the hub (via registration or
+                                    a hub-level invite) is automatically added to this space.
+                                </span>
+                            </div>
                         </>
                     )}
                 </div>

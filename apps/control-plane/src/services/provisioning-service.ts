@@ -59,6 +59,16 @@ export async function createServerWorkflow(input: {
   hubId: string;
   name: string;
   productUserId: string;
+  /**
+   * Ownership choice for the new space.
+   *  - "hub" (default): the space is owned by the hub itself; any hub
+   *    manager may manage it. `owner_user_id` stored as null.
+   *  - "self": the calling user becomes the named space_owner.
+   *
+   * P3 of the permissions sprint (2026-05-08) made "hub" the default;
+   * pre-P3 the creator was always the owner.
+   */
+  ownership?: "hub" | "self";
   idempotencyKey?: string;
 }): Promise<Server> {
   const cached = await checkIdempotency<Server>(input.idempotencyKey, input);
@@ -67,6 +77,7 @@ export async function createServerWorkflow(input: {
   }
 
   const matrixSpaceId = await withRetry(() => createSpace({ name: input.name }));
+  const ownerUserId = input.ownership === "self" ? input.productUserId : null;
 
   const server = await withDb(async (db) => {
     const id = randomId("srv");
@@ -82,7 +93,7 @@ export async function createServerWorkflow(input: {
       visitor_access: string;
       auto_join_hub_members: boolean;
       created_by_user_id: string;
-      owner_user_id: string;
+      owner_user_id: string | null;
       created_at: string;
       join_policy: string;
       icon_url: string | null;
@@ -90,7 +101,7 @@ export async function createServerWorkflow(input: {
       `insert into servers (id, hub_id, name, type, matrix_space_id, created_by_user_id, owner_user_id, auto_join_hub_members, hub_admin_access, space_member_access, hub_member_access, visitor_access, join_policy)
        values ($1, $2, $3, 'default', $4, $5, $6, true, 'chat', 'chat', 'chat', 'hidden', 'open')
        returning *`,
-      [id, input.hubId, input.name, matrixSpaceId, input.productUserId, input.productUserId]
+      [id, input.hubId, input.name, matrixSpaceId, input.productUserId, ownerUserId]
     );
 
     const value = row.rows[0];

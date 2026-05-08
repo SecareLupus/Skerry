@@ -124,8 +124,8 @@ const SERVER_MANAGER_ROLES: Role[] = ["hub_owner", "hub_admin", "space_owner", "
 export async function fetchServerScope(
   db: Parameters<Parameters<typeof withDb>[0]>[0],
   serverId: string
-): Promise<{ hubId: string; ownerUserId: string } | null> {
-  const row = await db.query<{ hub_id: string; owner_user_id: string }>(
+): Promise<{ hubId: string; ownerUserId: string | null } | null> {
+  const row = await db.query<{ hub_id: string; owner_user_id: string | null }>(
     "select hub_id, owner_user_id from servers where id = $1 limit 1",
     [serverId]
   );
@@ -135,6 +135,9 @@ export async function fetchServerScope(
   }
   return {
     hubId: result.hub_id,
+    // null means hub-owned (P3, 2026-05-08): the space carries no
+    // explicit owner; hub managers handle management. Owner-equality
+    // checks naturally fail for null, which is what we want.
     ownerUserId: result.owner_user_id
   };
 }

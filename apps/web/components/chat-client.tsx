@@ -253,6 +253,7 @@ export function ChatClient() {
 
   const {
     spaceName, setSpaceName,
+    spaceOwnership, setSpaceOwnership,
     roomName, setRoomName,
     roomType, setRoomType,
     roomIcon, setRoomIcon,
@@ -960,6 +961,8 @@ export function ChatClient() {
         dispatch={dispatch}
         spaceName={spaceName}
         setSpaceName={setSpaceName}
+        spaceOwnership={spaceOwnership}
+        setSpaceOwnership={setSpaceOwnership}
         renameSpaceId={renameSpaceId}
         renameSpaceName={renameSpaceName}
         renameSpaceIconUrl={renameSpaceIconUrl}
