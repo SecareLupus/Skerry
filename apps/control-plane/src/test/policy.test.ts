@@ -208,3 +208,149 @@ test("plain hub member fails every server-capability gate", async (t) => {
   assert.equal(await canManageServerRoles(input), false);
   assert.equal(await canManageRooms(input), false);
 });
+
+test("P2.b: backfill seeded space_access_rules for existing servers (all 6 tiers)", async (t) => {
+  if (!pool) { t.skip("DATABASE_URL not configured."); return; }
+
+  await pool.query("insert into hubs (id, name, owner_user_id) values ('hub_p2b_a', 'P2b Hub A', 'owner_p2b_a')");
+  // Insert with the legacy columns set; the trigger should produce the rule rows.
+  await pool.query(
+    `insert into servers
+       (id, hub_id, name, type, created_by_user_id, owner_user_id,
+        hub_admin_access, space_member_access, hub_member_access, visitor_access)
+     values ('srv_p2b_a', 'hub_p2b_a', 'A', 'default', 'owner_p2b_a', null,
+             'chat', 'chat', 'chat', 'hidden')`
+  );
+
+  const rules = await pool.query<{ audience_tier: string; level: string }>(
+    "select audience_tier, level from space_access_rules where server_id = $1 order by audience_tier",
+    ['srv_p2b_a']
+  );
+  const byTier = Object.fromEntries(rules.rows.map(r => [r.audience_tier, r.level]));
+  assert.equal(byTier.visitor, 'hidden');
+  assert.equal(byTier.hub_member, 'chat');
+  assert.equal(byTier.space_member, 'chat');
+  assert.equal(byTier.hub_admin, 'chat');
+  assert.equal(byTier.space_admin, 'chat');
+  assert.equal(byTier.space_moderator, 'chat');
+});
+
+test("P2.b: legacy column update propagates to rule via trigger", async (t) => {
+  if (!pool) { t.skip("DATABASE_URL not configured."); return; }
+
+  await pool.query("insert into hubs (id, name, owner_user_id) values ('hub_p2b_b', 'P2b Hub B', 'owner_p2b_b')");
+  await pool.query(
+    `insert into servers
+       (id, hub_id, name, type, created_by_user_id, owner_user_id, visitor_access)
+     values ('srv_p2b_b', 'hub_p2b_b', 'B', 'default', 'owner_p2b_b', null, 'hidden')`
+  );
+
+  await pool.query("update servers set visitor_access = 'read' where id = 'srv_p2b_b'");
+  const r = await pool.query<{ level: string }>(
+    "select level from space_access_rules where server_id = $1 and audience_tier = 'visitor'",
+    ['srv_p2b_b']
+  );
+  assert.equal(r.rows[0]?.level, 'read');
+});
+
+test("P2.b: channel rule overrides server rule for same tier (cascade)", async (t) => {
+  if (!pool) { t.skip("DATABASE_URL not configured."); return; }
+  const { isActionAllowed } = await import("../services/policy-service.js");
+
+  await pool.query("insert into hubs (id, name, owner_user_id) values ('hub_p2b_c', 'P2b Hub C', 'owner_p2b_c')");
+  await pool.query(
+    `insert into servers
+       (id, hub_id, name, type, created_by_user_id, owner_user_id,
+        hub_admin_access, space_member_access, hub_member_access, visitor_access)
+     values ('srv_p2b_c', 'hub_p2b_c', 'C', 'default', 'owner_p2b_c', null,
+             'chat', 'chat', 'chat', 'chat')`
+  );
+  await pool.query(
+    `insert into channels (id, server_id, name, type, visitor_access, hub_member_access, space_member_access, hub_admin_access)
+     values ('chn_p2b_c', 'srv_p2b_c', 'general', 'text', 'chat', 'chat', 'chat', 'chat')`
+  );
+  // A random visitor (no membership row) — server says 'chat' for visitors,
+  // but the channel overrides to 'hidden'. Reading should be denied.
+  await pool.query(
+    "update channels set visitor_access = 'hidden' where id = 'chn_p2b_c'"
+  );
+
+  const allowed = await isActionAllowed({
+    productUserId: "rando_p2b_c",
+    action: "channel.message.read",
+    scope: { hubId: 'hub_p2b_c', serverId: 'srv_p2b_c', channelId: 'chn_p2b_c' }
+  });
+  assert.equal(allowed, false, "channel-level visitor=hidden should override server-level visitor=chat");
+});
+
+test("P2.b: space_admin tier resolves to admin rule level (not falling through to space_member)", async (t) => {
+  if (!pool) { t.skip("DATABASE_URL not configured."); return; }
+  const { isActionAllowed } = await import("../services/policy-service.js");
+
+  await pool.query("insert into hubs (id, name, owner_user_id) values ('hub_p2b_d', 'P2b Hub D', 'owner_p2b_d')");
+  await pool.query(
+    `insert into servers
+       (id, hub_id, name, type, created_by_user_id, owner_user_id,
+        hub_admin_access, space_member_access, hub_member_access, visitor_access)
+     values ('srv_p2b_d', 'hub_p2b_d', 'D', 'default', 'owner_p2b_d', null,
+             'chat', 'hidden', 'hidden', 'hidden')`
+  );
+  await pool.query(
+    `insert into channels (id, server_id, name, type, visitor_access, hub_member_access, space_member_access, hub_admin_access)
+     values ('chn_p2b_d', 'srv_p2b_d', 'general', 'text', 'hidden', 'hidden', 'hidden', 'chat')`
+  );
+
+  // Set space_admin to 'chat' explicitly via the rules table.
+  await pool.query(
+    `update channel_access_rules set level = 'chat' where channel_id = 'chn_p2b_d' and audience_tier = 'space_admin'`
+  );
+
+  // Grant a user space_admin.
+  await pool.query(
+    `insert into role_bindings (id, product_user_id, role, hub_id, server_id)
+     values ('rb_p2b_d', 'admin_p2b_d', 'space_admin', 'hub_p2b_d', 'srv_p2b_d')`
+  );
+
+  const allowed = await isActionAllowed({
+    productUserId: "admin_p2b_d",
+    action: "channel.message.read",
+    scope: { hubId: 'hub_p2b_d', serverId: 'srv_p2b_d', channelId: 'chn_p2b_d' }
+  });
+  assert.equal(allowed, true, "space_admin resolves to space_admin tier rule, which is 'chat'");
+});
+
+test("P2.b: space_moderator tier resolves to moderator rule level when set 'hidden'", async (t) => {
+  if (!pool) { t.skip("DATABASE_URL not configured."); return; }
+  const { isActionAllowed } = await import("../services/policy-service.js");
+
+  await pool.query("insert into hubs (id, name, owner_user_id) values ('hub_p2b_e', 'P2b Hub E', 'owner_p2b_e')");
+  await pool.query(
+    `insert into servers
+       (id, hub_id, name, type, created_by_user_id, owner_user_id,
+        hub_admin_access, space_member_access, hub_member_access, visitor_access)
+     values ('srv_p2b_e', 'hub_p2b_e', 'E', 'default', 'owner_p2b_e', null,
+             'chat', 'chat', 'chat', 'chat')`
+  );
+  await pool.query(
+    `insert into channels (id, server_id, name, type, visitor_access, hub_member_access, space_member_access, hub_admin_access)
+     values ('chn_p2b_e', 'srv_p2b_e', 'private', 'text', 'chat', 'chat', 'chat', 'chat')`
+  );
+
+  // Force the moderator tier off for this channel.
+  await pool.query(
+    `update channel_access_rules set level = 'hidden'
+       where channel_id = 'chn_p2b_e' and audience_tier = 'space_moderator'`
+  );
+
+  await pool.query(
+    `insert into role_bindings (id, product_user_id, role, hub_id, server_id)
+     values ('rb_p2b_e', 'mod_p2b_e', 'space_moderator', 'hub_p2b_e', 'srv_p2b_e')`
+  );
+
+  const allowed = await isActionAllowed({
+    productUserId: "mod_p2b_e",
+    action: "channel.message.read",
+    scope: { hubId: 'hub_p2b_e', serverId: 'srv_p2b_e', channelId: 'chn_p2b_e' }
+  });
+  assert.equal(allowed, false, "moderator tier rule of 'hidden' should deny read even though space_member='chat'");
+});

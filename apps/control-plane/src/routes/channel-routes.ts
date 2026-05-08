@@ -128,14 +128,17 @@ export async function registerChannelRoutes(app: FastifyInstance): Promise<void>
 
   app.patch("/v1/channels/:channelId/settings", initializedAuthHandlers, async (request, reply) => {
     const params = z.object({ channelId: z.string().min(1) }).parse(request.params);
+    const accessLevelEnum = z.enum(["hidden", "locked", "read", "chat"]);
     const payload = z.object({
       serverId: z.string().min(1),
       restrictedVisibility: z.boolean().optional(),
       allowedRoleIds: z.array(z.string()).optional(),
-      hubAdminAccess: z.enum(["hidden", "locked", "read", "chat"]).optional(),
-      spaceMemberAccess: z.enum(["hidden", "locked", "read", "chat"]).optional(),
-      hubMemberAccess: z.enum(["hidden", "locked", "read", "chat"]).optional(),
-      visitorAccess: z.enum(["hidden", "locked", "read", "chat"]).optional()
+      hubAdminAccess: accessLevelEnum.optional(),
+      spaceMemberAccess: accessLevelEnum.optional(),
+      hubMemberAccess: accessLevelEnum.optional(),
+      visitorAccess: accessLevelEnum.optional(),
+      spaceAdminAccess: accessLevelEnum.optional(),
+      spaceModeratorAccess: accessLevelEnum.optional()
     }).parse(request.body);
 
     const allowed = await canManageRooms({

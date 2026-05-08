@@ -238,13 +238,20 @@ export async function registerServerRoutes(app: FastifyInstance): Promise<void> 
 
   app.patch("/v1/servers/:serverId/settings", initializedAuthHandlers, async (request, reply) => {
     const params = z.object({ serverId: z.string().min(1) }).parse(request.params);
+    const accessLevelEnum = z.enum(["hidden", "locked", "read", "chat"]);
     const payload = z.object({
       startingChannelId: z.string().min(1).nullable().optional(),
       iconUrl: z.string().url().nullable().optional(),
       visibility: z.string().optional(),
       visitorPrivacy: z.string().optional(),
       joinPolicy: z.enum(["open", "approval", "invite"]).optional(),
-      autoJoinHubMembers: z.boolean().optional()
+      autoJoinHubMembers: z.boolean().optional(),
+      hubAdminAccess: accessLevelEnum.optional(),
+      spaceMemberAccess: accessLevelEnum.optional(),
+      hubMemberAccess: accessLevelEnum.optional(),
+      visitorAccess: accessLevelEnum.optional(),
+      spaceAdminAccess: accessLevelEnum.optional(),
+      spaceModeratorAccess: accessLevelEnum.optional()
     }).parse(request.body);
 
     const allowed = await canEditServerSettings({
