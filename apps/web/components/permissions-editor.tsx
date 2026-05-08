@@ -12,6 +12,8 @@ interface PermissionsEditorProps {
         spaceMemberAccess: AccessLevel;
         hubMemberAccess: AccessLevel;
         visitorAccess: AccessLevel;
+        spaceAdminAccess?: AccessLevel;
+        spaceModeratorAccess?: AccessLevel;
         joinPolicy?: JoinPolicy;
         autoJoinHubMembers?: boolean;
     };
@@ -20,6 +22,8 @@ interface PermissionsEditorProps {
         spaceMemberAccess: AccessLevel;
         hubMemberAccess: AccessLevel;
         visitorAccess: AccessLevel;
+        spaceAdminAccess?: AccessLevel;
+        spaceModeratorAccess?: AccessLevel;
         joinPolicy?: JoinPolicy;
         autoJoinHubMembers?: boolean;
     }) => Promise<void>;
@@ -87,15 +91,31 @@ export function PermissionsEditor({
                 <p className="muted">Set the default access level for each role.</p>
                 <div className="grid-form">
                     <label>Hub Admins</label>
-                    <select 
+                    <select
                         value={access.hubAdminAccess}
                         onChange={(e) => setAccess({ ...access, hubAdminAccess: e.target.value as AccessLevel })}
                     >
                         {ACCESS_LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
                     </select>
 
+                    <label>Space Admins</label>
+                    <select
+                        value={access.spaceAdminAccess ?? "chat"}
+                        onChange={(e) => setAccess({ ...access, spaceAdminAccess: e.target.value as AccessLevel })}
+                    >
+                        {ACCESS_LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
+                    </select>
+
+                    <label>Space Moderators</label>
+                    <select
+                        value={access.spaceModeratorAccess ?? "chat"}
+                        onChange={(e) => setAccess({ ...access, spaceModeratorAccess: e.target.value as AccessLevel })}
+                    >
+                        {ACCESS_LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
+                    </select>
+
                     <label>Space Members</label>
-                    <select 
+                    <select
                         value={access.spaceMemberAccess}
                         onChange={(e) => setAccess({ ...access, spaceMemberAccess: e.target.value as AccessLevel })}
                     >
@@ -103,7 +123,7 @@ export function PermissionsEditor({
                     </select>
 
                     <label>Hub Members</label>
-                    <select 
+                    <select
                         value={access.hubMemberAccess}
                         onChange={(e) => setAccess({ ...access, hubMemberAccess: e.target.value as AccessLevel })}
                     >
@@ -111,7 +131,7 @@ export function PermissionsEditor({
                     </select>
 
                     <label>Visitors</label>
-                    <select 
+                    <select
                         value={access.visitorAccess}
                         onChange={(e) => setAccess({ ...access, visitorAccess: e.target.value as AccessLevel })}
                     >

@@ -3,6 +3,47 @@ import { z } from "zod";
 export type AccessLevel = "hidden" | "locked" | "read" | "chat";
 
 /**
+ * Audience tiers used by the normalized space/channel access rules
+ * (see migration 036). Storage is in `space_access_rules` and
+ * `channel_access_rules`, keyed on `(resource_id, audience_tier)`.
+ *
+ * Tiers represent *who* a rule applies to:
+ *   - `visitor`         — no membership row and no granted role.
+ *   - `hub_member`      — a row in `hub_members`; not in this server's
+ *                         `server_members`.
+ *   - `space_member`    — a row in `server_members` for this server.
+ *   - `space_moderator` — explicit `space_moderator` role binding.
+ *   - `space_admin`     — explicit `space_admin` role binding;
+ *                         `space_owner` inherits.
+ *   - `hub_admin`       — explicit `hub_admin` role binding;
+ *                         `hub_owner` inherits.
+ *
+ * Each user resolves to their HIGHEST tier when access is computed
+ * (admins outrank members, members outrank visitors).
+ */
+export type AudienceTier =
+    | "visitor"
+    | "hub_member"
+    | "space_member"
+    | "space_moderator"
+    | "space_admin"
+    | "hub_admin";
+
+export const AUDIENCE_TIERS: ReadonlyArray<AudienceTier> = [
+    "visitor",
+    "hub_member",
+    "space_member",
+    "space_moderator",
+    "space_admin",
+    "hub_admin"
+];
+
+export interface AccessRule {
+    audienceTier: AudienceTier;
+    level: AccessLevel;
+}
+
+/**
  * Granted roles. `Role` values are explicitly assigned via `role_bindings`.
  *
  * Historic note (P1 of permissions sprint, 2026-05-07): `user` and `visitor`
@@ -163,6 +204,9 @@ export interface Server {
     spaceMemberAccess: AccessLevel;
     hubMemberAccess: AccessLevel;
     visitorAccess: AccessLevel;
+    /** P2.b: optional access for the new audience tiers. Default 'chat'. */
+    spaceAdminAccess?: AccessLevel;
+    spaceModeratorAccess?: AccessLevel;
     autoJoinHubMembers: boolean;
     joinPolicy: JoinPolicy;
     theme?: Record<string, any>;
@@ -196,6 +240,9 @@ export interface Channel {
     spaceMemberAccess: AccessLevel;
     hubMemberAccess: AccessLevel;
     visitorAccess: AccessLevel;
+    /** P2.b: optional access for the new audience tiers. Default 'chat'. */
+    spaceAdminAccess?: AccessLevel;
+    spaceModeratorAccess?: AccessLevel;
     topic: string | null;
     iconUrl?: string | null;
     styleContent?: string | null;

@@ -195,6 +195,8 @@ export function SpaceModals({
               serverId={renameSpaceId}
               initialAccess={{
                 hubAdminAccess: serverToEdit?.hubAdminAccess ?? 'chat',
+                spaceAdminAccess: serverToEdit?.spaceAdminAccess ?? 'chat',
+                spaceModeratorAccess: serverToEdit?.spaceModeratorAccess ?? 'chat',
                 spaceMemberAccess: serverToEdit?.spaceMemberAccess ?? 'chat',
                 hubMemberAccess: serverToEdit?.hubMemberAccess ?? 'chat',
                 visitorAccess: serverToEdit?.visitorAccess ?? 'hidden',

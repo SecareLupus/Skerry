@@ -15,9 +15,11 @@ Land remaining Sprint 2 issues. **No batching, one PR per issue.**
           `canEditServerSettings` / `canManageServerRoles` /
           `canManageRooms`) on
           `feat/permissions-sprint-p2a-capability-gates`.
-        - [ ] **P2.b**: Normalized access rules table + tier
-          expansion + Hub→Space→Room cascade + room read/write
-          split.
+        - [x] **P2.b**: Normalized access-rules tables + tier
+          expansion + cascade. Branch
+          `feat/permissions-sprint-p2b-access-rules`.
+        - [ ] **P2.cleanup**: Drop legacy `*_access` columns +
+          DB triggers once P2.b is deployed and stable.
 - [ ] **Issue #34**: Onboarding Display Name (Blocked on permissions).
 - [ ] **Issue #38**: Server Permissions Persistence (Likely subsumed by P2).
 

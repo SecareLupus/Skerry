@@ -1,4 +1,4 @@
-import type { Role, PrivilegedAction, AccessLevel } from "@skerry/shared";
+import type { Role, PrivilegedAction, AccessLevel, AudienceTier } from "@skerry/shared";
 import { withDb } from "../db/client.js";
 import { expireSpaceOwnerAssignments } from "./delegation-service.js";
 import type { ScopedAuthContext } from "../auth/middleware.js";
@@ -292,6 +292,100 @@ export function bindingMatchesScope(binding: RoleBinding, scope: Scope): boolean
   return hubMatches && serverMatches && channelMatches;
 }
 
+/**
+ * Pick the highest-applicable audience tier for `productUserId` against
+ * the given scope. P2.b expanded this from a 4-tier ladder
+ * (visitor/hub_member/space_member/admin) to the 6-tier ladder used by
+ * the normalized rules tables: hub_admin > space_admin > space_moderator
+ * > space_member > hub_member > visitor.
+ */
+async function resolveAudienceTier(
+  db: Parameters<Parameters<typeof withDb>[0]>[0],
+  input: {
+    productUserId: string;
+    scope: Scope;
+    isMasquerading: boolean;
+    isHubAdmin: boolean;
+    bindings: RoleBinding[];
+  }
+): Promise<AudienceTier> {
+  if (input.isHubAdmin) return "hub_admin";
+
+  const matchesServer = (b: RoleBinding) =>
+    bindingMatchesScope(b, { hubId: input.scope.hubId, serverId: input.scope.serverId });
+
+  if (input.bindings.some((b) => (b.role === "space_owner" || b.role === "space_admin") && matchesServer(b))) {
+    return "space_admin";
+  }
+  if (input.bindings.some((b) => b.role === "space_moderator" && matchesServer(b))) {
+    return "space_moderator";
+  }
+
+  // Membership-driven tiers don't apply to masquerade sessions — those
+  // are role-defined and shouldn't pick up real DB membership.
+  if (input.isMasquerading) return "visitor";
+
+  if (input.scope.serverId) {
+    const isSpaceMember = await db.query(
+      "select 1 from server_members where server_id = $1 and product_user_id = $2",
+      [input.scope.serverId, input.productUserId]
+    );
+    if (isSpaceMember.rows.length > 0) return "space_member";
+  }
+
+  const hubId =
+    input.scope.hubId ??
+    (input.scope.serverId
+      ? (await db.query<{ hub_id: string }>("select hub_id from servers where id = $1", [input.scope.serverId])).rows[0]?.hub_id
+      : undefined);
+  if (hubId) {
+    const isHubMember = await db.query(
+      "select 1 from hub_members where hub_id = $1 and product_user_id = $2",
+      [hubId, input.productUserId]
+    );
+    if (isHubMember.rows.length > 0) return "hub_member";
+  }
+
+  return "visitor";
+}
+
+/**
+ * Resolve the access level for a tier on a given resource, walking the
+ * Hub→Space→Room cascade. A channel-level rule wins over the server-
+ * level rule for the same tier; in the absence of any rule, fall back
+ * to the conservative default (visitors hidden, members chat).
+ *
+ * Hubs don't yet have a rules table; the per-hub override surface is
+ * deferred. Hub-level lockout is enforced upstream of access
+ * resolution (login screen / public splash).
+ */
+async function resolveAccessLevel(
+  db: Parameters<Parameters<typeof withDb>[0]>[0],
+  input: {
+    audienceTier: AudienceTier;
+    channelId: string | null;
+    serverId: string | null;
+  }
+): Promise<AccessLevel> {
+  if (input.channelId) {
+    const channelRule = await db.query<{ level: string }>(
+      "select level from channel_access_rules where channel_id = $1 and audience_tier = $2",
+      [input.channelId, input.audienceTier]
+    );
+    const rule = channelRule.rows[0]?.level;
+    if (rule) return rule as AccessLevel;
+  }
+  if (input.serverId) {
+    const serverRule = await db.query<{ level: string }>(
+      "select level from space_access_rules where server_id = $1 and audience_tier = $2",
+      [input.serverId, input.audienceTier]
+    );
+    const rule = serverRule.rows[0]?.level;
+    if (rule) return rule as AccessLevel;
+  }
+  return input.audienceTier === "visitor" ? "hidden" : "chat";
+}
+
 export function bindingAllowsAction(binding: RoleBinding, action: PrivilegedAction): boolean {
   return (permissionMatrix[binding.role] || []).includes(action);
 }
@@ -565,86 +659,26 @@ export async function isActionAllowed(input: {
       return isRoleAllowedByMatrix;
     }
 
-    // 3. Resolve user's "Relation" to the resource
-    // Precedence: Admin > Space Member > Hub Member > Visitor
-    let relation: "admin" | "space_member" | "hub_member" | "visitor" = "visitor";
-    if (isAdmin) {
-      relation = "admin";
-    } else {
-      // If masquerading, we MUST NOT check the database for actual membership
-      // because the user is specifically trying to emulate a different profile.
-      if (isMasquerading) {
-         // In masquerade mode, if you aren't an admin, you fall back to visitor
-         // unless we implement "masquerade as member" which isn't currently in the payload.
-         // For now, most masquerades are "Role" based.
-         relation = "visitor";
-      } else {
-        const isSpaceMember = await db.query(
-          "select 1 from server_members where server_id = $1 and product_user_id = $2",
-          [input.scope.serverId, input.productUserId]
-        );
-        if (isSpaceMember.rows.length > 0) {
-          relation = "space_member";
-        } else {
-          const hubId = input.scope.hubId || (await db.query<{ hub_id: string }>("select hub_id from servers where id = $1", [input.scope.serverId])).rows[0]?.hub_id;
-          if (hubId) {
-            const isHubMember = await db.query(
-              "select 1 from hub_members where hub_id = $1 and product_user_id = $2",
-              [hubId, input.productUserId]
-            );
-            if (isHubMember.rows.length > 0) {
-              relation = "hub_member";
-            }
-          }
-        }
-      }
-    }
+    // 3. Resolve user's audience tier (highest applicable).
+    //    P2.b expanded the ladder from {visitor, hub_member, space_member,
+    //    hub_admin} to also include space_admin and space_moderator.
+    const tier = await resolveAudienceTier(db, {
+      productUserId: input.productUserId,
+      scope: input.scope,
+      isMasquerading,
+      isHubAdmin: isAdmin,
+      bindings: roles
+    });
 
-    // 4. Fetch Resource Access Defaults
-    let hubAdminAccess: AccessLevel = "chat";
-    let spaceMemberAccess: AccessLevel = "chat";
-    let hubMemberAccess: AccessLevel = "chat";
-    let visitorAccess: AccessLevel = "hidden";
-
-    if (input.scope.channelId) {
-      const ch = await db.query<{
-        hub_admin_access: string;
-        space_member_access: string;
-        hub_member_access: string;
-        visitor_access: string;
-      }>(
-        "select hub_admin_access, space_member_access, hub_member_access, visitor_access from channels where id = $1",
-        [input.scope.channelId]
-      );
-      if (ch.rows[0]) {
-        hubAdminAccess = ch.rows[0].hub_admin_access as AccessLevel;
-        spaceMemberAccess = ch.rows[0].space_member_access as AccessLevel;
-        hubMemberAccess = ch.rows[0].hub_member_access as AccessLevel;
-        visitorAccess = ch.rows[0].visitor_access as AccessLevel;
-      }
-    } else {
-      const srv = await db.query<{
-        hub_admin_access: string;
-        space_member_access: string;
-        hub_member_access: string;
-        visitor_access: string;
-      }>(
-        "select hub_admin_access, space_member_access, hub_member_access, visitor_access from servers where id = $1",
-        [input.scope.serverId]
-      );
-      if (srv.rows[0]) {
-        hubAdminAccess = srv.rows[0].hub_admin_access as AccessLevel;
-        spaceMemberAccess = srv.rows[0].space_member_access as AccessLevel;
-        hubMemberAccess = srv.rows[0].hub_member_access as AccessLevel;
-        visitorAccess = srv.rows[0].visitor_access as AccessLevel;
-      }
-    }
-
-    // 5. Determine Base Access Level (from Role Default)
-    let userMaxAccess: AccessLevel = visitorAccess;
-    if (relation === "admin") userMaxAccess = hubAdminAccess;
-    else if (relation === "space_member") userMaxAccess = spaceMemberAccess;
-    else if (relation === "hub_member") userMaxAccess = hubMemberAccess;
+    // 4. Fetch the access level for this tier with Hub→Space→Room
+    //    cascade. The channel rule wins if present; otherwise the server
+    //    rule applies. Hubs do not yet have rule rows; the hub_admin tier
+    //    baseline is set per resource.
+    let userMaxAccess: AccessLevel = await resolveAccessLevel(db, {
+      audienceTier: tier,
+      channelId: input.scope.channelId ?? null,
+      serverId: input.scope.serverId ?? null
+    });
 
     // 6. Badge Overrides (Highest rank wins, Channel rules > Server rules)
     let badgeIds = [] as string[];
