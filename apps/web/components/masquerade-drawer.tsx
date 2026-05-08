@@ -15,16 +15,21 @@ const SERVER_ROLES: { value: Role; label: string; description: string }[] = [
   { value: "space_owner",     label: "Space Owner",     description: "Full server control: channels, badges, moderation." },
   { value: "space_admin",     label: "Space Admin",     description: "Same as Space Owner." },
   { value: "space_moderator", label: "Space Moderator", description: "Kick, ban, timeout, reports. No channel/badge management." },
-  { value: "user",            label: "Regular User",    description: "Basic member with no privileged actions." },
-  { value: "visitor",         label: "Visitor",         description: "Unauthenticated-equivalent access." },
 ];
+
+// "Member" and "Visitor" tiers used to be selectable here. P1 of the
+// permissions sprint removed them from the Role enum because they are
+// derived from membership state, not from granted role bindings. To
+// preview the Member experience, the operator should join the relevant
+// hub/server with a regular account; to preview the Visitor experience,
+// they should browse signed-out.
 
 function isHubRole(role: Role) {
   return role === "hub_owner" || role === "hub_admin";
 }
 
 function needsServer(role: Role) {
-  return !isHubRole(role) && role !== "visitor";
+  return !isHubRole(role);
 }
 
 export function MasqueradeDrawer() {
@@ -58,7 +63,7 @@ export function MasqueradeDrawer() {
 
   // When role changes to a hub role, clear server selection
   useEffect(() => {
-    if (isHubRole(role) || role === "visitor") {
+    if (isHubRole(role)) {
       setServerId("");
       setSelectedBadgeIds([]);
     }
@@ -88,9 +93,7 @@ export function MasqueradeDrawer() {
     return parts.join(" · ");
   }, [role, selectedServer, selectedBadgeIds]);
 
-  const canLaunch =
-    !submitting &&
-    (isHubRole(role) || role === "visitor" || (role === "user") || !!serverId);
+  const canLaunch = !submitting && (isHubRole(role) || !!serverId);
 
   const handleLaunch = async (e: React.FormEvent) => {
     e.preventDefault();

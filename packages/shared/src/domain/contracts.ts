@@ -2,7 +2,57 @@ import { z } from "zod";
 
 export type AccessLevel = "hidden" | "locked" | "read" | "chat";
 
-export type Role = "hub_owner" | "hub_admin" | "space_owner" | "space_admin" | "space_moderator" | "user" | "visitor";
+/**
+ * Audience tiers used by the normalized space/channel access rules
+ * (see migration 036). Storage is in `space_access_rules` and
+ * `channel_access_rules`, keyed on `(resource_id, audience_tier)`.
+ *
+ * Tiers represent *who* a rule applies to:
+ *   - `visitor`         — no membership row and no granted role.
+ *   - `hub_member`      — a row in `hub_members`; not in this server's
+ *                         `server_members`.
+ *   - `space_member`    — a row in `server_members` for this server.
+ *   - `space_moderator` — explicit `space_moderator` role binding.
+ *   - `space_admin`     — explicit `space_admin` role binding;
+ *                         `space_owner` inherits.
+ *   - `hub_admin`       — explicit `hub_admin` role binding;
+ *                         `hub_owner` inherits.
+ *
+ * Each user resolves to their HIGHEST tier when access is computed
+ * (admins outrank members, members outrank visitors).
+ */
+export type AudienceTier =
+    | "visitor"
+    | "hub_member"
+    | "space_member"
+    | "space_moderator"
+    | "space_admin"
+    | "hub_admin";
+
+export const AUDIENCE_TIERS: ReadonlyArray<AudienceTier> = [
+    "visitor",
+    "hub_member",
+    "space_member",
+    "space_moderator",
+    "space_admin",
+    "hub_admin"
+];
+
+export interface AccessRule {
+    audienceTier: AudienceTier;
+    level: AccessLevel;
+}
+
+/**
+ * Granted roles. `Role` values are explicitly assigned via `role_bindings`.
+ *
+ * Historic note (P1 of permissions sprint, 2026-05-07): `user` and `visitor`
+ * were removed. They were tier *classifiers* derived from membership state,
+ * not roles. Hub Member = a row in `hub_members`. Visitor = no membership
+ * row and no granted role. Code that needs to identify those tiers reads
+ * from membership tables, not from `Role`.
+ */
+export type Role = "hub_owner" | "hub_admin" | "space_owner" | "space_admin" | "space_moderator";
 
 
 export interface MasqueradeParams {
@@ -12,7 +62,7 @@ export interface MasqueradeParams {
 }
 
 export const MasqueradeParamsSchema = z.object({
-    role: z.enum(["hub_owner", "hub_admin", "space_owner", "space_admin", "space_moderator", "user", "visitor"]),
+    role: z.enum(["hub_owner", "hub_admin", "space_owner", "space_admin", "space_moderator"]),
     serverId: z.string().optional(),
     badgeIds: z.array(z.string()).optional()
 });
@@ -141,13 +191,22 @@ export interface Server {
     type: "default" | "dm";
     matrixSpaceId: string | null;
     createdByUserId: string;
-    ownerUserId: string;
+    /**
+     * Explicit space owner. `null` means the space is owned by the hub
+     * itself — any hub manager may manage it, no individual user holds
+     * the owner role. P3 of the permissions sprint (2026-05-08) made
+     * this the default for newly-created spaces.
+     */
+    ownerUserId: string | null;
     startingChannelId?: string | null;
     iconUrl?: string | null;
     hubAdminAccess: AccessLevel;
     spaceMemberAccess: AccessLevel;
     hubMemberAccess: AccessLevel;
     visitorAccess: AccessLevel;
+    /** P2.b: optional access for the new audience tiers. Default 'chat'. */
+    spaceAdminAccess?: AccessLevel;
+    spaceModeratorAccess?: AccessLevel;
     autoJoinHubMembers: boolean;
     joinPolicy: JoinPolicy;
     theme?: Record<string, any>;
@@ -181,6 +240,9 @@ export interface Channel {
     spaceMemberAccess: AccessLevel;
     hubMemberAccess: AccessLevel;
     visitorAccess: AccessLevel;
+    /** P2.b: optional access for the new audience tiers. Default 'chat'. */
+    spaceAdminAccess?: AccessLevel;
+    spaceModeratorAccess?: AccessLevel;
     topic: string | null;
     iconUrl?: string | null;
     styleContent?: string | null;
@@ -323,12 +385,16 @@ export interface HubInvite {
 
 /**
  * Roles that are allowed to be baked into an invite link. Hub-level
- * ownership/admin roles and space_owner are intentionally excluded —
+ * ownership/admin roles and `space_owner` are intentionally excluded —
  * those should only be granted by a deliberate admin action, not via a
  * shareable URL.
+ *
+ * Note: an invite with no `defaultRole` simply grants hub membership
+ * (and optionally space membership via `defaultServerId`). The previous
+ * `"user"` option was redundant once `user` left the Role enum in the
+ * P1 permissions sprint — pass `defaultRole: null` instead.
  */
 export const INVITE_BAKEABLE_ROLES = [
-    "user",
     "space_moderator",
     "space_admin"
 ] as const satisfies ReadonlyArray<Role>;

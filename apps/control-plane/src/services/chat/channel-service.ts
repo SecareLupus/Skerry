@@ -29,7 +29,7 @@ export async function listChannels(
          order by ch.position asc, ch.created_at asc`,
         [serverId, productUserId]
       );
-      const channels = rows.rows.map(mapChannel);
+      const channels = rows.rows.map((row) => mapChannel(row));
 
       if (channels.length > 0) {
         const channelIds = channels.map(c => c.id);
@@ -72,16 +72,18 @@ export async function listChannels(
     const isAdminMasquerade = masqueradeRole && ['hub_owner', 'hub_admin', 'space_owner', 'space_admin'].includes(masqueradeRole);
     const badgeIds = isMasquerading ? (authContext?.masqueradeBadgeIds || []) : null;
 
+    // P2.cleanup: visibility predicates that used `ch.visitor_access`
+    // etc. now consult `channel_access_rules`. Behavior unchanged.
     const rows = await db.query<ChannelRow>(
-      `select ch.* 
+      `select ch.*
        from channels ch
        join servers s on s.id = ch.server_id
-       where ch.server_id = $1::text 
+       where ch.server_id = $1::text
          and (
-           ch.visitor_access != 'hidden'
+           exists (select 1 from channel_access_rules car where car.channel_id = ch.id and car.audience_tier = 'visitor' and car.level != 'hidden')
            or ($4::boolean = true)
            or (
-             ch.visitor_access = 'hidden' and (
+             exists (select 1 from channel_access_rules car where car.channel_id = ch.id and car.audience_tier = 'visitor' and car.level = 'hidden') and (
                -- Masquerade check
                ($3::boolean = true and (
                  exists (select 1 from channel_badge_rules cbr where cbr.channel_id = ch.id and cbr.badge_id = any($5::text[]) and cbr.access_level != 'hidden')
@@ -97,20 +99,33 @@ export async function listChannels(
            or ($3::boolean = false and s.owner_user_id = $2::text)
            or ($3::boolean = false and exists (select 1 from role_bindings where (server_id = $1::text or (hub_id = s.hub_id and hub_id is not null)) and product_user_id = $2::text and role in ('hub_owner', 'hub_admin', 'space_owner')))
            or ($3::boolean = false and exists (select 1 from channel_members where channel_id = ch.id and product_user_id = $2::text))
-           or (ch.hub_member_access != 'hidden' and $3::boolean = false and exists (select 1 from hub_members where hub_id = s.hub_id and product_user_id = $2::text))
-           or (ch.space_member_access != 'hidden' and $3::boolean = false and exists (select 1 from server_members where server_id = s.id and product_user_id = $2::text))
            or ($3::boolean = false and exists (
-             select 1 from space_admin_assignments saa 
-             where saa.server_id = s.id 
-               and saa.assigned_user_id = $2::text 
-               and saa.status = 'active' 
+             select 1 from channel_access_rules car
+             where car.channel_id = ch.id and car.audience_tier = 'hub_member' and car.level != 'hidden'
+               and exists (select 1 from hub_members where hub_id = s.hub_id and product_user_id = $2::text)
+           ))
+           or ($3::boolean = false and exists (
+             select 1 from channel_access_rules car
+             where car.channel_id = ch.id and car.audience_tier = 'space_member' and car.level != 'hidden'
+               and exists (select 1 from server_members where server_id = s.id and product_user_id = $2::text)
+           ))
+           or ($3::boolean = false and exists (
+             select 1 from space_admin_assignments saa
+             where saa.server_id = s.id
+               and saa.assigned_user_id = $2::text
+               and saa.status = 'active'
                and (saa.expires_at is null or saa.expires_at > now())
            ))
          )
        order by ch.position asc, ch.created_at asc`,
       [serverId, productUserId ?? null, isMasquerading, isAdminMasquerade, badgeIds]
     );
-    return rows.rows.map(mapChannel);
+
+    // Bulk-fetch the rules for all returned channels so each Channel
+    // response carries the per-tier access fields.
+    const { fetchChannelAccessRules } = await import("./server-service.js");
+    const rulesByChannel = await fetchChannelAccessRules(db, rows.rows.map((r) => r.id));
+    return rows.rows.map((row) => mapChannel(row, rulesByChannel.get(row.id)));
   });
 }
 
@@ -545,9 +560,12 @@ export async function getOrCreateDMChannel(hubId: string, productUserIds: string
     if (!dmServerId) {
       dmServerId = `srv_${crypto.randomUUID().replaceAll("-", "")}`;
       await db.query(
-        "insert into servers (id, hub_id, name, type, created_by_user_id, owner_user_id, visitor_access, auto_join_hub_members) values ($1, $2, $3, $4, $5, $6, 'hidden', false)",
+        "insert into servers (id, hub_id, name, type, created_by_user_id, owner_user_id, auto_join_hub_members) values ($1, $2, $3, $4, $5, $6, false)",
         [dmServerId, hubId, "Direct Messages", "dm", productUserIds[0], productUserIds[0]]
       );
+      // P2.cleanup: seed default access rules for the new DM server.
+      const { seedDefaultSpaceAccessRules } = await import("../provisioning-service.js");
+      await seedDefaultSpaceAccessRules(db, dmServerId);
     }
 
     const sortedUserIds = [...new Set(productUserIds)].sort();
@@ -595,9 +613,16 @@ export async function getOrCreateDMChannel(hubId: string, productUserIds: string
     const channelId = `chn_${crypto.randomUUID().replaceAll("-", "")}`;
     const name = `DM: ${sortedUserIds.length} members`;
     await db.query(
-      "insert into channels (id, server_id, name, type, topic, visitor_access) values ($1, $2, $3, 'dm', null, 'hidden')",
+      "insert into channels (id, server_id, name, type, topic) values ($1, $2, $3, 'dm', null)",
       [channelId, dmServerId, name]
     );
+    // P2.cleanup: seed access rules for the new DM channel
+    // (visitor='hidden', everyone else 'chat'). DMs are
+    // member-gated by the channel_members membership check
+    // upstream, so the rules are mostly inert but still need to
+    // exist for the resolver.
+    const { seedDefaultChannelAccessRules } = await import("../provisioning-service.js");
+    await seedDefaultChannelAccessRules(db, channelId, "hidden");
 
     for (const userId of sortedUserIds) {
       await db.query(

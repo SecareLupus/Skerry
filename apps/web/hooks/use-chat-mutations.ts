@@ -57,6 +57,7 @@ export function useChatMutations({
   // Local state for forms
   const [selectedHubIdForCreate, setSelectedHubIdForCreate] = useState<string | null>(null);
   const [spaceName, setSpaceName] = useState("New Space");
+  const [spaceOwnership, setSpaceOwnership] = useState<"hub" | "self">("hub");
   const [roomName, setRoomName] = useState("new-room");
   const [roomType, setRoomType] = useState<ChannelType>("text");
   const [roomIcon, setRoomIcon] = useState("");
@@ -100,9 +101,11 @@ export function useChatMutations({
     try {
       const server = await createServer({
         hubId: effectiveHubId,
-        name: spaceName.trim()
+        name: spaceName.trim(),
+        ownership: spaceOwnership
       });
       setSpaceName("New Space");
+      setSpaceOwnership("hub");
       dispatch({ type: "SET_ACTIVE_MODAL", payload: null });
       showToast("Space created successfully", "success");
       await refreshChatState(server.id, undefined, undefined, true);
@@ -395,6 +398,7 @@ export function useChatMutations({
 
   return {
     spaceName, setSpaceName,
+    spaceOwnership, setSpaceOwnership,
     roomName, setRoomName,
     roomType, setRoomType,
     roomIcon, setRoomIcon,

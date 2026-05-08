@@ -471,7 +471,11 @@ export async function sendTypingStatus(channelId: string, isTyping: boolean): Pr
   });
 }
 
-export async function createServer(input: { hubId: string; name: string }): Promise<Server> {
+export async function createServer(input: {
+  hubId: string;
+  name: string;
+  ownership?: "hub" | "self";
+}): Promise<Server> {
   return apiFetch<Server>("/v1/servers", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

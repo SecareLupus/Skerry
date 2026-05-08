@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { requireAuth, requireInitialized } from "../auth/middleware.js";
-import { canManageServer } from "../services/policy-service.js";
+import { canEditServerSettings } from "../services/policy-service.js";
 import {
   listWebhooks,
   createWebhook,
@@ -17,7 +17,7 @@ export async function registerWebhookRoutes(app: FastifyInstance): Promise<void>
 
   app.get("/v1/servers/:serverId/webhooks", initializedAuthHandlers, async (request) => {
     const params = z.object({ serverId: z.string().min(1) }).parse(request.params);
-    const allowed = await canManageServer({
+    const allowed = await canEditServerSettings({
       productUserId: request.auth!.productUserId,
       serverId: params.serverId,
       authContext: request.auth
@@ -45,7 +45,7 @@ export async function registerWebhookRoutes(app: FastifyInstance): Promise<void>
       return;
     }
 
-    const allowed = await canManageServer({
+    const allowed = await canEditServerSettings({
       productUserId: request.auth!.productUserId,
       serverId: channelRow.server_id,
       authContext: request.auth
@@ -62,7 +62,7 @@ export async function registerWebhookRoutes(app: FastifyInstance): Promise<void>
 
   app.delete("/v1/servers/:serverId/webhooks/:webhookId", initializedAuthHandlers, async (request, reply) => {
     const params = z.object({ serverId: z.string().min(1), webhookId: z.string().min(1) }).parse(request.params);
-    const allowed = await canManageServer({
+    const allowed = await canEditServerSettings({
       productUserId: request.auth!.productUserId,
       serverId: params.serverId,
       authContext: request.auth

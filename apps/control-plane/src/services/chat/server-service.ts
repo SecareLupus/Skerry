@@ -1,12 +1,83 @@
 import crypto from "node:crypto";
-import type { Server, HubInvite } from "@skerry/shared";
+import type { AccessLevel, AudienceTier, Server, HubInvite } from "@skerry/shared";
 import { withDb } from "../../db/client.js";
 import { ServerRow } from "./mapping-helpers.js";
 import type { ScopedAuthContext } from "../../auth/middleware.js";
 import { joinHub } from "../membership-service.js";
 
+type AccessRulesByResource = Map<string, Partial<Record<AudienceTier, AccessLevel>>>;
+
+/**
+ * Bulk-fetch space access rules for a list of server ids. Returns a
+ * Map keyed by `server_id` whose value is a partial record from
+ * audience_tier → level. Used to avoid N+1 queries when surfacing
+ * the legacy `*Access` fields on `Server` responses post-P2.cleanup.
+ */
+export async function fetchSpaceAccessRules(
+  db: { query: <T = unknown>(sql: string, params?: unknown[]) => Promise<{ rows: T[] }> },
+  serverIds: string[]
+): Promise<AccessRulesByResource> {
+  if (serverIds.length === 0) return new Map();
+  const res = await db.query<{ server_id: string; audience_tier: string; level: string }>(
+    `select server_id, audience_tier, level
+       from space_access_rules
+      where server_id = any($1::text[])`,
+    [serverIds]
+  );
+  const map: AccessRulesByResource = new Map();
+  for (const row of res.rows) {
+    let entry = map.get(row.server_id);
+    if (!entry) {
+      entry = {};
+      map.set(row.server_id, entry);
+    }
+    entry[row.audience_tier as AudienceTier] = row.level as AccessLevel;
+  }
+  return map;
+}
+
+/** Same shape as fetchSpaceAccessRules but for `channel_access_rules`. */
+export async function fetchChannelAccessRules(
+  db: { query: <T = unknown>(sql: string, params?: unknown[]) => Promise<{ rows: T[] }> },
+  channelIds: string[]
+): Promise<AccessRulesByResource> {
+  if (channelIds.length === 0) return new Map();
+  const res = await db.query<{ channel_id: string; audience_tier: string; level: string }>(
+    `select channel_id, audience_tier, level
+       from channel_access_rules
+      where channel_id = any($1::text[])`,
+    [channelIds]
+  );
+  const map: AccessRulesByResource = new Map();
+  for (const row of res.rows) {
+    let entry = map.get(row.channel_id);
+    if (!entry) {
+      entry = {};
+      map.set(row.channel_id, entry);
+    }
+    entry[row.audience_tier as AudienceTier] = row.level as AccessLevel;
+  }
+  return map;
+}
+
+const DEFAULT_LEVEL_BY_TIER: Record<AudienceTier, AccessLevel> = {
+  visitor: "hidden",
+  hub_member: "chat",
+  space_member: "chat",
+  space_moderator: "chat",
+  space_admin: "chat",
+  hub_admin: "chat"
+};
+
+function tierLevel(
+  rules: Partial<Record<AudienceTier, AccessLevel>> | undefined,
+  tier: AudienceTier
+): AccessLevel {
+  return rules?.[tier] ?? DEFAULT_LEVEL_BY_TIER[tier];
+}
+
 export async function listServers(
-  productUserId?: string, 
+  productUserId?: string,
   hubId?: string,
   authContext?: ScopedAuthContext
 ): Promise<Server[]> {
@@ -16,37 +87,64 @@ export async function listServers(
     const isAdminMasquerade = masqueradeRole && ["hub_owner", "hub_admin", "space_owner", "space_admin"].includes(masqueradeRole);
     const badgeIds = isMasquerading ? (authContext?.masqueradeBadgeIds || []) : null;
 
-    let query = `select s.*, 
+    // P2.cleanup: visibility predicates that used to read `s.visitor_access`
+    // etc. now consult `space_access_rules` / `channel_access_rules`. The
+    // shape of the predicate is unchanged — only the source.
+    let query = `select s.*,
               (exists (select 1 from server_members where server_id = s.id and product_user_id = $1::text)) as is_member
        from servers s
        where (s.type = 'dm'
           or ($2::boolean = false and s.owner_user_id = $1::text)
           or ($3::boolean = true)
           or ($2::boolean = false and exists (select 1 from role_bindings where (hub_id = s.hub_id or hub_id is null) and product_user_id = $1::text and role in ('hub_owner', 'hub_admin')))
-          or (s.space_member_access != 'hidden' and $2::boolean = false and exists (select 1 from server_members where server_id = s.id and product_user_id = $1::text))
-          or (s.hub_member_access != 'hidden' and $2::boolean = false and exists (select 1 from hub_members where hub_id = s.hub_id and product_user_id = $1::text))
-          or (s.visitor_access != 'hidden')
-          or (s.visitor_access = 'hidden' and (
-              ($2::boolean = true and exists (select 1 from server_badge_rules sbr where sbr.server_id = s.id and sbr.badge_id = any($4::text[]) and sbr.access_level != 'hidden'))
-              or ($2::boolean = false and exists (select 1 from server_badge_rules sbr join user_badges ub on ub.badge_id = sbr.badge_id where sbr.server_id = s.id and ub.product_user_id = $1::text and sbr.access_level != 'hidden'))
-          ))
-          or exists (select 1 from channels c where c.server_id = s.id and (
-              c.visitor_access != 'hidden' 
-              or (c.visitor_access = 'hidden' and (
-                  ($2::boolean = true and exists (select 1 from channel_badge_rules cbr where cbr.channel_id = c.id and cbr.badge_id = any($4::text[]) and cbr.access_level != 'hidden'))
-                  or ($2::boolean = false and exists (select 1 from channel_badge_rules cbr join user_badges ub on ub.badge_id = cbr.badge_id where cbr.channel_id = c.id and ub.product_user_id = $1::text and cbr.access_level != 'hidden'))
-              ))
-              or (c.hub_member_access != 'hidden' and $2::boolean = false and exists (select 1 from hub_members where hub_id = s.hub_id and product_user_id = $1::text))
-              or (c.space_member_access != 'hidden' and $2::boolean = false and exists (select 1 from server_members where server_id = s.id and product_user_id = $1::text))
+          or ($2::boolean = false and exists (
+            select 1 from space_access_rules sar
+            where sar.server_id = s.id and sar.audience_tier = 'space_member' and sar.level != 'hidden'
+              and exists (select 1 from server_members where server_id = s.id and product_user_id = $1::text)
           ))
           or ($2::boolean = false and exists (
-            select 1 from space_admin_assignments saa 
-            where saa.server_id = s.id 
-              and saa.assigned_user_id = $1::text 
-              and saa.status = 'active' 
+            select 1 from space_access_rules sar
+            where sar.server_id = s.id and sar.audience_tier = 'hub_member' and sar.level != 'hidden'
+              and exists (select 1 from hub_members where hub_id = s.hub_id and product_user_id = $1::text)
+          ))
+          or exists (select 1 from space_access_rules sar where sar.server_id = s.id and sar.audience_tier = 'visitor' and sar.level != 'hidden')
+          or exists (
+              select 1 from space_access_rules sar
+              where sar.server_id = s.id and sar.audience_tier = 'visitor' and sar.level = 'hidden'
+                and (
+                  ($2::boolean = true and exists (select 1 from server_badge_rules sbr where sbr.server_id = s.id and sbr.badge_id = any($4::text[]) and sbr.access_level != 'hidden'))
+                  or ($2::boolean = false and exists (select 1 from server_badge_rules sbr join user_badges ub on ub.badge_id = sbr.badge_id where sbr.server_id = s.id and ub.product_user_id = $1::text and sbr.access_level != 'hidden'))
+                )
+          )
+          or exists (select 1 from channels c where c.server_id = s.id and (
+              exists (select 1 from channel_access_rules car where car.channel_id = c.id and car.audience_tier = 'visitor' and car.level != 'hidden')
+              or exists (
+                  select 1 from channel_access_rules car
+                  where car.channel_id = c.id and car.audience_tier = 'visitor' and car.level = 'hidden'
+                    and (
+                      ($2::boolean = true and exists (select 1 from channel_badge_rules cbr where cbr.channel_id = c.id and cbr.badge_id = any($4::text[]) and cbr.access_level != 'hidden'))
+                      or ($2::boolean = false and exists (select 1 from channel_badge_rules cbr join user_badges ub on ub.badge_id = cbr.badge_id where cbr.channel_id = c.id and ub.product_user_id = $1::text and cbr.access_level != 'hidden'))
+                    )
+              )
+              or ($2::boolean = false and exists (
+                  select 1 from channel_access_rules car
+                  where car.channel_id = c.id and car.audience_tier = 'hub_member' and car.level != 'hidden'
+                    and exists (select 1 from hub_members where hub_id = s.hub_id and product_user_id = $1::text)
+              ))
+              or ($2::boolean = false and exists (
+                  select 1 from channel_access_rules car
+                  where car.channel_id = c.id and car.audience_tier = 'space_member' and car.level != 'hidden'
+                    and exists (select 1 from server_members where server_id = s.id and product_user_id = $1::text)
+              ))
+          ))
+          or ($2::boolean = false and exists (
+            select 1 from space_admin_assignments saa
+            where saa.server_id = s.id
+              and saa.assigned_user_id = $1::text
+              and saa.status = 'active'
               and (saa.expires_at is null or saa.expires_at > now())
           )))`;
-          
+
     const params: any[] = [productUserId, isMasquerading, isAdminMasquerade, badgeIds];
     if (hubId) {
       query += ` and s.hub_id = $5::text`;
@@ -54,25 +152,31 @@ export async function listServers(
     }
 
     const rows = await db.query<ServerRow>(query + ` order by s.created_at asc`, params);
+    const rulesByServer = await fetchSpaceAccessRules(db, rows.rows.map((r) => r.id));
 
-    return rows.rows.map((row) => ({
-      id: row.id,
-      hubId: row.hub_id,
-      name: row.name,
-      type: row.type || "default",
-      matrixSpaceId: row.matrix_space_id,
-      iconUrl: row.icon_url,
-      hubAdminAccess: row.hub_admin_access as any,
-      spaceMemberAccess: row.space_member_access as any,
-      hubMemberAccess: row.hub_member_access as any,
-      visitorAccess: row.visitor_access as any,
-      autoJoinHubMembers: row.auto_join_hub_members,
-      createdByUserId: row.created_by_user_id,
-      ownerUserId: row.owner_user_id,
-      createdAt: row.created_at,
-      isMember: row.is_member,
-      joinPolicy: row.join_policy as any
-    }));
+    return rows.rows.map((row) => {
+      const rules = rulesByServer.get(row.id);
+      return {
+        id: row.id,
+        hubId: row.hub_id,
+        name: row.name,
+        type: row.type || "default",
+        matrixSpaceId: row.matrix_space_id,
+        iconUrl: row.icon_url,
+        hubAdminAccess: tierLevel(rules, "hub_admin"),
+        spaceAdminAccess: tierLevel(rules, "space_admin"),
+        spaceModeratorAccess: tierLevel(rules, "space_moderator"),
+        spaceMemberAccess: tierLevel(rules, "space_member"),
+        hubMemberAccess: tierLevel(rules, "hub_member"),
+        visitorAccess: tierLevel(rules, "visitor"),
+        autoJoinHubMembers: row.auto_join_hub_members,
+        createdByUserId: row.created_by_user_id,
+        ownerUserId: row.owner_user_id,
+        createdAt: row.created_at,
+        isMember: row.is_member,
+        joinPolicy: row.join_policy as any
+      };
+    });
   });
 }
 
@@ -91,6 +195,9 @@ export async function renameServer(input: { serverId: string; name: string }): P
       throw new Error("Server not found.");
     }
 
+    const rulesByServer = await fetchSpaceAccessRules(db, [value.id]);
+    const rules = rulesByServer.get(value.id);
+
     return {
       id: value.id,
       hubId: value.hub_id,
@@ -98,10 +205,12 @@ export async function renameServer(input: { serverId: string; name: string }): P
       type: value.type,
       matrixSpaceId: value.matrix_space_id,
       iconUrl: value.icon_url,
-      hubAdminAccess: value.hub_admin_access as any,
-      spaceMemberAccess: value.space_member_access as any,
-      hubMemberAccess: value.hub_member_access as any,
-      visitorAccess: value.visitor_access as any,
+      hubAdminAccess: tierLevel(rules, "hub_admin"),
+      spaceAdminAccess: tierLevel(rules, "space_admin"),
+      spaceModeratorAccess: tierLevel(rules, "space_moderator"),
+      spaceMemberAccess: tierLevel(rules, "space_member"),
+      hubMemberAccess: tierLevel(rules, "hub_member"),
+      visitorAccess: tierLevel(rules, "visitor"),
       autoJoinHubMembers: value.auto_join_hub_members,
       createdByUserId: value.created_by_user_id,
       ownerUserId: value.owner_user_id,
@@ -392,50 +501,57 @@ export async function useHubInvite(input: { inviteId: string; productUserId: str
       throw new Error("Invite reached max uses");
     }
 
-    const role = invite.defaultRole ?? "user";
-    const isSpaceScopedRole = role.startsWith("space_");
-    const serverIdForBinding = isSpaceScopedRole ? invite.defaultServerId : null;
+    // Permissions sprint P1: a redeemer no longer gets an automatic
+    // role='user' binding. Plain hub membership (the `joinHub` call below)
+    // is sufficient for "Member" tier. Only an explicitly-set
+    // `defaultRole` (space_moderator | space_admin) writes a binding.
+    const role = invite.defaultRole;
+    if (role) {
+      const isSpaceScopedRole = role.startsWith("space_");
+      const serverIdForBinding = isSpaceScopedRole ? invite.defaultServerId : null;
 
-    // Idempotent role binding insert. The `role_bindings_natural_key` unique
-    // index added in migration 033 makes the conflict target meaningful: a
-    // user re-redeeming the same invite gets exactly one binding, not N.
-    const bindingRes = await db.query<{ id: string }>(
-      `insert into role_bindings (id, product_user_id, role, hub_id, server_id)
-       values ($1, $2, $3, $4, $5)
-       on conflict (product_user_id, role,
-                    coalesce(hub_id, ''),
-                    coalesce(server_id, ''),
-                    coalesce(channel_id, ''))
-       do nothing
-       returning id`,
-      [
-        `rb_${crypto.randomUUID().replaceAll("-", "")}`,
-        input.productUserId,
-        role,
-        invite.hubId,
-        serverIdForBinding
-      ]
-    );
-
-    // Audit only if a new binding actually landed. The inviter (created_by)
-    // is the actor of record — the redeemer is the target. This matches the
-    // shape of explicit /v1/roles/grant audit entries so downstream tooling
-    // doesn't need to special-case invite-driven grants.
-    if (bindingRes.rowCount && bindingRes.rowCount > 0) {
-      await db.query(
-        `insert into role_assignment_audit_logs
-           (id, actor_user_id, target_user_id, role, hub_id, server_id, channel_id, outcome, reason)
-         values ($1, $2, $3, $4, $5, $6, null, 'granted', $7)`,
+      // Idempotent role binding insert. The `role_bindings_natural_key`
+      // unique index added in migration 033 makes the conflict target
+      // meaningful: a user re-redeeming the same invite gets exactly one
+      // binding, not N.
+      const bindingRes = await db.query<{ id: string }>(
+        `insert into role_bindings (id, product_user_id, role, hub_id, server_id)
+         values ($1, $2, $3, $4, $5)
+         on conflict (product_user_id, role,
+                      coalesce(hub_id, ''),
+                      coalesce(server_id, ''),
+                      coalesce(channel_id, ''))
+         do nothing
+         returning id`,
         [
-          `raal_${crypto.randomUUID().replaceAll("-", "")}`,
-          invite.createdByUserId,
+          `rb_${crypto.randomUUID().replaceAll("-", "")}`,
           input.productUserId,
           role,
           invite.hubId,
-          serverIdForBinding,
-          `invite ${invite.id}`
+          serverIdForBinding
         ]
       );
+
+      // Audit only if a new binding actually landed. Inviter is actor;
+      // redeemer is target. Same shape as explicit /v1/roles/grant audit
+      // entries so downstream tooling doesn't need to special-case
+      // invite-driven grants.
+      if (bindingRes.rowCount && bindingRes.rowCount > 0) {
+        await db.query(
+          `insert into role_assignment_audit_logs
+             (id, actor_user_id, target_user_id, role, hub_id, server_id, channel_id, outcome, reason)
+           values ($1, $2, $3, $4, $5, $6, null, 'granted', $7)`,
+          [
+            `raal_${crypto.randomUUID().replaceAll("-", "")}`,
+            invite.createdByUserId,
+            input.productUserId,
+            role,
+            invite.hubId,
+            serverIdForBinding,
+            `invite ${invite.id}`
+          ]
+        );
+      }
     }
 
     // Apply default badges. NB: `user_badges` has a unique

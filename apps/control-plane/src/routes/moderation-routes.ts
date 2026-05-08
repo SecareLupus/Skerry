@@ -3,7 +3,7 @@ import { z } from "zod";
 import { requireAuth, requireInitialized } from "../auth/middleware.js";
 import {
   isActionAllowed,
-  canManageServer,
+  canModerateServer,
   grantRole
 } from "../services/policy-service.js";
 import {
@@ -22,7 +22,7 @@ export async function registerModerationRoutes(app: FastifyInstance): Promise<vo
     const payload = z
       .object({
         productUserId: z.string().min(1),
-        role: z.enum(["hub_admin", "space_admin", "space_moderator", "user"]),
+        role: z.enum(["hub_admin", "space_admin", "space_moderator"]),
         hubId: z.string().optional(),
         serverId: z.string().optional(),
         channelId: z.string().optional()
@@ -138,7 +138,7 @@ export async function registerModerationRoutes(app: FastifyInstance): Promise<vo
       timeoutSeconds: z.number().int().min(1).optional()
     }).parse(request.body);
 
-    const allowed = await canManageServer({
+    const allowed = await canModerateServer({
       productUserId: request.auth!.productUserId,
       serverId: params.serverId,
       authContext: request.auth

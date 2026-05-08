@@ -259,14 +259,15 @@ test("hub invite list excludes revoked invites; revoke 404s the public lookup bu
     assert.notEqual(lateRes.statusCode, 200);
     assert.notEqual(lateRes.statusCode, 204);
 
-    // Original redeemer kept their binding.
-    const rb = await pool.query<{ count: string }>(
+    // Original redeemer kept their hub membership. (P1: a redemption with
+    // no defaultRole writes hub_members, not role_bindings.)
+    const hm = await pool.query<{ count: string }>(
       `select count(*)::text as count
-         from role_bindings
+         from hub_members
         where product_user_id = $1 and hub_id = $2`,
       [redeemer.productUserId, hubId]
     );
-    assert.equal(rb.rows[0]?.count, "1");
+    assert.equal(hm.rows[0]?.count, "1");
   } finally {
     await app.close();
   }
@@ -278,13 +279,17 @@ test("redeeming the same invite twice is idempotent (one role binding, one audit
 
   const app = await buildApp();
   try {
-    const { adminCookie, hubId } = await bootstrap(app);
+    const { adminCookie, hubId, defaultServerId } = await bootstrap(app);
 
+    // Use a space_moderator invite so we exercise BOTH the hub_members
+    // path and the role_bindings path. A no-defaultRole invite would
+    // only test hub_members idempotency since P1 (no role binding is
+    // written for plain "member" redemptions).
     const createRes = await app.inject({
       method: "POST",
       url: `/v1/hubs/${hubId}/invites`,
       headers: { cookie: adminCookie },
-      payload: {}
+      payload: { defaultRole: "space_moderator", defaultServerId }
     });
     const invite = createRes.json() as { id: string };
 
@@ -313,10 +318,18 @@ test("redeeming the same invite twice is idempotent (one role binding, one audit
       );
     }
 
+    const hm = await pool.query<{ count: string }>(
+      `select count(*)::text as count
+         from hub_members
+        where product_user_id = $1 and hub_id = $2`,
+      [user.productUserId, hubId]
+    );
+    assert.equal(hm.rows[0]?.count, "1", "expected exactly one hub_members row after double redemption");
+
     const rb = await pool.query<{ count: string }>(
       `select count(*)::text as count
          from role_bindings
-        where product_user_id = $1 and hub_id = $2 and role = 'user'`,
+        where product_user_id = $1 and hub_id = $2 and role = 'space_moderator'`,
       [user.productUserId, hubId]
     );
     assert.equal(rb.rows[0]?.count, "1", "expected exactly one role binding after double redemption");
@@ -324,7 +337,7 @@ test("redeeming the same invite twice is idempotent (one role binding, one audit
     const audit = await pool.query<{ count: string }>(
       `select count(*)::text as count
          from role_assignment_audit_logs
-        where target_user_id = $1 and hub_id = $2 and role = 'user'`,
+        where target_user_id = $1 and hub_id = $2 and role = 'space_moderator'`,
       [user.productUserId, hubId]
     );
     assert.equal(audit.rows[0]?.count, "1", "expected exactly one audit log after double redemption");

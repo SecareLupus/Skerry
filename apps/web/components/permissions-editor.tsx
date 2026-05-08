@@ -12,14 +12,20 @@ interface PermissionsEditorProps {
         spaceMemberAccess: AccessLevel;
         hubMemberAccess: AccessLevel;
         visitorAccess: AccessLevel;
+        spaceAdminAccess?: AccessLevel;
+        spaceModeratorAccess?: AccessLevel;
         joinPolicy?: JoinPolicy;
+        autoJoinHubMembers?: boolean;
     };
     onSaveDefaults: (access: {
         hubAdminAccess: AccessLevel;
         spaceMemberAccess: AccessLevel;
         hubMemberAccess: AccessLevel;
         visitorAccess: AccessLevel;
+        spaceAdminAccess?: AccessLevel;
+        spaceModeratorAccess?: AccessLevel;
         joinPolicy?: JoinPolicy;
+        autoJoinHubMembers?: boolean;
     }) => Promise<void>;
 }
 
@@ -85,15 +91,31 @@ export function PermissionsEditor({
                 <p className="muted">Set the default access level for each role.</p>
                 <div className="grid-form">
                     <label>Hub Admins</label>
-                    <select 
+                    <select
                         value={access.hubAdminAccess}
                         onChange={(e) => setAccess({ ...access, hubAdminAccess: e.target.value as AccessLevel })}
                     >
                         {ACCESS_LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
                     </select>
 
+                    <label>Space Admins</label>
+                    <select
+                        value={access.spaceAdminAccess ?? "chat"}
+                        onChange={(e) => setAccess({ ...access, spaceAdminAccess: e.target.value as AccessLevel })}
+                    >
+                        {ACCESS_LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
+                    </select>
+
+                    <label>Space Moderators</label>
+                    <select
+                        value={access.spaceModeratorAccess ?? "chat"}
+                        onChange={(e) => setAccess({ ...access, spaceModeratorAccess: e.target.value as AccessLevel })}
+                    >
+                        {ACCESS_LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
+                    </select>
+
                     <label>Space Members</label>
-                    <select 
+                    <select
                         value={access.spaceMemberAccess}
                         onChange={(e) => setAccess({ ...access, spaceMemberAccess: e.target.value as AccessLevel })}
                     >
@@ -101,7 +123,7 @@ export function PermissionsEditor({
                     </select>
 
                     <label>Hub Members</label>
-                    <select 
+                    <select
                         value={access.hubMemberAccess}
                         onChange={(e) => setAccess({ ...access, hubMemberAccess: e.target.value as AccessLevel })}
                     >
@@ -109,7 +131,7 @@ export function PermissionsEditor({
                     </select>
 
                     <label>Visitors</label>
-                    <select 
+                    <select
                         value={access.visitorAccess}
                         onChange={(e) => setAccess({ ...access, visitorAccess: e.target.value as AccessLevel })}
                     >
@@ -119,7 +141,7 @@ export function PermissionsEditor({
                     {!channelId && (
                         <>
                             <label>Join Policy</label>
-                            <select 
+                            <select
                                 value={access.joinPolicy || "open"}
                                 onChange={(e) => setAccess({ ...access, joinPolicy: e.target.value as JoinPolicy })}
                             >
@@ -127,6 +149,20 @@ export function PermissionsEditor({
                                 <option value="approval">Approval (Admins must approve)</option>
                                 <option value="invite">Invite Only (Explicit invite required)</option>
                             </select>
+
+                            <label htmlFor="auto-join-hub-members">Auto-join new hub members</label>
+                            <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                                <input
+                                    id="auto-join-hub-members"
+                                    type="checkbox"
+                                    checked={access.autoJoinHubMembers ?? false}
+                                    onChange={(e) => setAccess({ ...access, autoJoinHubMembers: e.target.checked })}
+                                />
+                                <span style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>
+                                    When enabled, anyone who joins the hub (via registration or
+                                    a hub-level invite) is automatically added to this space.
+                                </span>
+                            </div>
                         </>
                     )}
                 </div>

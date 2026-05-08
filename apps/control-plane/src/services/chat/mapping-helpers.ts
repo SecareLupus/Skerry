@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import type { Category, Channel, ChatMessage } from "@skerry/shared";
+import type { AccessLevel, AudienceTier, Category, Channel, ChatMessage } from "@skerry/shared";
 
 export function randomId(prefix: string): string {
   return `${prefix}_${crypto.randomUUID().replaceAll("-", "")}`;
@@ -29,10 +29,6 @@ export interface ChannelRow {
   name: string;
   type: Channel["type"];
   matrix_room_id: string | null;
-  hub_admin_access: string;
-  space_member_access: string;
-  hub_member_access: string;
-  visitor_access: string;
   is_locked: boolean;
   slow_mode_seconds: number;
   posting_restricted_to_roles: string[] | null;
@@ -93,10 +89,6 @@ export interface ServerRow {
   type: "default" | "dm";
   matrix_space_id: string | null;
   icon_url: string | null;
-  hub_admin_access: string;
-  space_member_access: string;
-  hub_member_access: string;
-  visitor_access: string;
   auto_join_hub_members: boolean;
   created_by_user_id: string;
   owner_user_id: string;
@@ -105,7 +97,34 @@ export interface ServerRow {
   join_policy: string;
 }
 
-export function mapChannel(row: ChannelRow): Channel {
+const DEFAULT_TIER_LEVELS: Record<AudienceTier, AccessLevel> = {
+  visitor: "hidden",
+  hub_member: "chat",
+  space_member: "chat",
+  space_moderator: "chat",
+  space_admin: "chat",
+  hub_admin: "chat"
+};
+
+/**
+ * P2.cleanup: the legacy `*_access` columns are gone. Channel/Server
+ * response objects still carry `hubAdminAccess` etc. for API
+ * back-compat — values are now sourced from `channel_access_rules` /
+ * `space_access_rules`. Callers that need accurate values pass the
+ * `rules` map; those that don't (e.g. realtime message payloads,
+ * message-history responses) get conservative defaults.
+ */
+export function tierLevelOrDefault(
+  rules: Partial<Record<AudienceTier, AccessLevel>> | undefined,
+  tier: AudienceTier
+): AccessLevel {
+  return rules?.[tier] ?? DEFAULT_TIER_LEVELS[tier];
+}
+
+export function mapChannel(
+  row: ChannelRow,
+  rules?: Partial<Record<AudienceTier, AccessLevel>>
+): Channel {
   return {
     id: row.id,
     serverId: row.server_id,
@@ -126,10 +145,12 @@ export function mapChannel(row: ChannelRow): Channel {
         }
         : null,
     position: row.position,
-    hubAdminAccess: row.hub_admin_access as any,
-    spaceMemberAccess: row.space_member_access as any,
-    hubMemberAccess: row.hub_member_access as any,
-    visitorAccess: row.visitor_access as any,
+    hubAdminAccess: tierLevelOrDefault(rules, "hub_admin"),
+    spaceAdminAccess: tierLevelOrDefault(rules, "space_admin"),
+    spaceModeratorAccess: tierLevelOrDefault(rules, "space_moderator"),
+    spaceMemberAccess: tierLevelOrDefault(rules, "space_member"),
+    hubMemberAccess: tierLevelOrDefault(rules, "hub_member"),
+    visitorAccess: tierLevelOrDefault(rules, "visitor"),
     topic: row.topic,
     iconUrl: row.icon_url,
     styleContent: row.style_content,

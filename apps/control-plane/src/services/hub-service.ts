@@ -71,8 +71,9 @@ export async function listHubsForUser(
       for (const row of owned.rows) {
         ownedHubIds.add(row.id);
       }
-      // A regular user (role='user') joins a hub via invite, which writes hub_members.
-      // listHubsForUser must include these so they can subscribe to the hub SSE stream.
+      // Anyone who joins a hub via invite (or registration) gets a
+      // `hub_members` row. listHubsForUser must include those so the
+      // member can subscribe to the hub SSE stream.
       const joined = await db.query<{ hub_id: string }>("select hub_id from hub_members where product_user_id = $1", [productUserId]);
       for (const row of joined.rows) {
         memberHubIds.add(row.hub_id);

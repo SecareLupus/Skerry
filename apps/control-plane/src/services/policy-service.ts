@@ -1,8 +1,25 @@
-import type { Role, PrivilegedAction, AccessLevel } from "@skerry/shared";
+import type { Role, PrivilegedAction, AccessLevel, AudienceTier } from "@skerry/shared";
 import { withDb } from "../db/client.js";
 import { expireSpaceOwnerAssignments } from "./delegation-service.js";
 import type { ScopedAuthContext } from "../auth/middleware.js";
 
+/**
+ * Privileged actions each granted role is allowed to perform.
+ *
+ * Note on `space_moderator` (P1 permissions sprint, 2026-05-07):
+ * moderators are intentionally limited to chat-cleanup actions
+ * (`moderation.*`, `reports.triage`, `audit.read`). They do **not**
+ * appear in `SERVER_MANAGER_ROLES` and they cannot edit server
+ * settings, manage rooms, or manage roles. P2 will split
+ * `canManageServer` into capability-specific gates so this boundary
+ * is enforced by name, not by the absence-from-set heuristic this
+ * file currently relies on.
+ *
+ * `user` and `visitor` are NOT roles. Hub Member = a row in
+ * `hub_members`. Visitor = no membership row and no granted role.
+ * The access-tier resolution in `isActionAllowed` consults
+ * `hub_members` / `server_members` directly for those tiers.
+ */
 export const permissionMatrix: Record<Role, PrivilegedAction[]> = {
   hub_owner: [
     "moderation.kick",
@@ -83,9 +100,7 @@ export const permissionMatrix: Record<Role, PrivilegedAction[]> = {
     "moderation.redact",
     "reports.triage",
     "audit.read"
-  ],
-  user: ["voice.token.issue"],
-  visitor: []
+  ]
 };
 
 export interface Scope {
@@ -104,13 +119,28 @@ interface RoleBinding {
 
 const HUB_MANAGER_ROLES: Role[] = ["hub_owner", "hub_admin"];
 const SERVER_MANAGER_ROLES: Role[] = ["hub_owner", "hub_admin", "space_owner", "space_admin"];
+/**
+ * Role set for chat-cleanup actions (kick/ban/timeout/etc.).
+ * `space_moderator` joins this set but is intentionally excluded from
+ * `SERVER_MANAGER_ROLES` — moderators don't edit settings, manage
+ * roles, or manage rooms. P2.a of the permissions sprint
+ * (2026-05-08) makes this boundary enforced by named capability
+ * gates instead of by absence-from-set.
+ */
+const SERVER_MODERATION_ROLES: Role[] = [
+  "hub_owner",
+  "hub_admin",
+  "space_owner",
+  "space_admin",
+  "space_moderator"
+];
 
 
 export async function fetchServerScope(
   db: Parameters<Parameters<typeof withDb>[0]>[0],
   serverId: string
-): Promise<{ hubId: string; ownerUserId: string } | null> {
-  const row = await db.query<{ hub_id: string; owner_user_id: string }>(
+): Promise<{ hubId: string; ownerUserId: string | null } | null> {
+  const row = await db.query<{ hub_id: string; owner_user_id: string | null }>(
     "select hub_id, owner_user_id from servers where id = $1 limit 1",
     [serverId]
   );
@@ -120,6 +150,9 @@ export async function fetchServerScope(
   }
   return {
     hubId: result.hub_id,
+    // null means hub-owned (P3, 2026-05-08): the space carries no
+    // explicit owner; hub managers handle management. Owner-equality
+    // checks naturally fail for null, which is what we want.
     ownerUserId: result.owner_user_id
   };
 }
@@ -164,14 +197,13 @@ async function getEffectiveRoleBindings(
       }];
     }
     
-    // If it doesn't match the scope (e.g. masquerading as moderator of Server A but looking at Server B),
-    // they fall back to visitor/user level within that other scope.
-    return [{
-      role: "visitor",
-      hub_id: null,
-      server_id: null,
-      channel_id: null
-    }];
+    // If it doesn't match the scope (e.g. masquerading as moderator of
+    // Server A but looking at Server B), the masquerader falls back to
+    // visitor relation within the other scope. Since `visitor` is no
+    // longer a Role (it's an absence-of-role classifier), we return an
+    // empty array — the access-tier resolution downstream maps "no
+    // bindings" to `relation = 'visitor'`.
+    return [];
   }
 
   const rows = await db.query<RoleBinding>(
@@ -258,6 +290,100 @@ export function bindingMatchesScope(binding: RoleBinding, scope: Scope): boolean
   const serverMatches = !binding.server_id || !scope.serverId || binding.server_id === scope.serverId;
   const channelMatches = !binding.channel_id || !scope.channelId || binding.channel_id === scope.channelId;
   return hubMatches && serverMatches && channelMatches;
+}
+
+/**
+ * Pick the highest-applicable audience tier for `productUserId` against
+ * the given scope. P2.b expanded this from a 4-tier ladder
+ * (visitor/hub_member/space_member/admin) to the 6-tier ladder used by
+ * the normalized rules tables: hub_admin > space_admin > space_moderator
+ * > space_member > hub_member > visitor.
+ */
+async function resolveAudienceTier(
+  db: Parameters<Parameters<typeof withDb>[0]>[0],
+  input: {
+    productUserId: string;
+    scope: Scope;
+    isMasquerading: boolean;
+    isHubAdmin: boolean;
+    bindings: RoleBinding[];
+  }
+): Promise<AudienceTier> {
+  if (input.isHubAdmin) return "hub_admin";
+
+  const matchesServer = (b: RoleBinding) =>
+    bindingMatchesScope(b, { hubId: input.scope.hubId, serverId: input.scope.serverId });
+
+  if (input.bindings.some((b) => (b.role === "space_owner" || b.role === "space_admin") && matchesServer(b))) {
+    return "space_admin";
+  }
+  if (input.bindings.some((b) => b.role === "space_moderator" && matchesServer(b))) {
+    return "space_moderator";
+  }
+
+  // Membership-driven tiers don't apply to masquerade sessions — those
+  // are role-defined and shouldn't pick up real DB membership.
+  if (input.isMasquerading) return "visitor";
+
+  if (input.scope.serverId) {
+    const isSpaceMember = await db.query(
+      "select 1 from server_members where server_id = $1 and product_user_id = $2",
+      [input.scope.serverId, input.productUserId]
+    );
+    if (isSpaceMember.rows.length > 0) return "space_member";
+  }
+
+  const hubId =
+    input.scope.hubId ??
+    (input.scope.serverId
+      ? (await db.query<{ hub_id: string }>("select hub_id from servers where id = $1", [input.scope.serverId])).rows[0]?.hub_id
+      : undefined);
+  if (hubId) {
+    const isHubMember = await db.query(
+      "select 1 from hub_members where hub_id = $1 and product_user_id = $2",
+      [hubId, input.productUserId]
+    );
+    if (isHubMember.rows.length > 0) return "hub_member";
+  }
+
+  return "visitor";
+}
+
+/**
+ * Resolve the access level for a tier on a given resource, walking the
+ * Hub→Space→Room cascade. A channel-level rule wins over the server-
+ * level rule for the same tier; in the absence of any rule, fall back
+ * to the conservative default (visitors hidden, members chat).
+ *
+ * Hubs don't yet have a rules table; the per-hub override surface is
+ * deferred. Hub-level lockout is enforced upstream of access
+ * resolution (login screen / public splash).
+ */
+async function resolveAccessLevel(
+  db: Parameters<Parameters<typeof withDb>[0]>[0],
+  input: {
+    audienceTier: AudienceTier;
+    channelId: string | null;
+    serverId: string | null;
+  }
+): Promise<AccessLevel> {
+  if (input.channelId) {
+    const channelRule = await db.query<{ level: string }>(
+      "select level from channel_access_rules where channel_id = $1 and audience_tier = $2",
+      [input.channelId, input.audienceTier]
+    );
+    const rule = channelRule.rows[0]?.level;
+    if (rule) return rule as AccessLevel;
+  }
+  if (input.serverId) {
+    const serverRule = await db.query<{ level: string }>(
+      "select level from space_access_rules where server_id = $1 and audience_tier = $2",
+      [input.serverId, input.audienceTier]
+    );
+    const rule = serverRule.rows[0]?.level;
+    if (rule) return rule as AccessLevel;
+  }
+  return input.audienceTier === "visitor" ? "hidden" : "chat";
 }
 
 export function bindingAllowsAction(binding: RoleBinding, action: PrivilegedAction): boolean {
@@ -439,12 +565,10 @@ async function authorizeRoleGrant(input: {
       actorCanAssign.add("space_owner");
       actorCanAssign.add("space_admin");
       actorCanAssign.add("space_moderator");
-      actorCanAssign.add("user");
       continue;
     }
     if (binding.role === "space_owner" || binding.role === "space_admin") {
       actorCanAssign.add("space_moderator");
-      actorCanAssign.add("user");
       // Space Owners/Admins can assign "space_admin" to others to delegate administration
       actorCanAssign.add("space_admin");
     }
@@ -535,86 +659,26 @@ export async function isActionAllowed(input: {
       return isRoleAllowedByMatrix;
     }
 
-    // 3. Resolve user's "Relation" to the resource
-    // Precedence: Admin > Space Member > Hub Member > Visitor
-    let relation: "admin" | "space_member" | "hub_member" | "visitor" = "visitor";
-    if (isAdmin) {
-      relation = "admin";
-    } else {
-      // If masquerading, we MUST NOT check the database for actual membership
-      // because the user is specifically trying to emulate a different profile.
-      if (isMasquerading) {
-         // In masquerade mode, if you aren't an admin, you fall back to visitor
-         // unless we implement "masquerade as member" which isn't currently in the payload.
-         // For now, most masquerades are "Role" based.
-         relation = "visitor";
-      } else {
-        const isSpaceMember = await db.query(
-          "select 1 from server_members where server_id = $1 and product_user_id = $2",
-          [input.scope.serverId, input.productUserId]
-        );
-        if (isSpaceMember.rows.length > 0) {
-          relation = "space_member";
-        } else {
-          const hubId = input.scope.hubId || (await db.query<{ hub_id: string }>("select hub_id from servers where id = $1", [input.scope.serverId])).rows[0]?.hub_id;
-          if (hubId) {
-            const isHubMember = await db.query(
-              "select 1 from hub_members where hub_id = $1 and product_user_id = $2",
-              [hubId, input.productUserId]
-            );
-            if (isHubMember.rows.length > 0) {
-              relation = "hub_member";
-            }
-          }
-        }
-      }
-    }
+    // 3. Resolve user's audience tier (highest applicable).
+    //    P2.b expanded the ladder from {visitor, hub_member, space_member,
+    //    hub_admin} to also include space_admin and space_moderator.
+    const tier = await resolveAudienceTier(db, {
+      productUserId: input.productUserId,
+      scope: input.scope,
+      isMasquerading,
+      isHubAdmin: isAdmin,
+      bindings: roles
+    });
 
-    // 4. Fetch Resource Access Defaults
-    let hubAdminAccess: AccessLevel = "chat";
-    let spaceMemberAccess: AccessLevel = "chat";
-    let hubMemberAccess: AccessLevel = "chat";
-    let visitorAccess: AccessLevel = "hidden";
-
-    if (input.scope.channelId) {
-      const ch = await db.query<{
-        hub_admin_access: string;
-        space_member_access: string;
-        hub_member_access: string;
-        visitor_access: string;
-      }>(
-        "select hub_admin_access, space_member_access, hub_member_access, visitor_access from channels where id = $1",
-        [input.scope.channelId]
-      );
-      if (ch.rows[0]) {
-        hubAdminAccess = ch.rows[0].hub_admin_access as AccessLevel;
-        spaceMemberAccess = ch.rows[0].space_member_access as AccessLevel;
-        hubMemberAccess = ch.rows[0].hub_member_access as AccessLevel;
-        visitorAccess = ch.rows[0].visitor_access as AccessLevel;
-      }
-    } else {
-      const srv = await db.query<{
-        hub_admin_access: string;
-        space_member_access: string;
-        hub_member_access: string;
-        visitor_access: string;
-      }>(
-        "select hub_admin_access, space_member_access, hub_member_access, visitor_access from servers where id = $1",
-        [input.scope.serverId]
-      );
-      if (srv.rows[0]) {
-        hubAdminAccess = srv.rows[0].hub_admin_access as AccessLevel;
-        spaceMemberAccess = srv.rows[0].space_member_access as AccessLevel;
-        hubMemberAccess = srv.rows[0].hub_member_access as AccessLevel;
-        visitorAccess = srv.rows[0].visitor_access as AccessLevel;
-      }
-    }
-
-    // 5. Determine Base Access Level (from Role Default)
-    let userMaxAccess: AccessLevel = visitorAccess;
-    if (relation === "admin") userMaxAccess = hubAdminAccess;
-    else if (relation === "space_member") userMaxAccess = spaceMemberAccess;
-    else if (relation === "hub_member") userMaxAccess = hubMemberAccess;
+    // 4. Fetch the access level for this tier with Hub→Space→Room
+    //    cascade. The channel rule wins if present; otherwise the server
+    //    rule applies. Hubs do not yet have rule rows; the hub_admin tier
+    //    baseline is set per resource.
+    let userMaxAccess: AccessLevel = await resolveAccessLevel(db, {
+      audienceTier: tier,
+      channelId: input.scope.channelId ?? null,
+      serverId: input.scope.serverId ?? null
+    });
 
     // 6. Badge Overrides (Highest rank wins, Channel rules > Server rules)
     let badgeIds = [] as string[];
@@ -790,11 +854,31 @@ export async function canManageHub(input: {
   });
 }
 
-export async function canManageServer(input: {
+interface ServerCapabilityInput {
   productUserId: string;
   serverId: string;
   authContext?: ScopedAuthContext;
-}): Promise<boolean> {
+}
+
+/**
+ * Shared evaluator for server-scoped capability gates. The four
+ * exported gates (`canModerateServer`, `canEditServerSettings`,
+ * `canManageServerRoles`, `canManageRooms`) differ only in which
+ * roles satisfy them.
+ *
+ * Special-case: when `allowedRoles` includes the manager set
+ * (settings/roles/rooms gates), an explicit `space_owner` on the
+ * server *or* an active space-owner delegation also satisfies the
+ * gate — these are owner-equivalent paths that pre-date the
+ * role_bindings model. Moderation alone (`canModerateServer`)
+ * doesn't need that shortcut because admins/owners are already in
+ * the role set.
+ */
+async function evaluateServerCapability(
+  input: ServerCapabilityInput,
+  allowedRoles: ReadonlyArray<Role>,
+  options: { ownerEquivalentShortcut: boolean } = { ownerEquivalentShortcut: true }
+): Promise<boolean> {
   const isMasquerading = Boolean(input.authContext?.isMasquerading);
 
   if (!isMasquerading) {
@@ -810,7 +894,7 @@ export async function canManageServer(input: {
       return false;
     }
 
-    if (!isMasquerading) {
+    if (!isMasquerading && options.ownerEquivalentShortcut) {
       if (serverRow.ownerUserId === input.productUserId) {
         return true;
       }
@@ -834,7 +918,7 @@ export async function canManageServer(input: {
 
     return rows.some(
       (binding) =>
-        SERVER_MANAGER_ROLES.includes(binding.role) &&
+        allowedRoles.includes(binding.role) &&
         bindingMatchesScope(binding, {
           hubId: serverRow.hubId,
           serverId: input.serverId
@@ -842,6 +926,61 @@ export async function canManageServer(input: {
     );
   });
 }
+
+/**
+ * Gate for chat-cleanup actions: kick, ban, timeout, warn, strike,
+ * redact, channel lock/unlock, slow mode, reports triage, audit
+ * read. Granted to hub managers, space owners/admins, and
+ * space_moderators.
+ */
+export function canModerateServer(input: ServerCapabilityInput): Promise<boolean> {
+  // Moderators don't get the owner-equivalent shortcut because they
+  // shouldn't be able to moderate solely by virtue of being the
+  // server's listed owner if the role-binding system would otherwise
+  // exclude them. In practice the manager set already covers
+  // owners/admins, so this is a no-op simplification — keeping it
+  // explicit for clarity.
+  return evaluateServerCapability(input, SERVER_MODERATION_ROLES, {
+    ownerEquivalentShortcut: true
+  });
+}
+
+/**
+ * Gate for editing server settings: rename the space, change icon,
+ * change starting channel, configure access tiers, change join
+ * policy, manage badges, etc. NOT granted to space_moderators.
+ */
+export function canEditServerSettings(input: ServerCapabilityInput): Promise<boolean> {
+  return evaluateServerCapability(input, SERVER_MANAGER_ROLES);
+}
+
+/**
+ * Gate for managing roles within the server: granting/revoking
+ * space_moderator/space_admin, transferring ownership, delegating
+ * space-owner duties. NOT granted to space_moderators.
+ */
+export function canManageServerRoles(input: ServerCapabilityInput): Promise<boolean> {
+  return evaluateServerCapability(input, SERVER_MANAGER_ROLES);
+}
+
+/**
+ * Gate for managing rooms within the server: create/rename/delete
+ * channels and categories, change channel settings, move channels
+ * between categories. NOT granted to space_moderators.
+ */
+export function canManageRooms(input: ServerCapabilityInput): Promise<boolean> {
+  return evaluateServerCapability(input, SERVER_MANAGER_ROLES);
+}
+
+/**
+ * @deprecated Use one of the named capability gates
+ * (`canModerateServer`, `canEditServerSettings`,
+ * `canManageServerRoles`, `canManageRooms`) instead. Kept as a thin
+ * alias for `canEditServerSettings` so any caller still using it
+ * gets the most-restrictive interpretation by default. Remove once
+ * no external callers remain.
+ */
+export const canManageServer = canEditServerSettings;
 
 export async function canManageDiscordBridge(input: {
   productUserId: string;

@@ -2,7 +2,6 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { requireAuth, requireInitialized } from "../auth/middleware.js";
 import {
-  canManageServer,
   canManageDiscordBridge
 } from "../services/policy-service.js";
 import {

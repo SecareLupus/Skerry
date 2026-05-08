@@ -101,16 +101,22 @@ export async function bootstrapWithMember(
     oidcSubject: `${prefix}_member`,
   });
 
-  await app.inject({
-    method: "POST",
-    url: "/v1/roles/grant",
-    headers: { cookie: base.adminCookie },
-    payload: {
-      productUserId: memberIdentity.productUserId,
-      role: "user",
-      serverId: base.defaultServerId,
-    },
-  });
+  // P1 of the permissions sprint removed `user` and `visitor` from the
+  // Role enum. "Regular member" is now expressed by membership rows
+  // (`hub_members` / `server_members`), not by a granted role. The
+  // pre-P1 grant call here was a silent no-op after P1 (would have
+  // 400'd from /v1/roles/grant); we now insert the equivalent
+  // membership rows directly.
+  if (pool) {
+    await pool.query(
+      "insert into hub_members (hub_id, product_user_id) values ($1, $2) on conflict do nothing",
+      [base.hubId, memberIdentity.productUserId]
+    );
+    await pool.query(
+      "insert into server_members (server_id, product_user_id) values ($1, $2) on conflict do nothing",
+      [base.defaultServerId, memberIdentity.productUserId]
+    );
+  }
 
   if (options.attachMatrixIds && pool) {
     await pool.query("update servers set matrix_space_id = $1 where id = $2", [

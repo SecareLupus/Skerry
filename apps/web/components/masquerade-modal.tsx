@@ -11,7 +11,7 @@ export function MasqueradeModal() {
   const { selectedServerId, servers, hubs } = state;
   const { showToast } = useToast();
 
-  const [role, setRole] = useState<Role>("user");
+  const [role, setRole] = useState<Role>("space_moderator");
   const [serverId, setServerId] = useState<string>(selectedServerId || "");
   const [availableBadges, setAvailableBadges] = useState<Badge[]>([]);
   const [selectedBadgeIds, setSelectedBadgeIds] = useState<string[]>([]);
@@ -82,14 +82,10 @@ export function MasqueradeModal() {
                 <option value="space_admin">⭐ Space Admin</option>
                 <option value="space_moderator">🛡️ Space Moderator</option>
               </optgroup>
-              <optgroup label="General">
-                <option value="user">👤 Regular User</option>
-                <option value="visitor">🌐 Visitor</option>
-              </optgroup>
             </select>
           </div>
 
-          {!isHubRole && role !== "visitor" && (
+          {!isHubRole && (
             <div className="field">
               <label>Target Server</label>
               <select value={serverId} onChange={(e) => setServerId(e.target.value)}>
@@ -102,6 +98,9 @@ export function MasqueradeModal() {
           )}
 
           {serverId && availableBadges.length > 0 && !isHubRole && (
+            // Member/Visitor previews removed in P1 (no longer in Role enum).
+            // Operators preview those tiers by browsing as a regular signed-in
+            // member or signed-out, respectively.
             <div className="field">
               <label>Server Badges</label>
               <div className="badge-grid">
@@ -124,7 +123,7 @@ export function MasqueradeModal() {
           </div>
 
           <div className="modal-actions">
-            <button type="submit" className="primary-button" disabled={submitting || (!isHubRole && role !== "visitor" && role !== "user" && !serverId)}>
+            <button type="submit" className="primary-button" disabled={submitting || (!isHubRole && !serverId)}>
               {submitting ? "Initiating..." : "Launch Masquerade"}
             </button>
             <button type="button" className="secondary-button" onClick={() => dispatch({ type: "SET_ACTIVE_MODAL", payload: null })}>

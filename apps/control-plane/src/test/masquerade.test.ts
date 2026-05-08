@@ -37,8 +37,12 @@ test("Masquerade: admin masquerading as user with badge can see hidden channel",
   await pool!.query("insert into hubs (id, name, owner_user_id) values ('hub_3', 'Badge Hub', $1)", [adminIdentity.productUserId]);
   await pool!.query("insert into servers (id, hub_id, name, created_by_user_id, owner_user_id) values ('srv_badge', 'hub_3', 'Badge Server', $1, $1)", [adminIdentity.productUserId]);
 
-  // Create a hidden channel
-  await pool!.query("insert into channels (id, server_id, name, type, visitor_access) values ('chn_hidden', 'srv_badge', 'top-secret', 'text', 'hidden')", []);
+  // Create a hidden channel (default visitor=hidden via seed helpers).
+  await pool!.query("insert into channels (id, server_id, name, type) values ('chn_hidden', 'srv_badge', 'top-secret', 'text')", []);
+  const { seedDefaultSpaceAccessRules: __seedSpace1, seedDefaultChannelAccessRules: __seedChannel1 } =
+    await import("../services/provisioning-service.js");
+  await __seedSpace1(pool!, 'srv_badge');
+  await __seedChannel1(pool!, 'chn_hidden', 'hidden');
 
   // Create a badge and a rule that grants access to the hidden channel
   await pool!.query("insert into badges (id, hub_id, server_id, name, rank) values ('bdg_vip', 'hub_3', 'srv_badge', 'VIP', 10)", []);
@@ -91,11 +95,17 @@ test("Masquerade: admin masquerading as guest cannot see private channels", asyn
   await pool!.query("insert into hubs (id, name, owner_user_id) values ('hub_1', 'Test Hub', $1)", [adminIdentity.productUserId]);
   await pool!.query("insert into servers (id, hub_id, name, created_by_user_id, owner_user_id) values ('srv_1', 'hub_1', 'Test Server', $1, $1)", [adminIdentity.productUserId]);
 
-  // Create a public and a private channel
-  // visitor_access = 'chat' means visible to guests
-  // visitor_access = 'hidden' means invisible to guests
-  await pool!.query("insert into channels (id, server_id, name, type, visitor_access) values ('chn_pub', 'srv_1', 'public', 'text', 'chat')", []);
-  await pool!.query("insert into channels (id, server_id, name, type, visitor_access) values ('chn_priv', 'srv_1', 'private', 'text', 'hidden')", []);
+  // Create a public and a private channel.
+  // P2.cleanup: visitor access lives in `channel_access_rules` now;
+  // seed via the public helpers (visitor=chat for public, hidden
+  // for private).
+  await pool!.query("insert into channels (id, server_id, name, type) values ('chn_pub', 'srv_1', 'public', 'text')", []);
+  await pool!.query("insert into channels (id, server_id, name, type) values ('chn_priv', 'srv_1', 'private', 'text')", []);
+  const { seedDefaultSpaceAccessRules: __seedSpace2, seedDefaultChannelAccessRules: __seedChannel2 } =
+    await import("../services/provisioning-service.js");
+  await __seedSpace2(pool!, 'srv_1');
+  await __seedChannel2(pool!, 'chn_pub', 'chat');
+  await __seedChannel2(pool!, 'chn_priv', 'hidden');
 
   const guestCookie = createAuthCookie({
     ...adminIdentity,

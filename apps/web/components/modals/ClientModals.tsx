@@ -16,6 +16,8 @@ interface ClientModalsProps {
   // State from ChatClient/Hooks
   spaceName: string;
   setSpaceName: (name: string) => void;
+  spaceOwnership: "hub" | "self";
+  setSpaceOwnership: (val: "hub" | "self") => void;
   renameSpaceId: string;
   renameSpaceName: string;
   renameSpaceIconUrl: string | null;
@@ -139,6 +141,8 @@ export function ClientModals(props: ClientModalsProps) {
               setSpaceSettingsTab={props.setSpaceSettingsTab}
               spaceName={props.spaceName}
               setSpaceName={props.setSpaceName}
+              spaceOwnership={props.spaceOwnership}
+              setSpaceOwnership={props.setSpaceOwnership}
               renameSpaceId={props.renameSpaceId}
               renameSpaceName={props.renameSpaceName}
               renameSpaceIconUrl={props.renameSpaceIconUrl}
