@@ -19,7 +19,7 @@ export function RoleModal() {
   const scope = roleContext?.scope || "space";
   const serverId = roleContext?.serverId;
 
-  const [role, setRole] = useState<Role>(scope === "space" ? "space_moderator" : "user");
+  const [role, setRole] = useState<Role>(scope === "space" ? "space_moderator" : "hub_admin");
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -69,15 +69,11 @@ export function RoleModal() {
             <select value={role} onChange={(e) => setRole(e.target.value as any)}>
               {scope === "space" ? (
                 <>
-                  <option value="user">👤 Regular User</option>
                   <option value="space_moderator">🛡️ Space Moderator</option>
                   <option value="space_admin">⭐ Space Admin</option>
                 </>
               ) : (
-                <>
-                  <option value="user">👤 Regular User</option>
-                  <option value="hub_admin">💎 Hub Administrator</option>
-                </>
+                <option value="hub_admin">💎 Hub Administrator</option>
               )}
             </select>
             <p className="help-text">

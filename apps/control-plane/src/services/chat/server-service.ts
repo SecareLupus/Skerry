@@ -392,50 +392,57 @@ export async function useHubInvite(input: { inviteId: string; productUserId: str
       throw new Error("Invite reached max uses");
     }
 
-    const role = invite.defaultRole ?? "user";
-    const isSpaceScopedRole = role.startsWith("space_");
-    const serverIdForBinding = isSpaceScopedRole ? invite.defaultServerId : null;
+    // Permissions sprint P1: a redeemer no longer gets an automatic
+    // role='user' binding. Plain hub membership (the `joinHub` call below)
+    // is sufficient for "Member" tier. Only an explicitly-set
+    // `defaultRole` (space_moderator | space_admin) writes a binding.
+    const role = invite.defaultRole;
+    if (role) {
+      const isSpaceScopedRole = role.startsWith("space_");
+      const serverIdForBinding = isSpaceScopedRole ? invite.defaultServerId : null;
 
-    // Idempotent role binding insert. The `role_bindings_natural_key` unique
-    // index added in migration 033 makes the conflict target meaningful: a
-    // user re-redeeming the same invite gets exactly one binding, not N.
-    const bindingRes = await db.query<{ id: string }>(
-      `insert into role_bindings (id, product_user_id, role, hub_id, server_id)
-       values ($1, $2, $3, $4, $5)
-       on conflict (product_user_id, role,
-                    coalesce(hub_id, ''),
-                    coalesce(server_id, ''),
-                    coalesce(channel_id, ''))
-       do nothing
-       returning id`,
-      [
-        `rb_${crypto.randomUUID().replaceAll("-", "")}`,
-        input.productUserId,
-        role,
-        invite.hubId,
-        serverIdForBinding
-      ]
-    );
-
-    // Audit only if a new binding actually landed. The inviter (created_by)
-    // is the actor of record — the redeemer is the target. This matches the
-    // shape of explicit /v1/roles/grant audit entries so downstream tooling
-    // doesn't need to special-case invite-driven grants.
-    if (bindingRes.rowCount && bindingRes.rowCount > 0) {
-      await db.query(
-        `insert into role_assignment_audit_logs
-           (id, actor_user_id, target_user_id, role, hub_id, server_id, channel_id, outcome, reason)
-         values ($1, $2, $3, $4, $5, $6, null, 'granted', $7)`,
+      // Idempotent role binding insert. The `role_bindings_natural_key`
+      // unique index added in migration 033 makes the conflict target
+      // meaningful: a user re-redeeming the same invite gets exactly one
+      // binding, not N.
+      const bindingRes = await db.query<{ id: string }>(
+        `insert into role_bindings (id, product_user_id, role, hub_id, server_id)
+         values ($1, $2, $3, $4, $5)
+         on conflict (product_user_id, role,
+                      coalesce(hub_id, ''),
+                      coalesce(server_id, ''),
+                      coalesce(channel_id, ''))
+         do nothing
+         returning id`,
         [
-          `raal_${crypto.randomUUID().replaceAll("-", "")}`,
-          invite.createdByUserId,
+          `rb_${crypto.randomUUID().replaceAll("-", "")}`,
           input.productUserId,
           role,
           invite.hubId,
-          serverIdForBinding,
-          `invite ${invite.id}`
+          serverIdForBinding
         ]
       );
+
+      // Audit only if a new binding actually landed. Inviter is actor;
+      // redeemer is target. Same shape as explicit /v1/roles/grant audit
+      // entries so downstream tooling doesn't need to special-case
+      // invite-driven grants.
+      if (bindingRes.rowCount && bindingRes.rowCount > 0) {
+        await db.query(
+          `insert into role_assignment_audit_logs
+             (id, actor_user_id, target_user_id, role, hub_id, server_id, channel_id, outcome, reason)
+           values ($1, $2, $3, $4, $5, $6, null, 'granted', $7)`,
+          [
+            `raal_${crypto.randomUUID().replaceAll("-", "")}`,
+            invite.createdByUserId,
+            input.productUserId,
+            role,
+            invite.hubId,
+            serverIdForBinding,
+            `invite ${invite.id}`
+          ]
+        );
+      }
     }
 
     // Apply default badges. NB: `user_badges` has a unique

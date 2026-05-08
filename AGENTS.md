@@ -2,27 +2,21 @@
 
 ## Read-First (every session)
 
-Antigravity does not auto-import files, so read these in order at the start
-of every session before responding to the user:
+To minimize token costs, only read the active task list at the start of every session:
 
-1. `.agent-shared/CONTEXT.md` — environment / machine roles / triage protocol
-2. `.agent-shared/WORKFLOW.md` — handoff protocol with Claude Code
-3. `.agent-shared/TESTING.md` — test discipline and Skerry-specific commands
-4. `.agent-shared/handoffs/current-plan.md` — your inbox, if it exists
+1. `.agent-shared/TODO.md` — active tasks and open questions.
 
-When ending a session, follow the handoff rules in `WORKFLOW.md` (update the
-plan, append to `chat-log.md`, write an implementation report for non-trivial
-changes).
+**Consult only as needed:**
+- `.agent-shared/GUIDE.md` — environment, testing, and hygiene rules.
+- `.agent-shared/ARCHIVE.md` — historical notes and logs.
+
+When ending a session, update `TODO.md` and move any completed task notes to `ARCHIVE.md`.
 
 ## Repository Skills
-
-The project-specific skills below remain authoritative and are not duplicated
-in `.agent-shared/`:
 
 - [`.agents/rules/bridge-mapping.md`](.agents/rules/bridge-mapping.md) — Discord/Matrix bridge consistency
 - [`.agents/rules/component-decomposition.md`](.agents/rules/component-decomposition.md) — keeping web components under 500 lines
 - [`.agents/rules/contract-first.md`](.agents/rules/contract-first.md) — `@skerry/shared` as single source of truth
-- [`.agents/rules/development-testing-production.md`](.agents/rules/development-testing-production.md) — machine role definitions (referenced by CONTEXT.md)
 - [`.agents/rules/hierarchical-theming.md`](.agents/rules/hierarchical-theming.md) — theme tokens, no hardcoded colors
 - [`.agents/rules/real-time-validation.md`](.agents/rules/real-time-validation.md) — mandatory E2E for real-time features
 

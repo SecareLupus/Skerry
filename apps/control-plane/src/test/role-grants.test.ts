@@ -459,21 +459,10 @@ test("read-state mention markers and voice presence flows work for scoped users"
       oidcSubject: "flow_member"
     });
 
-    const grantMemberRoleResponse = await app.inject({
-      method: "POST",
-      url: "/v1/roles/grant",
-      headers: { cookie: adminCookie },
-      payload: {
-        productUserId: memberIdentity.productUserId,
-        role: "user",
-        serverId: bootstrapBody.defaultServerId
-      }
-    });
-    assert.equal(grantMemberRoleResponse.statusCode, 204);
-
-    // Role grants don't imply membership — the policy engine resolves access
-    // via hub_members / server_members. Normally `joinHub()` is called during
-    // invite redemption; here we shortcut and insert directly.
+    // P1 of the permissions sprint removed the `user` role: a member is
+    // simply a hub_members / server_members row. The grant endpoint no
+    // longer accepts `role: "user"` (would 400). The direct membership
+    // inserts below are how this fixture sets up a "regular member" now.
     const ctxRes = await app.inject({
       method: "GET",
       url: "/v1/bootstrap/context",
