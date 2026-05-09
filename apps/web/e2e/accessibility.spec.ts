@@ -21,13 +21,13 @@ test.describe('Accessibility', () => {
     await runA11yScan(page);
   });
 
-  test('onboarding (choose username)', async ({ page }) => {
+  test('onboarding (choose display name)', async ({ page }) => {
     await resetPlatform(page);
     await page.goto('/');
     await expect(page.locator('.login-container')).toBeVisible({ timeout: 15000 });
     await page.locator('#dev-username').fill('local-admin');
     await page.getByRole('button', { name: 'Dev Login' }).click();
-    await expect(page.getByText('Choose Username')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText('Choose Display Name')).toBeVisible({ timeout: 15000 });
     await runA11yScan(page);
   });
 
