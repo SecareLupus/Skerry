@@ -638,6 +638,7 @@ export async function listChannelMembers(
 ): Promise<{
   productUserId: string;
   displayName: string;
+  preferredUsername: string | null;
   avatarUrl?: string;
   isOnline: boolean;
   lastSeenAt?: string;
@@ -648,6 +649,7 @@ export async function listChannelMembers(
     items: {
       productUserId: string;
       displayName: string;
+      preferredUsername: string | null;
       avatarUrl?: string;
       isOnline: boolean;
       lastSeenAt?: string;
@@ -1414,6 +1416,7 @@ export async function listHubMembers(hubId: string): Promise<IdentityMapping[]> 
 export async function listServerMembers(serverId: string): Promise<{
   productUserId: string;
   displayName: string;
+  preferredUsername: string | null;
   avatarUrl?: string;
   isOnline: boolean;
   isBridged?: boolean;
@@ -1423,6 +1426,7 @@ export async function listServerMembers(serverId: string): Promise<{
     items: {
       productUserId: string;
       displayName: string;
+      preferredUsername: string | null;
       avatarUrl?: string;
       isOnline: boolean;
       isBridged?: boolean;

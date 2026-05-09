@@ -20,6 +20,9 @@ import { LandingJoinButton } from "./landing-join-button";
 import { LandingPageView } from "./landing-page-view";
 import { GifPlayer } from "./gif-player";
 import { useIntersectionObserver } from "../hooks/use-intersection-observer";
+import { useComposerAutocomplete } from "../hooks/use-composer-autocomplete";
+import { AutocompletePopover } from "./composer/autocomplete-popover";
+import { shortcodeToGlyph } from "../lib/composer-autocomplete/emoji-index";
 
 
 
@@ -169,24 +172,13 @@ function MessageContent({ message, hiddenUrls = [] }: { message: MessageItem; hi
             return `![:${name}:](https://cdn.discordapp.com/emojis/${id}.webp${query})`;
         });
 
-        // 2. Handle common standard shortcodes (minimal set for demo, or could use a library)
-        const commonShortcodes: Record<string, string> = {
-            ":smile:": "🙂",
-            ":smiley:": "😃",
-            ":grinning:": "😀",
-            ":blush:": "😊",
-            ":wink:": "😉",
-            ":heart:": "❤️",
-            ":thumbsup:": "👍",
-            ":ok_hand:": "👌",
-            ":fire:": "🔥",
-            ":rocket:": "🚀"
-        };
-        
-        // We only convert these to Unicode if they are standalone
-        Object.entries(commonShortcodes).forEach(([code, unicode]) => {
-            const escapedCode = code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            processedText = processedText.replace(new RegExp(escapedCode, 'g'), unicode);
+        // 2. Resolve any remaining `:name:` shortcodes against the full
+        // unicode emoji index. Custom emojis (Skerry server emojis, bridged
+        // Discord emojis) were already rewritten to `![:name:](url)` by the
+        // server's `enrichContentWithEmojis`, so they don't match this regex.
+        processedText = processedText.replace(/:([a-z0-9_+-]+):/gi, (full, name: string) => {
+            const glyph = shortcodeToGlyph(name.toLowerCase());
+            return glyph ?? full;
         });
 
         return (
@@ -347,6 +339,30 @@ export function ChatWindow({
     const [contextMenu, setContextMenu] = useState<{ x: number; y: number; message: MessageItem | null } | null>(null);
     const [userContextMenu, setUserContextMenu] = useState<{ x: number; y: number; userId: string; displayName: string } | null>(null);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+    const [composerCursor, setComposerCursor] = useState(0);
+    const pendingCursorRef = useRef<number | null>(null);
+    const autocomplete = useComposerAutocomplete({
+        value: draftMessage,
+        cursorPos: composerCursor,
+        members,
+        setValue: (next) => setDraftMessage(next),
+        setCursorPos: (pos) => {
+            pendingCursorRef.current = pos;
+            setComposerCursor(pos);
+        }
+    });
+
+    useEffect(() => {
+        if (pendingCursorRef.current === null) return;
+        const ta = messageInputRef.current;
+        if (!ta) return;
+        const target = pendingCursorRef.current;
+        pendingCursorRef.current = null;
+        requestAnimationFrame(() => {
+            ta.focus();
+            ta.setSelectionRange(target, target);
+        });
+    }, [draftMessage, messageInputRef]);
     const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
     const [editContent, setEditContent] = useState("");
     const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
@@ -1516,13 +1532,29 @@ export function ChatWindow({
                             ))}
                         </div>
                     )}
+                    {autocomplete.items.length > 0 && (
+                        <AutocompletePopover
+                            items={autocomplete.items}
+                            selectedIdx={autocomplete.selectedIdx}
+                            onSelect={autocomplete.selectItem}
+                            onHover={autocomplete.setSelectedIdx}
+                        />
+                    )}
                     <textarea
                         id="message-input"
                         ref={messageInputRef}
                         value={draftMessage}
-                        onChange={(event) => setDraftMessage(event.target.value)}
+                        onChange={(event) => {
+                            setDraftMessage(event.target.value);
+                            setComposerCursor(event.target.selectionStart ?? event.target.value.length);
+                        }}
+                        onSelect={(event) => {
+                            const ta = event.target as HTMLTextAreaElement;
+                            setComposerCursor(ta.selectionStart ?? ta.value.length);
+                        }}
                         onPaste={handlePaste}
                         onKeyDown={(event) => {
+                            if (autocomplete.handleKeyDown(event)) return;
                             if (event.key === "Enter" && !event.shiftKey) {
                                 event.preventDefault();
                                 if (draftMessage.trim() || attachments.length > 0) {

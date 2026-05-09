@@ -255,6 +255,7 @@ export async function deleteServer(serverId: string): Promise<void> {
 export async function listServerMembers(serverId: string): Promise<{
   productUserId: string;
   displayName: string;
+  preferredUsername: string | null;
   avatarUrl?: string;
   isOnline: boolean;
   isBridged?: boolean;
@@ -300,6 +301,7 @@ export async function listServerMembers(serverId: string): Promise<{
     const localMembers = localUserRows.rows.map(r => ({
       productUserId: r.product_user_id,
       displayName: r.preferred_username ?? r.email?.split('@')[0] ?? `user-${r.product_user_id.slice(0, 8)}`,
+      preferredUsername: r.preferred_username,
       avatarUrl: r.avatar_url ?? undefined,
       isOnline: r.last_seen_at ? (now - new Date(r.last_seen_at).getTime() < ONLINE_THRESHOLD_MS) : false,
       isBridged: false
@@ -313,6 +315,7 @@ export async function listServerMembers(serverId: string): Promise<{
     let bridgedMembers: {
       productUserId: string;
       displayName: string;
+      preferredUsername: string | null;
       avatarUrl?: string;
       isOnline: boolean;
       isBridged: boolean;
@@ -338,6 +341,7 @@ export async function listServerMembers(serverId: string): Promise<{
             bridgedMembers.push({
               productUserId: `discord_${id}`,
               displayName: member.displayName,
+              preferredUsername: null,
               avatarUrl: member.user.displayAvatarURL() ?? undefined,
               isOnline: member.presence?.status ? member.presence.status !== "offline" : false,
               isBridged: true,
