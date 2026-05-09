@@ -116,6 +116,7 @@ export function useChatMessaging({
     }
 
     setDraftMessage("");
+    dispatch({ type: "SET_CHANNEL_DRAFT", payload: { channelId: selectedChannelId, draft: "" } });
     messageInputRef.current?.focus();
     const replyToId = state.quotingMessage?.id;
     if (state.quotingMessage) {

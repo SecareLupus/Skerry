@@ -123,6 +123,8 @@ export function ChatClient() {
   const messagesRef = useRef<HTMLOListElement>(null);
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
   const [draftMessage, setDraftMessage] = useState("");
+  const draftMessageRef = useRef("");
+  draftMessageRef.current = draftMessage;
 
   const {
     urlServerId,
@@ -152,6 +154,7 @@ export function ChatClient() {
     markChannelAsRead,
     messagesRef,
     setDraftMessage,
+    draftMessageRef,
     lastSyncedUrlRef,
     setTargetUrl: (url: string | null) => {
       targetUrlSelectionRef.current = url;
@@ -191,6 +194,20 @@ export function ChatClient() {
   } = settings;
 
   const isBootstrappingRef = useRef(false);
+
+  // Debounced persistence of the in-progress draft to the per-channel store.
+  // Channel-switch and send paths flush synchronously (in their own handlers)
+  // — this effect just covers the typed-then-refresh case.
+  useEffect(() => {
+    const channelId = state.selectedChannelId;
+    if (!channelId) return;
+    const current = state.draftMessagesByChannel[channelId] ?? "";
+    if (current === draftMessage) return;
+    const t = setTimeout(() => {
+      originalDispatch({ type: "SET_CHANNEL_DRAFT", payload: { channelId, draft: draftMessage } });
+    }, 400);
+    return () => clearTimeout(t);
+  }, [draftMessage, state.selectedChannelId, state.draftMessagesByChannel, originalDispatch]);
 
   const handleUpdateRoomTopic = useCallback((topic: string) => {
     if (!state.selectedChannelId) return Promise.resolve();
