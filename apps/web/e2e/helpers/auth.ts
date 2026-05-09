@@ -1,7 +1,7 @@
 import { expect, type Page } from '@playwright/test';
 
 /**
- * Performs dev-login and the onboarding "Choose Username" step.
+ * Performs dev-login and the onboarding "Choose Display Name" step.
  * Leaves the page on whatever the post-onboarding view is.
  */
 export async function loginAndOnboard(
@@ -13,9 +13,9 @@ export async function loginAndOnboard(
   await page.locator('#dev-username').fill(devUsername);
   await page.getByRole('button', { name: 'Dev Login' }).click();
 
-  await expect(page.getByText('Choose Username')).toBeVisible({ timeout: 15000 });
+  await expect(page.getByText('Choose Display Name')).toBeVisible({ timeout: 15000 });
   await page.locator('#onboarding-username').fill(displayUsername);
-  await page.getByRole('button', { name: 'Save Username' }).click();
+  await page.getByRole('button', { name: 'Save Display Name' }).click();
 }
 
 /**

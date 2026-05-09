@@ -17,8 +17,11 @@ Land remaining Sprint 2 issues. **No batching, one PR per issue.**
         - [x] **P2.cleanup**: Drop legacy `*_access` columns +
           DB triggers. Branch
           `feat/permissions-sprint-p2cleanup-drop-legacy-access`.
-- [ ] **Issue #34**: Onboarding Display Name (Blocked on permissions).
-- [ ] **Issue #38**: Server Permissions Persistence (Likely subsumed by P2).
+- [x] **Issue #34**: Onboarding Display Name. Branch
+  `fix/sprint-2-tail`.
+- [x] **Issue #38**: Server Permissions Persistence — verified
+  fixed by P2.b's resolver + P2.cleanup's storage rewrite.
+  Regression test added on `fix/sprint-2-tail`.
 
 ## Open Questions
 - None.

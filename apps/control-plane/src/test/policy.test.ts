@@ -349,3 +349,148 @@ test("P2.b: space_moderator tier resolves to moderator rule level when set 'hidd
   });
   assert.equal(allowed, false, "moderator tier rule of 'hidden' should deny read even though space_member='chat'");
 });
+
+test("Issue #38: PATCH /v1/servers/:id/settings persists all six audience-tier access levels", async (t) => {
+  if (!pool) { t.skip("DATABASE_URL not configured."); return; }
+  const { config } = await import("../config.js");
+  if (!config.setupBootstrapToken) { t.skip("SETUP_BOOTSTRAP_TOKEN not configured."); return; }
+
+  const { buildApp } = await import("../app.js");
+  const { bootstrap: bootstrapHub } = await import("./helpers/bootstrap.js");
+
+  const app = await buildApp();
+  try {
+    const { adminCookie, defaultServerId } = await bootstrapHub(app, { prefix: "issue38" });
+
+    const patchRes = await app.inject({
+      method: "PATCH",
+      url: `/v1/servers/${defaultServerId}/settings`,
+      headers: { cookie: adminCookie },
+      payload: {
+        visitorAccess: "read",
+        hubMemberAccess: "locked",
+        spaceMemberAccess: "read",
+        spaceModeratorAccess: "read",
+        spaceAdminAccess: "chat",
+        hubAdminAccess: "chat"
+      }
+    });
+    assert.equal(patchRes.statusCode, 204, `Expected 204 but got ${patchRes.statusCode}: ${patchRes.body}`);
+
+    const rules = await pool.query<{ audience_tier: string; level: string }>(
+      "select audience_tier, level from space_access_rules where server_id = $1",
+      [defaultServerId]
+    );
+    const byTier = Object.fromEntries(rules.rows.map(r => [r.audience_tier, r.level]));
+    assert.equal(byTier.visitor, 'read', "visitorAccess should persist");
+    assert.equal(byTier.hub_member, 'locked', "hubMemberAccess should persist");
+    assert.equal(byTier.space_member, 'read', "spaceMemberAccess should persist");
+    assert.equal(byTier.space_moderator, 'read', "spaceModeratorAccess should persist");
+    assert.equal(byTier.space_admin, 'chat', "spaceAdminAccess should persist");
+    assert.equal(byTier.hub_admin, 'chat', "hubAdminAccess should persist");
+
+    const getRes = await app.inject({
+      method: "GET",
+      url: `/v1/servers/${defaultServerId}/settings`,
+      headers: { cookie: adminCookie }
+    });
+    assert.equal(getRes.statusCode, 200);
+    const settings = getRes.json() as Record<string, string>;
+    assert.equal(settings.visitorAccess, 'read');
+    assert.equal(settings.hubMemberAccess, 'locked');
+    assert.equal(settings.spaceMemberAccess, 'read');
+    assert.equal(settings.spaceModeratorAccess, 'read');
+    assert.equal(settings.spaceAdminAccess, 'chat');
+    assert.equal(settings.hubAdminAccess, 'chat');
+  } finally {
+    await app.close();
+  }
+});
+
+test("Issue #34: onboarding accepts display names with spaces", async (t) => {
+  if (!pool) { t.skip("DATABASE_URL not configured."); return; }
+  const { config } = await import("../config.js");
+  if (!config.setupBootstrapToken) { t.skip("SETUP_BOOTSTRAP_TOKEN not configured."); return; }
+
+  const { buildApp } = await import("../app.js");
+  const { upsertIdentityMapping } = await import("../services/identity-service.js");
+  const { createAuthCookie } = await import("./helpers/auth.js");
+  const { bootstrap: bootstrapHub } = await import("./helpers/bootstrap.js");
+
+  const app = await buildApp();
+  try {
+    await bootstrapHub(app, { prefix: "issue34" });
+
+    // A second user signs up; they're prompted to choose a display name.
+    const newUser = await upsertIdentityMapping({
+      provider: "dev",
+      oidcSubject: "issue34_newcomer",
+      email: "issue34-newcomer@dev.local",
+      preferredUsername: null,
+      avatarUrl: null
+    });
+    const cookie = createAuthCookie({
+      productUserId: newUser.productUserId,
+      provider: "dev",
+      oidcSubject: "issue34_newcomer"
+    });
+
+    const okRes = await app.inject({
+      method: "POST",
+      url: "/auth/onboarding/username",
+      headers: { cookie },
+      payload: { username: "Alice Smith" }
+    });
+    assert.equal(okRes.statusCode, 204, `Expected 204 but got ${okRes.statusCode}: ${okRes.body}`);
+
+    const stored = await pool.query<{ preferred_username: string | null }>(
+      "select preferred_username from identity_mappings where product_user_id = $1 limit 1",
+      [newUser.productUserId]
+    );
+    assert.equal(stored.rows[0]?.preferred_username, "Alice Smith");
+  } finally {
+    await app.close();
+  }
+});
+
+test("Issue #34: onboarding rejects whitespace-only display names", async (t) => {
+  if (!pool) { t.skip("DATABASE_URL not configured."); return; }
+  const { config } = await import("../config.js");
+  if (!config.setupBootstrapToken) { t.skip("SETUP_BOOTSTRAP_TOKEN not configured."); return; }
+
+  const { buildApp } = await import("../app.js");
+  const { upsertIdentityMapping } = await import("../services/identity-service.js");
+  const { createAuthCookie } = await import("./helpers/auth.js");
+  const { bootstrap: bootstrapHub } = await import("./helpers/bootstrap.js");
+
+  const app = await buildApp();
+  try {
+    await bootstrapHub(app, { prefix: "issue34b" });
+
+    const newUser = await upsertIdentityMapping({
+      provider: "dev",
+      oidcSubject: "issue34b_newcomer",
+      email: "issue34b-newcomer@dev.local",
+      preferredUsername: null,
+      avatarUrl: null
+    });
+    const cookie = createAuthCookie({
+      productUserId: newUser.productUserId,
+      provider: "dev",
+      oidcSubject: "issue34b_newcomer"
+    });
+
+    // Three spaces — passes min(3) and the regex, but trims to empty.
+    const res = await app.inject({
+      method: "POST",
+      url: "/auth/onboarding/username",
+      headers: { cookie },
+      payload: { username: "   " }
+    });
+    assert.equal(res.statusCode, 400);
+    const body = JSON.parse(res.body) as { code?: string };
+    assert.equal(body.code, "display_name_too_short");
+  } finally {
+    await app.close();
+  }
+});

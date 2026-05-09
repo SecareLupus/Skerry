@@ -52,13 +52,13 @@ test.describe('Visual Regression', () => {
     });
   });
 
-  test('onboarding (choose username) form', async ({ page }) => {
+  test('onboarding (choose display name) form', async ({ page }) => {
     await resetPlatform(page);
     await page.goto('/');
     await expect(page.locator('.login-container')).toBeVisible({ timeout: 15000 });
     await page.locator('#dev-username').fill('local-admin');
     await page.getByRole('button', { name: 'Dev Login' }).click();
-    await expect(page.getByText('Choose Username')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText('Choose Display Name')).toBeVisible({ timeout: 15000 });
 
     // Snapshot the onboarding card, not the full page.
     const card = page.locator('main, [data-testid="onboarding-card"], .onboarding').first();
