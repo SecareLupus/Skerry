@@ -468,6 +468,9 @@ export function ChatWindow({
         [allowedActions]
     );
 
+    const activeChannelPeerReadStates = activeChannelData
+        ? state.peerReadStateByChannel[activeChannelData.id]
+        : undefined;
     const renderedMessages = useMemo(() => {
         const grouped: Array<{
             message: MessageItem;
@@ -488,9 +491,8 @@ export function ChatWindow({
         // for hypothetical group DMs we just use the maximum lastReadAt
         // across peers as the "seen by anyone" cutoff.
         let lastSeenOwnId: string | null = null;
-        if (activeChannelData?.type === "dm") {
-            const peerStates = state.peerReadStateByChannel[activeChannelData.id] ?? {};
-            const peerCutoffs = Object.values(peerStates);
+        if (activeChannelData?.type === "dm" && activeChannelPeerReadStates) {
+            const peerCutoffs = Object.values(activeChannelPeerReadStates);
             if (peerCutoffs.length > 0) {
                 const maxLastReadAt = peerCutoffs.reduce((a, b) => (a > b ? a : b));
                 lastSeenOwnId = latestSeenOwnMessageId(rootMessages, maxLastReadAt, viewer?.productUserId ?? null);
@@ -523,7 +525,7 @@ export function ChatWindow({
         }
 
         return grouped;
-    }, [messages, state.pendingActionIds, state.activeChannelLastReadAt, state.peerReadStateByChannel, activeChannelData, viewer?.productUserId]);
+    }, [messages, state.pendingActionIds, state.activeChannelLastReadAt, activeChannelPeerReadStates, activeChannelData, viewer?.productUserId]);
 
     useEffect(() => {
         setIsEditingTopic(false);
