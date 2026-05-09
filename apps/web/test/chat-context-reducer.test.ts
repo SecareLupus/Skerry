@@ -136,3 +136,55 @@ test("ADD_DM_CHANNEL leaves state.channels untouched when a non-DM server is act
   assert.equal(next.channels[0]!.id, "chn_general");
   assert.equal(next.allDmChannels[0]!.id, "chn_dm_new");
 });
+
+// #80 — Drafts per channel: SET_CHANNEL_DRAFT writes a draft for one channel
+// without disturbing other channels' drafts.
+test("SET_CHANNEL_DRAFT stores a draft scoped to the given channel", () => {
+  const state = {
+    ...initialState,
+    draftMessagesByChannel: { "chn_a": "older draft for A" },
+  };
+
+  const next = chatReducer(state, {
+    type: "SET_CHANNEL_DRAFT",
+    payload: { channelId: "chn_b", draft: "fresh draft for B" }
+  });
+
+  assert.equal(next.draftMessagesByChannel["chn_a"], "older draft for A");
+  assert.equal(next.draftMessagesByChannel["chn_b"], "fresh draft for B");
+});
+
+// #80 — Sending a message clears its draft. Empty drafts should be removed
+// from the map so localStorage doesn't accumulate empty entries forever.
+test("SET_CHANNEL_DRAFT with empty string deletes the entry", () => {
+  const state = {
+    ...initialState,
+    draftMessagesByChannel: { "chn_a": "draft", "chn_b": "other" },
+  };
+
+  const next = chatReducer(state, {
+    type: "SET_CHANNEL_DRAFT",
+    payload: { channelId: "chn_a", draft: "" }
+  });
+
+  assert.equal("chn_a" in next.draftMessagesByChannel, false);
+  assert.equal(next.draftMessagesByChannel["chn_b"], "other");
+});
+
+// #80 — Hydration from localStorage replaces the whole map in one shot.
+test("LOAD_CHANNEL_DRAFTS replaces the drafts map", () => {
+  const state = {
+    ...initialState,
+    draftMessagesByChannel: { "chn_stale": "stale" },
+  };
+
+  const next = chatReducer(state, {
+    type: "LOAD_CHANNEL_DRAFTS",
+    payload: { "chn_a": "from storage A", "chn_b": "from storage B" }
+  });
+
+  assert.deepEqual(next.draftMessagesByChannel, {
+    "chn_a": "from storage A",
+    "chn_b": "from storage B"
+  });
+});

@@ -28,6 +28,7 @@ interface UseChatInitializationProps {
   markChannelAsRead: (channelId: string) => Promise<void>;
   messagesRef: React.RefObject<HTMLOListElement>;
   setDraftMessage: (msg: string) => void;
+  draftMessageRef: React.MutableRefObject<string>;
   lastSyncedUrlRef: React.MutableRefObject<string>;
   setTargetUrl?: (url: string | null) => void;
 }
@@ -40,6 +41,7 @@ export function useChatInitialization({
   markChannelAsRead,
   messagesRef,
   setDraftMessage,
+  draftMessageRef,
   lastSyncedUrlRef,
   setTargetUrl
 }: UseChatInitializationProps) {
@@ -241,6 +243,12 @@ export function useChatInitialization({
         const targetUrl = `${nextServerId}:${nextChannelId ?? "null"}:${finalMessageId ?? "null"}`;
         lastSyncedUrlRef.current = targetUrl;
         if (setTargetUrl) setTargetUrl(targetUrl);
+        if (selectedChannelId && selectedChannelId !== nextChannelId) {
+          dispatch({
+            type: "SET_CHANNEL_DRAFT",
+            payload: { channelId: selectedChannelId, draft: draftMessageRef.current }
+          });
+        }
         setDraftMessage(draftMessagesByChannel[nextChannelId] ?? "");
 
         // Track last channel by server
@@ -306,7 +314,7 @@ export function useChatInitialization({
       dispatch({ type: "SET_SWITCHING_SERVER", payload: false });
       setUrlSelection(nextServerId, null);
     }
-  }, [urlServerId, urlChannelId, urlMessageId, selectedServerId, selectedChannelId, dispatch, setUrlSelection, lastSyncedUrlRef, setDraftMessage, draftMessagesByChannel, channelScrollPositions, messagesRef, markChannelAsRead, setTargetUrl, state.channels, state.categories, state.allDmChannels]);
+  }, [urlServerId, urlChannelId, urlMessageId, selectedServerId, selectedChannelId, dispatch, setUrlSelection, lastSyncedUrlRef, setDraftMessage, draftMessageRef, draftMessagesByChannel, channelScrollPositions, messagesRef, markChannelAsRead, setTargetUrl, state.channels, state.categories, state.allDmChannels]);
 
   const handleServerChange = useCallback(async (serverId: string, channelId?: string): Promise<void> => {
     const targetChannelId = channelId ?? state.lastChannelByServer[serverId];
@@ -330,6 +338,12 @@ export function useChatInitialization({
     if (setTargetUrl) setTargetUrl(targetUrl);
     lastSyncedUrlRef.current = targetUrl;
 
+    if (selectedChannelId && selectedChannelId !== channelId) {
+      dispatch({
+        type: "SET_CHANNEL_DRAFT",
+        payload: { channelId: selectedChannelId, draft: draftMessageRef.current }
+      });
+    }
     setDraftMessage(draftMessagesByChannel[channelId] ?? "");
 
     try {
@@ -338,7 +352,7 @@ export function useChatInitialization({
     } catch (cause) {
       dispatch({ type: "SET_ERROR", payload: cause instanceof Error ? cause.message : "Failed to load channel." });
     }
-  }, [selectedServerId, dispatch, setUrlSelection, lastSyncedUrlRef, setDraftMessage, draftMessagesByChannel, refreshChatState]);
+  }, [selectedServerId, selectedChannelId, dispatch, setUrlSelection, lastSyncedUrlRef, setDraftMessage, draftMessageRef, draftMessagesByChannel, refreshChatState]);
 
   const initialize = useCallback(async (): Promise<void> => {
     dispatch({ type: "SET_LOADING", payload: true });

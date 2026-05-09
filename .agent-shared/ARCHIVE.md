@@ -8,6 +8,18 @@ This file contains historical context, handoff notes, and chat logs moved out of
 
 ## Historical Plan Notes (from current-plan.md)
 
+### 2026-05-09 — Sprint 2 closeout
+Sprint 2 fully closed. PR #100 (`fix/sprint-2-tail`) merged 2026-05-09,
+landing #34 (onboarding "Display Name" rename + widened validation
+regex + 2 new control-plane tests) and #38 (verified already fixed by
+the permissions sprint; 6-tier round-trip integration test added).
+Follow-up commit `2ede4c0` aligned `accessibility.spec.ts` and
+`visual-regression.spec.ts` with the renamed onboarding heading
+("Choose Username" → "Choose Display Name") after a CI miss. Issues
+#34 and #38 closed and moved to Done on Project #2. Sprint 2 final
+status: ✅ #9, ✅ #23, ✅ permissions sprint (PRs #94/#95/#96/#97/#98
+under #99), ✅ #34, ✅ #38.
+
 ### 2026-05-07 19:44 — P1 (Role enum cleanup)
 Permissions sprint P1 (Role enum cleanup) landed on feat/permissions-sprint-p1-role-cleanup. Migration 034 backfills hub_members for non-bridged identities with role='user' bindings and drops every role='user' / role='visitor' binding. Bridged Discord identities are protected via the matrix_user_id NOT LIKE '@discord_%' guard. Role enum reduced to 5 values; INVITE_BAKEABLE_ROLES reduced to two; useHubInvite no longer writes a role binding when defaultRole is null (plain hub membership covers it). All suites green: shared 16/16, web 12/12, control-plane 129/129 (run on the live test stack).
 

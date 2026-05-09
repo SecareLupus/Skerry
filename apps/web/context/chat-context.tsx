@@ -233,6 +233,7 @@ type ChatAction =
     | { type: "CLEAR_NOTIFICATIONS"; payload: { channelId: string } }
     | { type: "SET_CHANNEL_SCROLL_POSITION"; payload: { channelId: string; position: number } }
     | { type: "SET_CHANNEL_DRAFT"; payload: { channelId: string; draft: string } }
+    | { type: "LOAD_CHANNEL_DRAFTS"; payload: Record<string, string> }
     | { type: "UPSERT_CHANNEL"; payload: Channel }
     | { type: "DELETE_CHANNEL"; payload: string }
     | { type: "UPSERT_CATEGORY"; payload: Category }
@@ -560,14 +561,17 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
                     [action.payload.channelId]: action.payload.preference
                 }
             };
-        case "SET_CHANNEL_DRAFT":
-            return {
-                ...state,
-                draftMessagesByChannel: {
-                    ...state.draftMessagesByChannel,
-                    [action.payload.channelId]: action.payload.draft
-                }
-            };
+        case "SET_CHANNEL_DRAFT": {
+            const next = { ...state.draftMessagesByChannel };
+            if (action.payload.draft) {
+                next[action.payload.channelId] = action.payload.draft;
+            } else {
+                delete next[action.payload.channelId];
+            }
+            return { ...state, draftMessagesByChannel: next };
+        }
+        case "LOAD_CHANNEL_DRAFTS":
+            return { ...state, draftMessagesByChannel: action.payload };
         case "UPSERT_CHANNEL": {
             const exists = state.channels.some(c => c.id === action.payload.id);
             const nextChannels = exists 
@@ -738,8 +742,11 @@ interface ChatContextType {
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
 
+const CHANNEL_DRAFTS_STORAGE_KEY = "skerry:channelDrafts";
+
 export function ChatProvider({ children }: { children: ReactNode }) {
     const [state, dispatch] = useReducer(chatReducer, initialState);
+    const draftsHydratedRef = React.useRef(false);
 
     React.useEffect(() => {
         const interval = setInterval(() => {
@@ -747,6 +754,37 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         }, 5000);
         return () => clearInterval(interval);
     }, []);
+
+    React.useEffect(() => {
+        try {
+            const raw = localStorage.getItem(CHANNEL_DRAFTS_STORAGE_KEY);
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                if (parsed && typeof parsed === "object") {
+                    const cleaned: Record<string, string> = {};
+                    for (const [k, v] of Object.entries(parsed)) {
+                        if (typeof v === "string" && v.length > 0) cleaned[k] = v;
+                    }
+                    dispatch({ type: "LOAD_CHANNEL_DRAFTS", payload: cleaned });
+                }
+            }
+        } catch {
+            // Corrupt JSON or storage unavailable — ignore.
+        }
+        draftsHydratedRef.current = true;
+    }, []);
+
+    React.useEffect(() => {
+        if (!draftsHydratedRef.current) return;
+        try {
+            localStorage.setItem(
+                CHANNEL_DRAFTS_STORAGE_KEY,
+                JSON.stringify(state.draftMessagesByChannel)
+            );
+        } catch {
+            // Quota exceeded or storage unavailable — drafts stay in memory.
+        }
+    }, [state.draftMessagesByChannel]);
 
     return (
         <ChatContext.Provider value={{ state, dispatch }}>

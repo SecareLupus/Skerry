@@ -1,30 +1,36 @@
 # Skerry Active Tasks
 
-## Current Goal: Sprint 2
-Land remaining Sprint 2 issues. **No batching, one PR per issue.**
+## Current Goal: Sprint 3
+Land all Sprint 3 issues from GitHub Project #2. **One PR per
+isolated issue; closely coupled issues may be batched.**
 
 ## Tasks
-- [x] **Issue #9**: OIDC Display Name (`fix/issue-9-oidc-display-name`).
-- [x] **Issue #23**: Invite Link Generation (`fix/issue-23-unauth-invite-redeem`).
-- [/] **Permissions Sprint**:
-    - [x] **P1**: Role enum cleanup.
-    - [x] **P3**: Default Space Owner = Hub
-      (`feat/permissions-sprint-p3-default-space-owner`).
-    - [x] **P2**: Audience tiers, cascade, and capability split.
-        - [x] **P2.a**: Capability split.
-        - [x] **P2.b**: Normalized access-rules tables + tier
-          expansion + cascade.
-        - [x] **P2.cleanup**: Drop legacy `*_access` columns +
-          DB triggers. Branch
-          `feat/permissions-sprint-p2cleanup-drop-legacy-access`.
-- [x] **Issue #34**: Onboarding Display Name. Branch
-  `fix/sprint-2-tail`.
-- [x] **Issue #38**: Server Permissions Persistence — verified
-  fixed by P2.b's resolver + P2.cleanup's storage rewrite.
-  Regression test added on `fix/sprint-2-tail`.
+- [ ] **Issue #80**: Drafts per channel — preserve typed content
+  across channel switches. localStorage-backed; restore on mount,
+  clear on send. Frontend-only.
+- [ ] **Issues #42 + #43** (batched — shared autocomplete popover):
+    - **#42**: `@-mention` autocomplete using channel-member display
+      names.
+    - **#43**: `:emoji:` autocomplete by emoji name.
+- [ ] **Issue #79**: Read receipts / persistent last-read divider.
+  Per-(user, channel) `last_read_message_id` (verify existing
+  unread-badge schema first); sticky divider in message list;
+  update on unfocus / explicit mark-read / scroll-to-bottom.
+- [ ] **Issue #78**: Pinned messages drawer. Side drawer scoped to
+  channel, newest-first, click-through to source. Backend pin
+  functionality already exists (Phase 15).
+- [ ] **Issue #44**: Restyle small square buttons. Common design
+  language for emoji-icon buttons. Sequenced late so it can absorb
+  any new buttons added by earlier issues.
+- [ ] **Issue #77**: Message edit history with diff/timestamp on
+  hover. Schema migration for revision rows, fetch endpoint, diff
+  popover, retention policy. Heaviest — last in sprint.
 
 ## Open Questions
-- None.
+- **#44 design language**: confirm the target style with the user
+  before cutting the PR (icon set, border-radius, hover states).
+- **#77 retention policy**: keep all revisions, or cap (e.g. last 5)?
+  Decide before the schema migration.
 
 ---
 *For historical notes and completed sprint logs, see [ARCHIVE.md](./ARCHIVE.md).*
