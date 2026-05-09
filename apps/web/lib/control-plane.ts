@@ -771,6 +771,13 @@ export async function listChannelReadStates(serverId: string): Promise<ChannelRe
   return json.items;
 }
 
+export async function listChannelPeerReadStates(channelId: string): Promise<ChannelReadState[]> {
+  const json = await apiFetch<{ items: ChannelReadState[] }>(
+    `/v1/channels/${encodeURIComponent(channelId)}/read-states`
+  );
+  return json.items;
+}
+
 export async function upsertChannelReadState(
   channelId: string,
   payload?: {

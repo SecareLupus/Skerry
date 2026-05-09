@@ -23,6 +23,7 @@ import { useIntersectionObserver } from "../hooks/use-intersection-observer";
 import { useComposerAutocomplete } from "../hooks/use-composer-autocomplete";
 import { AutocompletePopover } from "./composer/autocomplete-popover";
 import { shortcodeToGlyph } from "../lib/composer-autocomplete/emoji-index";
+import { firstUnreadMessageId, latestSeenOwnMessageId } from "../lib/read-state";
 
 
 
@@ -472,10 +473,29 @@ export function ChatWindow({
             message: MessageItem;
             showHeader: boolean;
             showDateDivider: boolean;
+            showFirstUnreadDivider: boolean;
+            showSeenIndicator: boolean;
         }> = [];
 
         // Only show root messages in the main window
         const rootMessages = messages.filter(m => !m.parentId && !state.pendingActionIds.has(m.id));
+
+        const firstUnreadId = firstUnreadMessageId(rootMessages, state.activeChannelLastReadAt, viewer?.productUserId ?? null);
+
+        // #79 — DM read receipts: pick the most recent message authored by
+        // the viewer that any peer has read. We render the "Seen" indicator
+        // under that one message. With a 2-person DM this is unambiguous;
+        // for hypothetical group DMs we just use the maximum lastReadAt
+        // across peers as the "seen by anyone" cutoff.
+        let lastSeenOwnId: string | null = null;
+        if (activeChannelData?.type === "dm") {
+            const peerStates = state.peerReadStateByChannel[activeChannelData.id] ?? {};
+            const peerCutoffs = Object.values(peerStates);
+            if (peerCutoffs.length > 0) {
+                const maxLastReadAt = peerCutoffs.reduce((a, b) => (a > b ? a : b));
+                lastSeenOwnId = latestSeenOwnMessageId(rootMessages, maxLastReadAt, viewer?.productUserId ?? null);
+            }
+        }
 
         for (let index = 0; index < rootMessages.length; index += 1) {
             const message = rootMessages[index]!
@@ -496,12 +516,14 @@ export function ChatWindow({
             grouped.push({
                 message,
                 showHeader,
-                showDateDivider
+                showDateDivider,
+                showFirstUnreadDivider: message.id === firstUnreadId,
+                showSeenIndicator: message.id === lastSeenOwnId
             });
         }
 
         return grouped;
-    }, [messages, state.pendingActionIds]);
+    }, [messages, state.pendingActionIds, state.activeChannelLastReadAt, state.peerReadStateByChannel, activeChannelData, viewer?.productUserId]);
 
     useEffect(() => {
         setIsEditingTopic(false);
@@ -1088,11 +1110,16 @@ export function ChatWindow({
 
 
                     <ol className="messages" ref={messagesRef} onScroll={handleMessageListScroll}>
-                        {[...renderedMessages].reverse().map(({ message, showHeader, showDateDivider }, index) => {
+                        {[...renderedMessages].reverse().map(({ message, showHeader, showDateDivider, showFirstUnreadDivider, showSeenIndicator }, index) => {
                             const mediaUrls = extractMediaUrls(message.content);
 
                             return (
                                 <li key={message.id} id={`message-${message.id}`} className={state.highlightedMessageId === message.id ? "highlighted-message" : ""}>
+                            {showFirstUnreadDivider ? (
+                                <div className="first-unread-divider" role="separator" aria-label="New messages below">
+                                    <span>New messages</span>
+                                </div>
+                            ) : null}
                             {showDateDivider ? (
                                 <div className="date-divider">
                                     <span>{new Date(message.createdAt).toLocaleDateString()}</span>
@@ -1444,6 +1471,9 @@ export function ChatWindow({
                                     </small>
                                 ) : null}
                             </article>
+                            {showSeenIndicator ? (
+                                <div className="seen-indicator" aria-label="Seen by recipient">Seen</div>
+                            ) : null}
                         </li>
                     );
                 })}

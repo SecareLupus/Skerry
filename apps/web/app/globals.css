@@ -1275,6 +1275,40 @@ textarea:focus-visible,
   font-size: 0.78rem;
 }
 
+/* #79 — "New messages" divider */
+.first-unread-divider {
+  position: relative;
+  text-align: center;
+  margin: 0.4rem 0;
+}
+
+.first-unread-divider::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  border-top: 1px solid #d04545;
+}
+
+.first-unread-divider span {
+  position: relative;
+  padding: 0 0.5rem;
+  background: var(--surface);
+  color: #d04545;
+  font-size: 0.74rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* #79 — DM "Seen" indicator */
+.seen-indicator {
+  margin: 0.1rem 0 0.3rem 2.6rem;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
 .message-meta-error {
   color: #8f1e1e;
 }

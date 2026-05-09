@@ -103,6 +103,15 @@ export interface ChatState {
     switchingServer?: boolean;
     // UI states that might be useful globally
     lastReadByChannel: Record<string, string>;
+    // #79 — snapshot of `last_read_at` captured at the moment the active
+    // channel was opened. Used to anchor the "new messages" divider while
+    // the user is reading; not updated as new messages arrive in this
+    // session.
+    activeChannelLastReadAt: string | null;
+    // #79 — per-channel, per-user `last_read_at` for read-receipt rendering.
+    // Populated only for DMs (the backend returns empty for non-DM
+    // channels). Updated via the `channel.read` SSE event.
+    peerReadStateByChannel: Record<string, Record<string, string>>;
     mentionCountByChannel: Record<string, number>;
     unreadCountByChannel: Record<string, number>;
     muteStatusByChannel: Record<string, boolean>;
@@ -280,8 +289,11 @@ type ChatAction =
             highlightedMessageId?: string | null;
             error?: string | null;
             hubs?: Hub[];
-        } 
-      };
+            activeChannelLastReadAt?: string | null;
+        }
+      }
+    | { type: "LOAD_PEER_READ_STATES"; payload: { channelId: string; states: Array<{ userId: string; lastReadAt: string }> } }
+    | { type: "UPDATE_PEER_READ_STATE"; payload: { channelId: string; userId: string; lastReadAt: string } };
 
 
 export const initialState: ChatState = {
@@ -309,6 +321,8 @@ export const initialState: ChatState = {
     discordMappings: [],
     discordConnection: null,
     lastReadByChannel: {},
+    activeChannelLastReadAt: null,
+    peerReadStateByChannel: {},
     mentionCountByChannel: {},
     unreadCountByChannel: {},
     muteStatusByChannel: {},
@@ -729,8 +743,33 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
                 ...(action.payload.permissions !== undefined && { allowedActions: action.payload.permissions }),
                 ...(action.payload.highlightedMessageId !== undefined && { highlightedMessageId: action.payload.highlightedMessageId }),
                 ...(action.payload.error !== undefined && { error: action.payload.error }),
-                ...(action.payload.hubs !== undefined && { hubs: action.payload.hubs })
+                ...(action.payload.hubs !== undefined && { hubs: action.payload.hubs }),
+                ...(action.payload.activeChannelLastReadAt !== undefined && { activeChannelLastReadAt: action.payload.activeChannelLastReadAt })
             };
+        case "LOAD_PEER_READ_STATES": {
+            const next: Record<string, string> = {};
+            for (const s of action.payload.states) next[s.userId] = s.lastReadAt;
+            return {
+                ...state,
+                peerReadStateByChannel: {
+                    ...state.peerReadStateByChannel,
+                    [action.payload.channelId]: next
+                }
+            };
+        }
+        case "UPDATE_PEER_READ_STATE": {
+            const existing = state.peerReadStateByChannel[action.payload.channelId] ?? {};
+            return {
+                ...state,
+                peerReadStateByChannel: {
+                    ...state.peerReadStateByChannel,
+                    [action.payload.channelId]: {
+                        ...existing,
+                        [action.payload.userId]: action.payload.lastReadAt
+                    }
+                }
+            };
+        }
         default:
             return state;
     }
