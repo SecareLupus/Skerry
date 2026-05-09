@@ -15,7 +15,8 @@ type ChatEvent =
   | "category.created"
   | "category.updated"
   | "category.deleted"
-  | "dm.left";
+  | "dm.left"
+  | "channel.read";
 type ChatListener = (event: ChatEvent, payload: any) => void;
 
 const channelListeners = new Map<string, Set<ChatListener>>();

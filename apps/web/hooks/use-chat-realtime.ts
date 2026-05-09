@@ -285,6 +285,19 @@ export function useChatRealtime() {
       }
     });
 
+    // #79 — DM read receipts. The `channel.read` event fires whenever any
+    // user in this hub bumps their read pointer; we only act on it when
+    // (a) it's about a channel the viewer is currently subscribed to and
+    // (b) it's another user, not the viewer themselves.
+    source.addEventListener("channel.read", (event: any) => {
+      const data = JSON.parse(event.data) as { channelId: string; productUserId: string; lastReadAt: string };
+      if (data.productUserId === viewer?.productUserId) return;
+      dispatch({
+        type: "UPDATE_PEER_READ_STATE",
+        payload: { channelId: data.channelId, userId: data.productUserId, lastReadAt: data.lastReadAt }
+      });
+    });
+
     source.addEventListener("typing.start", (event: any) => {
       const data = JSON.parse(event.data);
       dispatch({ type: "SET_TYPING_USER", payload: { ...data, isTyping: true } });

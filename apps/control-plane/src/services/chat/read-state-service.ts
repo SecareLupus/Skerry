@@ -57,6 +57,45 @@ export async function listChannelReadStates(input: {
   });
 }
 
+/**
+ * List read states for every participant of a channel. DM-only by design —
+ * for non-DM channels we return an empty list, since exposing every server
+ * member's last_read_at would be a privacy leak with no UX upside (the
+ * divider for shared channels is driven solely by the requester's own row).
+ */
+export async function listChannelReadStatesForChannel(channelId: string): Promise<ChannelReadState[]> {
+  return withDb(async (db) => {
+    const channel = await db.query<{ type: string }>(
+      "select type from channels where id = $1",
+      [channelId]
+    );
+    if (channel.rows[0]?.type !== "dm") return [];
+
+    const rows = await db.query<{
+      channel_id: string;
+      product_user_id: string;
+      last_read_at: string;
+      is_muted: boolean;
+      notification_preference: "all" | "mentions" | "none";
+      updated_at: string;
+    }>(
+      `select channel_id, product_user_id, last_read_at, is_muted, notification_preference, updated_at
+         from channel_read_states
+        where channel_id = $1`,
+      [channelId]
+    );
+
+    return rows.rows.map((row) => ({
+      channelId: row.channel_id,
+      userId: row.product_user_id,
+      lastReadAt: row.last_read_at,
+      isMuted: row.is_muted,
+      notificationPreference: row.notification_preference,
+      updatedAt: row.updated_at
+    }));
+  });
+}
+
 export async function getChannelReadState(channelId: string, productUserId: string): Promise<ChannelReadState | null> {
   return withDb(async (db) => {
     const rows = await db.query<{

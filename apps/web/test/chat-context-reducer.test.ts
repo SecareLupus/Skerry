@@ -188,3 +188,64 @@ test("LOAD_CHANNEL_DRAFTS replaces the drafts map", () => {
     "chn_b": "from storage B"
   });
 });
+
+// #79 — DM read receipts: LOAD_PEER_READ_STATES replaces the per-channel
+// peer map and is scoped to a single channel without disturbing others.
+test("LOAD_PEER_READ_STATES replaces the per-channel peer map", () => {
+  const state = {
+    ...initialState,
+    peerReadStateByChannel: {
+      "chn_dm_a": { "usr_old": "2026-05-08T00:00:00Z" },
+      "chn_dm_b": { "usr_other": "2026-05-08T00:00:00Z" }
+    }
+  };
+
+  const next = chatReducer(state, {
+    type: "LOAD_PEER_READ_STATES",
+    payload: {
+      channelId: "chn_dm_a",
+      states: [{ userId: "usr_peer", lastReadAt: "2026-05-09T12:00:00Z" }]
+    }
+  });
+
+  assert.deepEqual(next.peerReadStateByChannel["chn_dm_a"], {
+    "usr_peer": "2026-05-09T12:00:00Z"
+  });
+  // chn_dm_b must be untouched.
+  assert.deepEqual(next.peerReadStateByChannel["chn_dm_b"], {
+    "usr_other": "2026-05-08T00:00:00Z"
+  });
+});
+
+// #79 — UPDATE_PEER_READ_STATE merges into the existing per-channel map
+// and works even when the channel has no prior peer entries (SSE event
+// arrives before the initial fetch completes).
+test("UPDATE_PEER_READ_STATE merges into existing channel map", () => {
+  const state = {
+    ...initialState,
+    peerReadStateByChannel: {
+      "chn_dm_a": { "usr_a": "2026-05-09T12:00:00Z" }
+    }
+  };
+
+  const next = chatReducer(state, {
+    type: "UPDATE_PEER_READ_STATE",
+    payload: { channelId: "chn_dm_a", userId: "usr_b", lastReadAt: "2026-05-09T13:00:00Z" }
+  });
+
+  assert.deepEqual(next.peerReadStateByChannel["chn_dm_a"], {
+    "usr_a": "2026-05-09T12:00:00Z",
+    "usr_b": "2026-05-09T13:00:00Z"
+  });
+});
+
+test("UPDATE_PEER_READ_STATE creates a fresh channel map when none exists", () => {
+  const next = chatReducer(initialState, {
+    type: "UPDATE_PEER_READ_STATE",
+    payload: { channelId: "chn_dm_new", userId: "usr_b", lastReadAt: "2026-05-09T13:00:00Z" }
+  });
+
+  assert.deepEqual(next.peerReadStateByChannel["chn_dm_new"], {
+    "usr_b": "2026-05-09T13:00:00Z"
+  });
+});

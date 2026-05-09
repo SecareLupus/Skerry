@@ -17,6 +17,7 @@ import {
   updateUserTheme,
   controlPlaneBaseUrl,
   fetchChannelInit,
+  listChannelPeerReadStates,
   type ChatMessage
 } from "../lib/control-plane";
 
@@ -233,10 +234,31 @@ export function useChatInitialization({
             members: initData.members,
             permissions: initData.permissions,
             highlightedMessageId: preferredMessageId ?? urlMessageId ?? null,
-            error: null
+            error: null,
+            // #79 — snapshot the read pointer BEFORE we call markChannelAsRead
+            // below; the divider needs to anchor on where the user was when
+            // they last visited, not on "now".
+            activeChannelLastReadAt: initData.readState?.lastReadAt ?? null
           }
         });
         dispatch({ type: "SET_SWITCHING_SERVER", payload: false });
+
+        // #79 — DM read receipts: fetch peer read states for DM channels
+        // only. The endpoint returns [] for non-DM channels.
+        if (initData.channel.type === "dm") {
+          const viewerId = state.viewer?.productUserId;
+          void listChannelPeerReadStates(nextChannelId).then((items) => {
+            dispatch({
+              type: "LOAD_PEER_READ_STATES",
+              payload: {
+                channelId: nextChannelId!,
+                states: items
+                  .filter((s) => s.userId !== viewerId)
+                  .map((s) => ({ userId: s.userId, lastReadAt: s.lastReadAt }))
+              }
+            });
+          }).catch((err) => console.warn("[#79] peer read states fetch failed", err));
+        }
 
         const finalMessageId = preferredMessageId ?? urlMessageId ?? null;
         setUrlSelection(nextServerId, nextChannelId, finalMessageId);

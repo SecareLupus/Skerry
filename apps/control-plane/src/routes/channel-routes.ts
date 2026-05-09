@@ -23,8 +23,11 @@ import {
 } from "../services/chat/channel-service.js";
 import {
   listChannelReadStates,
+  listChannelReadStatesForChannel,
   upsertChannelReadState
 } from "../services/chat/read-state-service.js";
+import { publishHubEvent } from "../services/chat-realtime.js";
+import { withDb } from "../db/client.js";
 import {
   getChannelSettings,
   updateChannelSettings
@@ -200,6 +203,13 @@ export async function registerChannelRoutes(app: FastifyInstance): Promise<void>
     };
   });
 
+  app.get("/v1/channels/:channelId/read-states", initializedAuthHandlers, async (request) => {
+    const params = z.object({ channelId: z.string().min(1) }).parse(request.params);
+    return {
+      items: await listChannelReadStatesForChannel(params.channelId)
+    };
+  });
+
   app.put("/v1/channels/:channelId/read-state", initializedAuthHandlers, async (request) => {
     const params = z.object({ channelId: z.string().min(1) }).parse(request.params);
     const payload = z
@@ -210,11 +220,34 @@ export async function registerChannelRoutes(app: FastifyInstance): Promise<void>
       })
       .parse(request.body ?? {});
 
-    return upsertChannelReadState({
+    const result = await upsertChannelReadState({
       productUserId: request.auth!.productUserId,
       channelId: params.channelId,
       ...payload
     });
+
+    // Broadcast via the channel's hub. The realtime stream is hub-scoped
+    // today, so this payload is visible to all hub subscribers — the
+    // frontend filters by channel + viewer participation. Per-user
+    // fan-out is the proper fix and is on the post-Sprint-1 follow-up
+    // list; until then we accept the same wire-leak shape that
+    // `channel.created` already has for DMs.
+    const hubRow = await withDb(async (db) =>
+      db.query<{ hub_id: string }>(
+        "select s.hub_id from channels c join servers s on s.id = c.server_id where c.id = $1",
+        [params.channelId]
+      )
+    );
+    const hubId = hubRow.rows[0]?.hub_id;
+    if (hubId) {
+      publishHubEvent(hubId, "channel.read", {
+        channelId: params.channelId,
+        productUserId: request.auth!.productUserId,
+        lastReadAt: result.lastReadAt
+      });
+    }
+
+    return result;
   });
 
   app.patch("/v1/channels/:channelId/controls", initializedAuthHandlers, async (request, reply) => {
