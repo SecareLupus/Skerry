@@ -346,6 +346,7 @@ export async function deleteChannel(input: { channelId: string; serverId: string
 export async function listChannelMembers(channelId: string, viewerUserId?: string): Promise<{
   productUserId: string;
   displayName: string;
+  preferredUsername: string | null;
   avatarUrl?: string;
   isOnline: boolean;
   lastSeenAt?: string;
@@ -426,6 +427,7 @@ export async function listChannelMembers(channelId: string, viewerUserId?: strin
     const localMembers = localUserRows.rows.map(r => ({
       productUserId: r.product_user_id,
       displayName: r.preferred_username ?? r.email?.split('@')[0] ?? `user-${r.product_user_id.slice(0, 8)}`,
+      preferredUsername: r.preferred_username,
       avatarUrl: r.avatar_url ?? undefined,
       isOnline: r.last_seen_at ? (now - new Date(r.last_seen_at).getTime() < ONLINE_THRESHOLD_MS) : false,
       lastSeenAt: r.last_seen_at ?? undefined,
@@ -473,6 +475,7 @@ export async function listChannelMembers(channelId: string, viewerUserId?: strin
           bridgedMembers.push({
             productUserId: `discord_${discordId}`,
             displayName: p.displayName || p.username,
+            preferredUsername: null,
             avatarUrl: p.avatarUrl ?? undefined,
             isOnline: true,
             bridgedUserStatus: p.status,
@@ -508,6 +511,7 @@ export async function listChannelMembers(channelId: string, viewerUserId?: strin
       externalOfflineMembers.push({
         productUserId: `discord_${discordId}`,
         displayName: row.external_author_name ?? row.author_display_name,
+        preferredUsername: null,
         avatarUrl: row.external_author_avatar_url ?? undefined,
         isOnline: false,
         isBridged: true,
