@@ -1076,6 +1076,15 @@ export function ChatWindow({
 
                     <button
                         type="button"
+                        data-testid="toggle-pinned-drawer"
+                        className={`icon-button ${state.isPinnedDrawerOpen ? "active-toggle" : ""}`}
+                        title={state.isPinnedDrawerOpen ? "Hide Pinned Messages" : "Show Pinned Messages"}
+                        onClick={() => dispatch({ type: "SET_PINNED_DRAWER_OPEN", payload: !state.isPinnedDrawerOpen })}
+                    >
+                        📌
+                    </button>
+                    <button
+                        type="button"
                         data-testid="toggle-member-list"
                         className={`icon-button ${isDetailsOpen ? "active-toggle" : ""}`}
                         title={isDetailsOpen ? "Hide Member List" : "Show Member List"}
@@ -1171,7 +1180,15 @@ export function ChatWindow({
                                             </span>
                                         )}
                                     </header>
-                                ) : null}
+                                ) : (
+                                    message.isPinned && (
+                                        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                                            <span className="pinned-indicator" title="Pinned Message" style={{ fontSize: "0.8rem", opacity: 0.6 }}>
+                                                📌
+                                            </span>
+                                        </div>
+                                    )
+                                )}
                                 <div className="message-content-wrapper" style={{ position: "relative" }}>
                                     {/* Hover action bar */}
                                     <div className="message-hover-actions">

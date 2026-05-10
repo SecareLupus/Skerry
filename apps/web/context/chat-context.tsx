@@ -93,6 +93,7 @@ export interface ChatState {
     allowedActions: PrivilegedAction[];
     activeModal: ModalType;
     isDetailsOpen: boolean;
+    isPinnedDrawerOpen: boolean;
     isSidebarOpen: boolean;
     isAddMenuOpen: boolean;
     theme: "light" | "dark";
@@ -201,6 +202,7 @@ type ChatAction =
     | { type: "SET_ALLOWED_ACTIONS"; payload: PrivilegedAction[] }
     | { type: "SET_ACTIVE_MODAL"; payload: ModalType }
     | { type: "SET_DETAILS_OPEN"; payload: boolean }
+    | { type: "SET_PINNED_DRAWER_OPEN"; payload: boolean }
     | { type: "SET_SIDEBAR_OPEN"; payload: boolean }
     | { type: "SET_ADD_MENU_OPEN"; payload: boolean }
     | { type: "SET_THEME"; payload: "light" | "dark" }
@@ -314,6 +316,7 @@ export const initialState: ChatState = {
     allowedActions: [],
     activeModal: null,
     isDetailsOpen: true,
+    isPinnedDrawerOpen: false,
     isSidebarOpen: false,
     isAddMenuOpen: false,
     theme: "light",
@@ -429,6 +432,8 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
             return { ...state, activeModal: action.payload };
         case "SET_DETAILS_OPEN":
             return { ...state, isDetailsOpen: action.payload };
+        case "SET_PINNED_DRAWER_OPEN":
+            return { ...state, isPinnedDrawerOpen: action.payload };
         case "SET_SIDEBAR_OPEN":
             return { ...state, isSidebarOpen: action.payload };
         case "SET_ADD_MENU_OPEN":
