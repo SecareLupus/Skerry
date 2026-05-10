@@ -463,6 +463,13 @@ export async function unpinMessage(channelId: string, messageId: string): Promis
   });
 }
 
+export async function listPins(channelId: string): Promise<ChatMessage[]> {
+  const json = await apiFetch<{ items: ChatMessage[] }>(
+    `/v1/channels/${encodeURIComponent(channelId)}/pins`
+  );
+  return json.items;
+}
+
 export async function sendTypingStatus(channelId: string, isTyping: boolean): Promise<void> {
   await apiFetch(`/v1/channels/${encodeURIComponent(channelId)}/typing`, {
     method: "POST",

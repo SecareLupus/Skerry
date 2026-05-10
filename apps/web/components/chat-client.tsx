@@ -6,6 +6,7 @@ import { useChat, ChatHandlersProvider, MessageItem, ModalType } from "../contex
 import { AuthOverlay } from "./auth-overlay";
 import { Sidebar } from "./sidebar";
 import { ChatWindow } from "./chat-window";
+import { PinnedMessagesDrawer } from "./pinned-messages-drawer";
 import { ErrorBoundary } from "./error-boundary";
 import { ClientTopbar } from "./layout/ClientTopbar";
 import { ClientModals } from "./modals/ClientModals";
@@ -969,6 +970,20 @@ export function ChatClient() {
             )}
           </div >
         </section >
+      )}
+
+      {state.isPinnedDrawerOpen && activeChannelData && (
+        <ErrorBoundary>
+          <PinnedMessagesDrawer
+            channelId={activeChannelData.id}
+            channelName={getChannelName(activeChannelData, viewer?.productUserId, members)}
+            onClose={() => dispatch({ type: "SET_PINNED_DRAWER_OPEN", payload: false })}
+            onJumpToMessage={(messageId) => {
+              dispatch({ type: "SET_PINNED_DRAWER_OPEN", payload: false });
+              void refreshChatState(activeChannelData.serverId, activeChannelData.id, messageId, true);
+            }}
+          />
+        </ErrorBoundary>
       )}
 
       <ModalManager />
