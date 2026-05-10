@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import Icon from "../icon";
 
 interface VoiceSettingsModalProps {
     activeModal: string | null;

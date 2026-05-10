@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Icon from "./icon";
 import { useChat } from "../context/chat-context";
 import { updateUserProfile, fetchViewerSession, controlPlaneBaseUrl, fetchUser } from "../lib/control-plane";
 import { useToast } from "./toast-provider";

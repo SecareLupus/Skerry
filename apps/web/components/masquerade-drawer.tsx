@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { useChat } from "../context/chat-context";
+import Icon from "./icon";
 import { getMasqueradeToken, fetchBadges } from "../lib/control-plane";
 import { useToast } from "./toast-provider";
 import type { Role, Badge } from "@skerry/shared";

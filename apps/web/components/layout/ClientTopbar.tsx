@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { ViewerSession } from "../../lib/control-plane";
 import { NotificationsPanel } from "../notifications-panel";
+import Icon from "../icon";
 
 interface ClientTopbarProps {
   dispatch: (action: any) => void;
@@ -46,24 +47,24 @@ export function ClientTopbar({
         <div className="topbar-meta">
           <button
             type="button"
-            className="icon-button"
+            className="btn-icon btn-icon--outline"
             title={theme === "light" ? "Switch to Dark Mode" : "Switch to Light Mode"}
             aria-label={theme === "light" ? "Switch to Dark Mode" : "Switch to Light Mode"}
             onClick={toggleTheme}
           >
-            {theme === "light" ? "🌙" : "☀️"}
+            <Icon name={theme === "light" ? "moon" : "sun"} size={16} />
           </button>
           <button
             type="button"
-            className="icon-button"
+            className="btn-icon btn-icon--outline"
             title="Search Messages"
             onClick={() => dispatch({ type: "SET_ACTIVE_MODAL", payload: "search" })}
           >
-            🔍
+            <Icon name="search" size={16} />
           </button>
           <NotificationsPanel />
-          <Link href="/settings" className="icon-button" title="User Settings" aria-label="User Settings">
-            ⚙️
+          <Link href="/settings" className="btn-icon btn-icon--outline" title="User Settings" aria-label="User Settings">
+            <Icon name="settings" size={16} />
           </Link>
           <span className="status-pill" data-state={realtimeState}>
             {realtimeState === "live" ? "Live" : realtimeState === "polling" ? "Polling" : "Offline"}

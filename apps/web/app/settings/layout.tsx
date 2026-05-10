@@ -4,6 +4,7 @@ import React, { useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useChat } from "../../context/chat-context";
+import Icon from "../../components/icon";
 
 export default function SettingsLayout({
   children,
@@ -27,38 +28,38 @@ export default function SettingsLayout({
   ), [viewerRoles, selectedServerId]);
 
   const navItems = [
-    { label: "User Settings", href: "/settings", icon: "👤" },
-    { label: "Hub Settings", href: "/settings/hub", icon: "⚙️", hidden: !canManageHub },
-    { label: "Hub Members", href: "/settings/hub/members", icon: "👥", hidden: !canManageHub },
-    { label: "Hub Invites", href: "/settings/hub/invites", icon: "🔗", hidden: !canManageHub },
+    { label: "User Settings", href: "/settings", icon: "user" },
+    { label: "Hub Settings", href: "/settings/hub", icon: "settings", hidden: !canManageHub },
+    { label: "Hub Members", href: "/settings/hub/members", icon: "users", hidden: !canManageHub },
+    { label: "Hub Invites", href: "/settings/hub/invites", icon: "link", hidden: !canManageHub },
     { 
       label: "Space Settings", 
       href: `/settings/spaces/${selectedServerId}`, 
-      icon: "🏠", 
+      icon: "home", 
       hidden: !canManageCurrentSpace || !selectedServerId 
     },
     { 
       label: "Space Members", 
       href: `/settings/spaces/${selectedServerId}/members`, 
-      icon: "🛡️", 
+      icon: "shield", 
       hidden: !canManageCurrentSpace || !selectedServerId 
     },
     { 
       label: "Space Badges", 
       href: `/settings/spaces/${selectedServerId}/badges`, 
-      icon: "🏅", 
+      icon: "award", 
       hidden: !canManageCurrentSpace || !selectedServerId 
     },
     { 
       label: "Audit Log", 
       href: `/settings/spaces/${selectedServerId}/audit-log`, 
-      icon: "📜", 
+      icon: "scroll-text", 
       hidden: !canManageCurrentSpace || !selectedServerId 
     },
     { 
       label: "Room Settings", 
       href: `/settings/rooms/${selectedChannelId}`, 
-      icon: "💬", 
+      icon: "message-square", 
       hidden: !canManageCurrentSpace || !selectedChannelId 
     },
   ];
@@ -68,7 +69,7 @@ export default function SettingsLayout({
       <header className="topbar">
         <div className="header-left">
           <Link href="/" className="back-button" title="Back to Chat">
-            ←
+            <Icon name="arrow-left" size={16} />
           </Link>
           <h1 style={{ marginLeft: '0.5rem' }}>Settings</h1>
         </div>
@@ -91,7 +92,7 @@ export default function SettingsLayout({
                   pathname === item.href ? "active" : ""
                 }`}
               >
-                <span style={{ fontSize: '1.2rem' }}>{item.icon}</span>
+                <Icon name={item.icon} size={18} />
                 {item.label}
               </Link>
             ))}

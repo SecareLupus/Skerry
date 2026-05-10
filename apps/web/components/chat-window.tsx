@@ -25,6 +25,7 @@ import { AutocompletePopover } from "./composer/autocomplete-popover";
 import { shortcodeToGlyph } from "../lib/composer-autocomplete/emoji-index";
 import { firstUnreadMessageId, latestSeenOwnMessageId } from "../lib/read-state";
 import { EditHistoryPopover } from "./edit-history-popover";
+import Icon from "./icon";
 
 
 
@@ -411,7 +412,7 @@ export function ChatWindow({
                 setShowEmojiPicker(false);
             }
             // Handle reaction picker
-            if (reactionTargetMessageId && !target.closest(".emoji-picker-container") && !target.closest(".hover-action-item") && !target.closest(".interaction-btn")) {
+            if (reactionTargetMessageId && !target.closest(".emoji-picker-container") && !target.closest(".btn-icon--ghost") && !target.closest(".interaction-btn")) {
                 setReactionTargetMessageId(null);
                 setReactionPickerPos(null);
             }
@@ -611,7 +612,7 @@ export function ChatWindow({
         const items: ContextMenuItem[] = [
             {
                 label: "Add Reaction",
-                icon: "😀",
+                icon: "smile-plus",
                 onClick: () => {
                     if (contextMenu.message) {
                         setReactionPickerPos({ x: contextMenu.x, y: contextMenu.y });
@@ -621,7 +622,7 @@ export function ChatWindow({
             },
             {
                 label: "Copy Text",
-                icon: "📋",
+                icon: "clipboard",
                 onClick: () => {
                     const rawContent = contextMenu.message?.content || "";
                     // Transform ![:name:](url) -> :name: for clipboard
@@ -631,7 +632,7 @@ export function ChatWindow({
             },
             {
                 label: "Reply in Thread",
-                icon: "💬",
+                icon: "message-square",
                 onClick: () => {
                     if (contextMenu.message) {
                         dispatch({ type: "SET_THREAD_PARENT_ID", payload: contextMenu.message.id });
@@ -643,7 +644,7 @@ export function ChatWindow({
         if (isAuthor) {
             items.push({
                 label: "Edit Message",
-                icon: "✏️",
+                icon: "pen-line",
                 onClick: () => {
                     setEditingMessageId(contextMenu.message?.id || null);
                     setEditContent(contextMenu.message?.content || "");
@@ -654,7 +655,7 @@ export function ChatWindow({
         if (isModerator || isAuthor) {
             items.push({
                 label: "Delete Message",
-                icon: "🗑️",
+                icon: "trash-2",
                 danger: true,
                 onClick: () => {
                     dispatch({
@@ -708,7 +709,7 @@ export function ChatWindow({
         if (isModerator && !isAuthor) {
             items.push({
                 label: "Moderate User...",
-                icon: "🛡️",
+                icon: "shield",
                 danger: true,
                 onClick: () => {
                     dispatch({
@@ -724,7 +725,7 @@ export function ChatWindow({
             });
             items.push({
                 label: "Timeout User (Shadow Mute)",
-                icon: "⏳",
+                icon: "hourglass",
                 danger: true,
                 onClick: () => {
                     const isMasquerade = !!sessionStorage.getItem("masquerade_token");
@@ -744,7 +745,7 @@ export function ChatWindow({
             });
             items.push({
                 label: "Kick User",
-                icon: "👢",
+                icon: "ban",
                 danger: true,
                 onClick: () => {
                     const isMasquerade = !!sessionStorage.getItem("masquerade_token");
@@ -767,7 +768,7 @@ export function ChatWindow({
             const isPinned = contextMenu.message.isPinned;
             items.push({
                 label: isPinned ? "Unpin Message" : "Pin Message",
-                icon: "📌",
+                icon: "pin",
                 onClick: async () => {
                     const isMasquerade = !!sessionStorage.getItem("masquerade_token");
                     if (isMasquerade) {
@@ -810,7 +811,7 @@ export function ChatWindow({
         const items: ContextMenuItem[] = [
             {
                 label: "View Profile",
-                icon: "👤",
+                icon: "user",
                 onClick: () => {
                     dispatch({ type: "SET_PROFILE_USER_ID", payload: userContextMenu.userId });
                     dispatch({ type: "SET_ACTIVE_MODAL", payload: "profile" });
@@ -818,7 +819,7 @@ export function ChatWindow({
             },
             {
                 label: "Direct Message",
-                icon: "💬",
+                icon: "message-square",
                 onClick: () => {
                     console.log("DM user", userContextMenu.userId);
                 }
@@ -828,7 +829,7 @@ export function ChatWindow({
         if (!isSelf) {
             items.push({
                 label: "Ignore / Block",
-                icon: "🚫",
+                icon: "ban",
                 onClick: () => {
                     console.log("Block user", userContextMenu.userId);
                 }
@@ -838,7 +839,7 @@ export function ChatWindow({
         if (isModerator && !isSelf) {
             items.push({
                 label: "Timeout (Shadow Mute)",
-                icon: "⏳",
+                icon: "hourglass",
                 danger: true,
                 onClick: () => {
                     const isMasquerade = !!sessionStorage.getItem("masquerade_token");
@@ -857,7 +858,7 @@ export function ChatWindow({
             });
             items.push({
                 label: "Kick",
-                icon: "👢",
+                icon: "ban",
                 danger: true,
                 onClick: () => {
                     const isMasquerade = !!sessionStorage.getItem("masquerade_token");
@@ -955,12 +956,12 @@ export function ChatWindow({
                 <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
                     <button
                         type="button"
-                        className="icon-button mobile-only"
+                        className="btn-icon btn-icon--outline mobile-only"
                         onClick={() => dispatch({ type: "SET_SIDEBAR_OPEN", payload: !state.isSidebarOpen })}
                         aria-label="Toggle Sidebar"
                         style={{ display: "none" }} /* Hidden by CSS for desktop */
                     >
-                        ☰
+                        <Icon name="menu" size={18} />
                     </button>
                     <div>
                         <h2>
@@ -994,14 +995,14 @@ export function ChatWindow({
                         <div className="dm-controls inline-buttons">
                             <button
                                 type="button"
-                                className="icon-button"
+                                className="btn-icon btn-icon--outline"
                                 onClick={() => {
                                     setNewTopic(activeChannel.topic || "");
                                     setIsEditingTopic(true);
                                 }}
                                 title="Set DM Topic"
                             >
-                                📝
+                                <Icon name="pencil" size={16} />
                             </button>
                         </div>
                     )}
@@ -1028,51 +1029,51 @@ export function ChatWindow({
                         <div className="voice-controls inline-buttons">
                             <button
                                 type="button"
-                                className={`icon-button ${voiceMuted ? "active-toggle" : ""}`}
+                                className={`btn-icon btn-icon--outline ${voiceMuted ? "btn-icon--active" : ""}`}
                                 onClick={() => handleToggleMuteDeafen(!voiceMuted, voiceDeafened)}
                                 title={voiceMuted ? "Unmute" : "Mute"}
                             >
-                                {voiceMuted ? "🔇" : "🎤"}
+                                <Icon name={voiceMuted ? "mic-off" : "mic"} size={16} />
                             </button>
                             <button
                                 type="button"
-                                className={`icon-button ${voiceDeafened ? "active-toggle" : ""}`}
+                                className={`btn-icon btn-icon--outline ${voiceDeafened ? "btn-icon--active" : ""}`}
                                 onClick={() => handleToggleMuteDeafen(voiceMuted, !voiceDeafened)}
                                 title={voiceDeafened ? "Undeafen" : "Deafen"}
                             >
-                                {voiceDeafened ? "🔈" : "🎧"}
+                                <Icon name={voiceDeafened ? "volume-1" : "headphones"} size={16} />
                             </button>
                             <button
                                 type="button"
-                                className={`icon-button ${voiceVideoEnabled ? "active-toggle" : ""}`}
+                                className={`btn-icon btn-icon--outline ${voiceVideoEnabled ? "btn-icon--active" : ""}`}
                                 onClick={() => handleToggleVideo(!voiceVideoEnabled)}
                                 title={voiceVideoEnabled ? "Disable Video" : "Enable Video"}
                             >
-                                {voiceVideoEnabled ? "📹" : "📷"}
+                                <Icon name={voiceVideoEnabled ? "video" : "camera"} size={16} />
                             </button>
                             <button
                                 type="button"
-                                className={`icon-button ${voiceScreenShareEnabled ? "active-toggle" : ""}`}
+                                className={`btn-icon btn-icon--outline ${voiceScreenShareEnabled ? "btn-icon--active" : ""}`}
                                 onClick={() => handleToggleScreenShare(!voiceScreenShareEnabled)}
                                 title={voiceScreenShareEnabled ? "Stop Sharing" : "Share Screen"}
                             >
-                                📺
+                                <Icon name="video" size={16} />
                             </button>
                             <button
                                 type="button"
-                                className="icon-button"
+                                className="btn-icon btn-icon--outline"
                                 onClick={() => dispatch({ type: "SET_ACTIVE_MODAL", payload: "voice-settings" })}
                                 title="Voice Settings"
                             >
-                                ⚙️
+                                <Icon name="settings" size={16} />
                             </button>
                             <button
                                 type="button"
-                                className="icon-button danger"
+                                className="btn-icon btn-icon--outline btn-icon--danger"
                                 onClick={() => handleLeaveVoice()}
                                 title="Leave Voice"
                             >
-                                📞
+                                <Icon name="phone-off" size={16} />
                             </button>
                         </div>
                     )}
@@ -1080,20 +1081,20 @@ export function ChatWindow({
                     <button
                         type="button"
                         data-testid="toggle-pinned-drawer"
-                        className={`icon-button ${state.isPinnedDrawerOpen ? "active-toggle" : ""}`}
+                        className={`btn-icon btn-icon--outline ${state.isPinnedDrawerOpen ? "btn-icon--active" : ""}`}
                         title={state.isPinnedDrawerOpen ? "Hide Pinned Messages" : "Show Pinned Messages"}
                         onClick={() => dispatch({ type: "SET_PINNED_DRAWER_OPEN", payload: !state.isPinnedDrawerOpen })}
                     >
-                        📌
+                        <Icon name="pin" size={16} />
                     </button>
                     <button
                         type="button"
                         data-testid="toggle-member-list"
-                        className={`icon-button ${isDetailsOpen ? "active-toggle" : ""}`}
+                        className={`btn-icon btn-icon--outline ${isDetailsOpen ? "btn-icon--active" : ""}`}
                         title={isDetailsOpen ? "Hide Member List" : "Show Member List"}
                         onClick={() => dispatch({ type: "SET_DETAILS_OPEN", payload: !isDetailsOpen })}
                     >
-                        👥
+                        <Icon name="users" size={16} />
                     </button>
                 </div>
             </header>
@@ -1202,7 +1203,7 @@ export function ChatWindow({
                                     <div className="message-hover-actions">
                                         <button
                                             type="button"
-                                            className="hover-action-item"
+                                            className="btn-icon btn-icon--ghost"
                                             onClick={(e) => {
                                                 const isMasquerade = !!sessionStorage.getItem("masquerade_token");
                                                 if (isMasquerade) {
@@ -1215,11 +1216,11 @@ export function ChatWindow({
                                             }}
                                             title="Add Reaction"
                                         >
-                                            😀
+                                            <Icon name="smile-plus" size={16} />
                                         </button>
                                         <button
                                             type="button"
-                                            className="hover-action-item"
+                                            className="btn-icon btn-icon--ghost"
                                             onClick={() => {
                                                 if ((activeChannelData?.type as string) === "forum") {
                                                     dispatch({ type: "SET_THREAD_PARENT_ID", payload: message.id });
@@ -1229,12 +1230,12 @@ export function ChatWindow({
                                             }}
                                             title="Reply"
                                         >
-                                            ↩️
+                                            <Icon name="reply" size={16} />
                                         </button>
                                         {message.authorUserId === viewer?.productUserId && (
                                             <button
                                                 type="button"
-                                                className="hover-action-item"
+                                                className="btn-icon btn-icon--ghost"
                                                 onClick={() => {
                                                     const isMasquerade = !!sessionStorage.getItem("masquerade_token");
                                                     if (isMasquerade) {
@@ -1246,7 +1247,7 @@ export function ChatWindow({
                                                 }}
                                                 title="Edit"
                                             >
-                                                ✏️
+                                                <Icon name="pen-line" size={16} />
                                             </button>
                                         )}
                                     </div>
@@ -1782,7 +1783,7 @@ export function ChatWindow({
 
             {lightboxUrl && (
                 <div className="lightbox-overlay" onClick={() => setLightboxUrl(null)}>
-                    <button className="lightbox-close" onClick={() => setLightboxUrl(null)}>×</button>
+                    <button className="lightbox-close" onClick={() => setLightboxUrl(null)}><Icon name="x" size={16} /></button>
                     <div className="lightbox-content" onClick={(e) => e.stopPropagation()}>
                         <GifPlayer src={lightboxUrl} className="lightbox-image" alt="Full size" style={{ maxWidth: "90vw", maxHeight: "90vh" }} />
                     </div>

@@ -216,7 +216,7 @@ body {
   font-weight: 600;
 }
 
-.topbar-meta .icon-button {
+.topbar-meta .btn-icon--outline {
   background: var(--surface-alt);
   color: var(--text);
   border: 1px solid var(--border);
@@ -417,7 +417,7 @@ body {
   font-weight: 500;
 }
 
-.topbar-meta .icon-button:hover {
+.topbar-meta .btn-icon--outline:hover {
   background: var(--surface);
 }
 
@@ -1128,6 +1128,95 @@ textarea:focus-visible,
   background: transparent;
 }
 
+/* ── Unified icon button system (Sprint 3 #44) ── */
+
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+  flex-shrink: 0;
+}
+
+.btn-icon:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.btn-icon:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.btn-icon:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Ghost: no border/background, used in hover action bars */
+.btn-icon--ghost {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+}
+
+.btn-icon--ghost:hover:not(:disabled) {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* Outline: bordered with background, used in channel headers and toolbars */
+.btn-icon--outline {
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+
+.btn-icon--outline:hover:not(:disabled):not(.btn-icon--active) {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.btn-icon--outline.btn-icon--active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.btn-icon--outline.btn-icon--danger:hover:not(:disabled) {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+}
+
+/* Pill: rounded-full, for reaction badges and counters */
+.btn-icon--pill {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 9999px;
+  padding: 1px 8px;
+  width: auto;
+  height: auto;
+  min-height: 24px;
+  font-size: 0.85rem;
+  gap: 0.25rem;
+}
+
+.btn-icon--pill:hover:not(:disabled) {
+  background: var(--surface-alt);
+}
+
+.btn-icon--pill.btn-icon--active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+/* Legacy: keep interaction-btn as an alias for pill variant during migration */
 .interaction-btn {
   color: var(--text);
   background: var(--surface);
@@ -1182,27 +1271,6 @@ textarea:focus-visible,
   opacity: 1;
   pointer-events: auto;
   transform: translateY(0);
-}
-
-.hover-action-item {
-  background: none !important;
-  border: none !important;
-  cursor: pointer;
-  padding: 4px 8px !important;
-  min-width: 32px !important;
-  height: 28px !important;
-  border-radius: 4px !important;
-  font-size: 14px !important;
-  display: flex !important;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s !important;
-  color: var(--text-muted) !important;
-}
-
-.hover-action-item:hover {
-  background: var(--accent) !important;
-  color: #fff !important;
 }
 
 .message-item-container:hover .thread-reply-btn {
@@ -1711,8 +1779,9 @@ textarea:focus-visible,
 }
 
 .active-toggle {
-  background: #d9e9ff;
-  border-color: #8db0e1;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
 }
 
 .audit-list {
@@ -1826,30 +1895,6 @@ textarea:focus-visible,
 .list-item:hover .inline-mgmt,
 .inline-mgmt.persistent {
   opacity: 1;
-}
-
-.icon-button {
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.9rem;
-  background: var(--surface-alt);
-  color: var(--text-muted);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-}
-
-.icon-button:hover {
-  background: var(--surface);
-  color: var(--text);
-}
-
-.icon-button.danger:hover {
-  background: var(--danger);
-  color: #fff;
 }
 
 .category-header {
@@ -2890,8 +2935,8 @@ textarea:focus-visible,
 }
 
 .active-toggle {
-    background: var(--accent) !important;
-    color: white !important;
+    background: var(--accent);
+    color: white;
 }
 
 .voice-error {

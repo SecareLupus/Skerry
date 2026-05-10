@@ -11,6 +11,7 @@ const EmojiPicker = dynamic(() => import("emoji-picker-react"), { ssr: false }) 
 import type { EmojiClickData } from "emoji-picker-react";
 import { useToast } from "./toast-provider";
 import { ContextMenu, ContextMenuItem } from "./context-menu";
+import Icon from "./icon";
 
 export function ThreadPanel() {
     const { state, dispatch } = useChat();
@@ -100,7 +101,7 @@ export function ThreadPanel() {
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             const target = event.target as HTMLElement;
-            if (reactionTargetMessageId && !target.closest(".emoji-picker-container") && !target.closest(".hover-action-item") && !target.closest(".interaction-btn")) {
+            if (reactionTargetMessageId && !target.closest(".emoji-picker-container") && !target.closest(".btn-icon--ghost") && !target.closest(".interaction-btn")) {
                 setReactionTargetMessageId(null);
                 setReactionPickerPos(null);
             }
@@ -231,7 +232,7 @@ export function ThreadPanel() {
         const items: ContextMenuItem[] = [
             {
                 label: "Add Reaction",
-                icon: "😀",
+                icon: "smile-plus",
                 onClick: () => {
                     setReactionTargetMessageId(contextMenu.message.id);
                     setReactionPickerPos({ x: contextMenu.x, y: contextMenu.y });
@@ -239,7 +240,7 @@ export function ThreadPanel() {
             },
             {
                 label: "Reply in Thread",
-                icon: "🧵",
+                icon: "message-square-dot",
                 onClick: () => {
                     setDraft(prev => prev ? `${prev}\n` : "");
                     // Just focus composer
@@ -247,7 +248,7 @@ export function ThreadPanel() {
             },
             {
                 label: "Copy Text",
-                icon: "📋",
+                icon: "clipboard",
                 onClick: () => {
                     void navigator.clipboard.writeText(contextMenu.message?.content || "");
                 }
@@ -257,7 +258,7 @@ export function ThreadPanel() {
         if (isAuthor) {
             items.push({
                 label: "Edit Message",
-                icon: "✏️",
+                icon: "pen-line",
                 onClick: () => {
                     setEditingMessageId(contextMenu.message.id);
                     setEditContent(contextMenu.message.content);
@@ -268,7 +269,7 @@ export function ThreadPanel() {
         if (isModerator || isAuthor) {
             items.push({
                 label: "Delete Message",
-                icon: "🗑️",
+                icon: "trash-2",
                 danger: true,
                 onClick: () => {
                     dispatch({
@@ -340,7 +341,7 @@ export function ThreadPanel() {
         if (isModerator && !isAuthor) {
             items.push({
                 label: "Moderate User...",
-                icon: "🛡️",
+                icon: "shield",
                 danger: true,
                 onClick: () => {
                     dispatch({
@@ -356,7 +357,7 @@ export function ThreadPanel() {
             });
             items.push({
                 label: "Timeout User",
-                icon: "⏳",
+                icon: "hourglass",
                 danger: true,
                 onClick: () => {
                     const isMasquerade = !!sessionStorage.getItem("masquerade_token");
@@ -375,7 +376,7 @@ export function ThreadPanel() {
             });
             items.push({
                 label: "Kick User",
-                icon: "👢",
+                icon: "ban",
                 danger: true,
                 onClick: () => {
                     const isMasquerade = !!sessionStorage.getItem("masquerade_token");
@@ -396,7 +397,7 @@ export function ThreadPanel() {
         const isPinned = contextMenu.message.isPinned;
         items.push({
             label: isPinned ? "Unpin Message" : "Pin Message",
-            icon: "📌",
+            icon: "pin",
             onClick: async () => {
                 const isMasquerade = !!sessionStorage.getItem("masquerade_token");
                 if (isMasquerade) {
@@ -449,7 +450,7 @@ export function ThreadPanel() {
         if (isModerator && !isSelf) {
             items.push({
                 label: "Timeout User",
-                icon: "⏳",
+                icon: "hourglass",
                 danger: true,
                 onClick: () => {
                     const isMasquerade = !!sessionStorage.getItem("masquerade_token");
@@ -468,7 +469,7 @@ export function ThreadPanel() {
             });
             items.push({
                 label: "Kick User",
-                icon: "👢",
+                icon: "ban",
                 danger: true,
                 onClick: () => {
                     const isMasquerade = !!sessionStorage.getItem("masquerade_token");
@@ -701,7 +702,7 @@ export function ThreadPanel() {
                         {attachments.map(att => (
                             <div key={att.id} className="attachment-preview">
                                 <img src={att.url} alt="preview" />
-                                <button type="button" onClick={() => setAttachments(prev => prev.filter(a => a.id !== att.id))}>×</button>
+                                <button type="button" onClick={() => setAttachments(prev => prev.filter(a => a.id !== att.id))}><Icon name="x" size={16} /></button>
                             </div>
                         ))}
                     </div>

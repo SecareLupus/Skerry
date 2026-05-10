@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { MessageRevision } from "@skerry/shared";
 import { fetchRevisions } from "../lib/control-plane";
+import Icon from "./icon";
 import { useChat } from "../context/chat-context";
 
 interface Props {
@@ -59,7 +60,7 @@ export function EditHistoryPopover({ channelId, messageId, currentContent, onClo
       <div className="eh-popover" role="dialog" aria-label="Edit history" data-testid="edit-history-popover">
         <div className="eh-header">
           <span className="eh-title">Edit History</span>
-          <button className="eh-close" onClick={onClose} aria-label="Close">✕</button>
+          <button className="eh-close" onClick={onClose} aria-label="Close"><Icon name="x" size={16} /></button>
         </div>
 
         <div className="eh-body">
