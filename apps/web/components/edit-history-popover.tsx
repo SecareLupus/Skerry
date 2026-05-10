@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { MessageRevision } from "@skerry/shared";
 import { fetchRevisions } from "../lib/control-plane";
+import { useChat } from "../context/chat-context";
 
 interface Props {
   channelId: string;
@@ -12,6 +13,8 @@ interface Props {
 }
 
 export function EditHistoryPopover({ channelId, messageId, currentContent, onClose }: Props) {
+  const { state } = useChat();
+  const isDark = state.theme !== "light";
   const [revisions, setRevisions] = useState<MessageRevision[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -118,10 +121,10 @@ export function EditHistoryPopover({ channelId, messageId, currentContent, onClo
           width: 360px;
           max-width: 95vw;
           max-height: 80vh;
-          background: #1e1f22;
-          border: 1px solid rgba(255, 255, 255, 0.1);
+          background: ${isDark ? "#1e1f22" : "#ffffff"};
+          border: 1px solid ${isDark ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.12)"};
           border-radius: 8px;
-          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+          box-shadow: 0 8px 32px rgba(0, 0, 0, ${isDark ? "0.6" : "0.15"});
           display: flex;
           flex-direction: column;
           overflow: hidden;
@@ -132,28 +135,28 @@ export function EditHistoryPopover({ channelId, messageId, currentContent, onClo
           align-items: center;
           justify-content: space-between;
           padding: 12px 16px;
-          background: #2b2d31;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+          background: ${isDark ? "#2b2d31" : "#f2f3f5"};
+          border-bottom: 1px solid ${isDark ? "rgba(255, 255, 255, 0.07)" : "rgba(0, 0, 0, 0.08)"};
           flex-shrink: 0;
         }
 
         .eh-title {
           font-size: 0.9rem;
           font-weight: 700;
-          color: #f2f3f5;
+          color: ${isDark ? "#f2f3f5" : "#313338"};
         }
 
         .eh-close {
           background: none;
           border: none;
-          color: #b5bac1;
+          color: ${isDark ? "#b5bac1" : "#5c5e66"};
           font-size: 1rem;
           cursor: pointer;
           padding: 4px 8px;
           border-radius: 4px;
         }
         .eh-close:hover {
-          background: rgba(255, 255, 255, 0.08);
+          background: ${isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.06)"};
         }
 
         .eh-body {
@@ -163,7 +166,7 @@ export function EditHistoryPopover({ channelId, messageId, currentContent, onClo
         }
 
         .eh-status {
-          color: #b5bac1;
+          color: ${isDark ? "#b5bac1" : "#5c5e66"};
           font-size: 0.85rem;
           text-align: center;
           padding: 16px 0;
@@ -181,17 +184,17 @@ export function EditHistoryPopover({ channelId, messageId, currentContent, onClo
         }
 
         .eh-nav-btn {
-          background: #2b2d31;
-          border: 1px solid rgba(255, 255, 255, 0.08);
+          background: ${isDark ? "#2b2d31" : "#f2f3f5"};
+          border: 1px solid ${isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.1)"};
           border-radius: 4px;
-          color: #b5bac1;
+          color: ${isDark ? "#b5bac1" : "#5c5e66"};
           padding: 4px 12px;
           cursor: pointer;
           font-size: 0.85rem;
         }
         .eh-nav-btn:hover:not(:disabled) {
-          background: #35373c;
-          color: #f2f3f5;
+          background: ${isDark ? "#35373c" : "#e3e5e8"};
+          color: ${isDark ? "#f2f3f5" : "#313338"};
         }
         .eh-nav-btn:disabled {
           opacity: 0.35;
@@ -200,13 +203,13 @@ export function EditHistoryPopover({ channelId, messageId, currentContent, onClo
 
         .eh-position {
           font-size: 0.8rem;
-          color: #72767d;
+          color: ${isDark ? "#72767d" : "#94999e"};
           min-width: 60px;
           text-align: center;
         }
 
         .eh-revision {
-          background: #2b2d31;
+          background: ${isDark ? "#2b2d31" : "#f2f3f5"};
           border-radius: 6px;
           padding: 10px 12px;
         }
@@ -214,14 +217,14 @@ export function EditHistoryPopover({ channelId, messageId, currentContent, onClo
         .eh-time {
           display: block;
           font-size: 0.72rem;
-          color: #72767d;
+          color: ${isDark ? "#72767d" : "#94999e"};
           margin-bottom: 8px;
         }
 
         .eh-content {
           margin: 0;
           font-size: 0.85rem;
-          color: #b5bac1;
+          color: ${isDark ? "#b5bac1" : "#5c5e66"};
           white-space: pre-wrap;
           word-wrap: break-word;
           font-family: inherit;
@@ -230,7 +233,7 @@ export function EditHistoryPopover({ channelId, messageId, currentContent, onClo
         .eh-current-hint {
           margin-top: 8px;
           font-size: 0.72rem;
-          color: #72767d;
+          color: ${isDark ? "#72767d" : "#94999e"};
           text-align: center;
         }
       `}</style>
