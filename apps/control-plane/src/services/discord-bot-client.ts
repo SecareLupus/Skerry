@@ -699,7 +699,7 @@ export async function relayMatrixMessageToDiscord(input: {
         // this catches stray @ characters that Discord would otherwise
         // interpret as failed mentions. Runs outside the guild block so it
         // always applies — even when the guild or emoji isn't available.
-        content = content.replace(/@(?!everyone|here)/g, "@\u200B");
+        content = content.replace(/(?<!<)@(?!everyone|here)/g, "@\u200B");
 
         if (skerryEmoji) {
             content = `${skerryEmoji} ${content}`;
