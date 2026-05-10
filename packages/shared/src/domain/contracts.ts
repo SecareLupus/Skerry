@@ -528,6 +528,15 @@ export interface ChatMessage {
 }
 
 
+export interface MessageRevision {
+  id: string;
+  messageId: string;
+  content: string;
+  editorUserId: string;
+  createdAt: string;
+}
+
+
 export interface ChannelMember {
     channelId: string;
     productUserId: string;

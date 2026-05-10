@@ -22,6 +22,7 @@ import type {
   VoiceTokenGrant,
   HubInvite,
   MasqueradeParams,
+  MessageRevision,
   IdentityProvider,
   Badge,
   ChannelInitResponse,
@@ -466,6 +467,13 @@ export async function unpinMessage(channelId: string, messageId: string): Promis
 export async function listPins(channelId: string): Promise<ChatMessage[]> {
   const json = await apiFetch<{ items: ChatMessage[] }>(
     `/v1/channels/${encodeURIComponent(channelId)}/pins`
+  );
+  return json.items;
+}
+
+export async function fetchRevisions(channelId: string, messageId: string): Promise<MessageRevision[]> {
+  const json = await apiFetch<{ items: MessageRevision[] }>(
+    `/v1/channels/${encodeURIComponent(channelId)}/messages/${encodeURIComponent(messageId)}/revisions`
   );
   return json.items;
 }

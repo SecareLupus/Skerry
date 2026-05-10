@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import type { ChatMessage } from "@skerry/shared";
+import type { ChatMessage, MessageRevision } from "@skerry/shared";
 import { withDb } from "../../db/client.js";
 import { config } from "../../config.js";
 import { listUserPresence } from "../presence-service.js";
@@ -461,6 +461,44 @@ export async function updateMessage(input: {
   content: string;
 }): Promise<ChatMessage> {
   return withDb(async (db) => {
+    // Snapshot current content before overwriting
+    const current = await db.query<{ content: string }>(
+      `select content from chat_messages where id = $1 and author_user_id = $2`,
+      [input.messageId, input.actorUserId]
+    );
+    if (current.rows.length === 0) {
+      throw new Error("Message not found or not authored by user.");
+    }
+
+    const oldContent = current.rows[0]!.content;
+
+    // Only save revision if content actually changed
+    if (oldContent !== input.content) {
+      // Insert revision
+      await db.query(
+        `insert into message_revisions (id, message_id, content, editor_user_id)
+         values ($1, $2, $3, $4)`,
+        [randomId("rev"), input.messageId, oldContent, input.actorUserId]
+      );
+
+      // Enforce 5-revision cap: evict shortest revision that's not oldest or newest
+      await db.query(`
+        delete from message_revisions
+        where id = (
+          select id from (
+            select id, content,
+                   row_number() over (order by created_at) as rn_asc,
+                   row_number() over (order by created_at desc) as rn_desc
+            from message_revisions
+            where message_id = $1
+          ) sub
+          where rn_asc > 1 and rn_desc > 1
+          order by length(content) asc
+          limit 1
+        )
+      `, [input.messageId]);
+    }
+
     const embeds = await processMessageContentForLinks(input.content);
     const result = await db.query<ChatMessageRow>(
       `update chat_messages set content = $1, embeds = $4, updated_at = now() where id = $2 and author_user_id = $3 returning *`,
@@ -726,6 +764,28 @@ export async function listPins(channelId: string): Promise<ChatMessage[]> {
       [channelId]
     );
     return res.rows.map(row => mapChatMessage(row, {}, {}));
+  });
+}
+
+export async function listRevisions(messageId: string): Promise<MessageRevision[]> {
+  return withDb(async (db) => {
+    const result = await db.query<{
+      id: string;
+      message_id: string;
+      content: string;
+      editor_user_id: string;
+      created_at: string;
+    }>(
+      `select * from message_revisions where message_id = $1 order by created_at desc`,
+      [messageId]
+    );
+    return result.rows.map(r => ({
+      id: r.id,
+      messageId: r.message_id,
+      content: r.content,
+      editorUserId: r.editor_user_id,
+      createdAt: r.created_at
+    }));
   });
 }
 
