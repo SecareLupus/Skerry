@@ -24,6 +24,7 @@ import { useComposerAutocomplete } from "../hooks/use-composer-autocomplete";
 import { AutocompletePopover } from "./composer/autocomplete-popover";
 import { shortcodeToGlyph } from "../lib/composer-autocomplete/emoji-index";
 import { firstUnreadMessageId, latestSeenOwnMessageId } from "../lib/read-state";
+import { EditHistoryPopover } from "./edit-history-popover";
 
 
 
@@ -386,6 +387,8 @@ export function ChatWindow({
     }, [dispatch, messageInputRef]);
     const [userSearchQuery, setUserSearchQuery] = useState("");
     const [userSearchResults, setUserSearchResults] = useState<any[]>([]);
+    const [editHistoryMessageId, setEditHistoryMessageId] = useState<string | null>(null);
+    const [editHistoryPos, setEditHistoryPos] = useState<{ x: number; y: number } | null>(null);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
 
     const activeChannel = activeChannelData;
@@ -1292,7 +1295,29 @@ export function ChatWindow({
                                     ) : (
                                         <>
                                             <MessageContent message={message} hiddenUrls={mediaUrls} />
-                                            {message.updatedAt && <small className="message-meta-edited" style={{ fontSize: "0.75rem", opacity: 0.6 }}>(edited)</small>}
+                                            {message.updatedAt && (
+                                                <button
+                                                  type="button"
+                                                  className="edited-indicator"
+                                                  onClick={(e) => {
+                                                    const rect = e.currentTarget.getBoundingClientRect();
+                                                    setEditHistoryPos({ x: rect.left, y: rect.bottom + 4 });
+                                                    setEditHistoryMessageId(message.id);
+                                                  }}
+                                                  style={{
+                                                    fontSize: "0.75rem",
+                                                    opacity: 0.6,
+                                                    background: "none",
+                                                    border: "none",
+                                                    color: "inherit",
+                                                    cursor: "pointer",
+                                                    padding: 0,
+                                                    textDecoration: "underline dotted"
+                                                  }}
+                                                >
+                                                  (edited)
+                                                </button>
+                                              )}
                                             {message.embeds && message.embeds.length > 0 && (
                                                 <div className="message-embeds-container">
                                                     {message.embeds
@@ -1923,6 +1948,17 @@ export function ChatWindow({
                     </div>
                 )
             }
+
+            {editHistoryMessageId && editHistoryPos && activeChannelData && (
+                <div style={{ position: "fixed", left: editHistoryPos.x, top: editHistoryPos.y, zIndex: 3000 }}>
+                    <EditHistoryPopover
+                        channelId={activeChannelData.id}
+                        messageId={editHistoryMessageId}
+                        currentContent={messages.find(m => m.id === editHistoryMessageId)?.content ?? ""}
+                        onClose={() => { setEditHistoryMessageId(null); setEditHistoryPos(null); }}
+                    />
+                </div>
+            )}
         </section >
     );
 }

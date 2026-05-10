@@ -14,6 +14,7 @@ import {
   pinMessage,
   unpinMessage,
   listPins,
+  listRevisions,
   fetchMessage
 } from "../services/chat/message-service.js";
 import {
@@ -278,6 +279,15 @@ export async function registerMessageRoutes(app: FastifyInstance): Promise<void>
     });
 
     return message;
+  });
+
+  app.get("/v1/channels/:channelId/messages/:messageId/revisions", initializedAuthHandlers, async (request) => {
+    const params = z.object({
+      channelId: z.string().min(1),
+      messageId: z.string().min(1)
+    }).parse(request.params);
+
+    return { items: await listRevisions(params.messageId) };
   });
 
   app.post("/v1/channels/:channelId/messages/:messageId/reactions", initializedAuthHandlers, async (request, reply) => {
