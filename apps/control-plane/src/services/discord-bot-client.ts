@@ -676,30 +676,14 @@ export async function relayMatrixMessageToDiscord(input: {
             }
 
             // --- Mention Mirroring ---
-            const mentionMatches = content.match(/@([a-zA-Z0-9_\-]+)/g);
-            if (mentionMatches) {
-                for (const match of mentionMatches) {
-                    const username = match.slice(1);
-                    const discordId = await withDb(async (db) => {
-                        const row = await db.query<{ discord_user_id: string }>(
-                            "select discord_user_id from identity_mappings where display_name = $1 and discord_user_id is not null limit 1",
-                            [username]
-                        );
-                        return row.rows[0]?.discord_user_id;
-                    });
-                    if (discordId) {
-                        content = content.replace(new RegExp(match, 'g'), `<@${discordId}>`);
-                    }
-                }
-            }
+            // Disabled: Skerry @-mentions are sent as raw text to Discord
+            // (they are not meant to be Discord pings). If mention mirroring
+            // is desired in the future, re-enable this block with proper
+            // identity_mappings lookups.
         }
 
-        // Escape unconverted @-signs to prevent Discord webhook rejection.
-        // Mentions already replaced with <@id> above (when guild is available);
-        // this catches stray @ characters that Discord would otherwise
-        // interpret as failed mentions. Runs outside the guild block so it
-        // always applies — even when the guild or emoji isn't available.
-        content = content.replace(/(?<!<)@(?!everyone|here)/g, "@\u200B");
+        // Escape @-signs so Discord doesn't try to parse them as mentions.
+        content = content.replace(/@(?!everyone|here)/g, "@\u200B");
 
         if (skerryEmoji) {
             content = `${skerryEmoji} ${content}`;
