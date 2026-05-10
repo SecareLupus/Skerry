@@ -1128,7 +1128,12 @@ export function ChatWindow({
                             const mediaUrls = extractMediaUrls(message.content);
 
                             return (
-                                <li key={message.id} id={`message-${message.id}`} className={state.highlightedMessageId === message.id ? "highlighted-message" : ""}>
+                                <li
+                                  key={message.id}
+                                  id={`message-${message.id}`}
+                                  className={state.highlightedMessageId === message.id ? "highlighted-message" : ""}
+                                  onClick={state.highlightedMessageId === message.id ? () => dispatch({ type: "SET_HIGHLIGHTED_MESSAGE_ID", payload: null }) : undefined}
+                                >
                             {showFirstUnreadDivider ? (
                                 <div className="first-unread-divider" role="separator" aria-label="New messages below">
                                     <span>New messages</span>
@@ -1788,6 +1793,7 @@ export function ChatWindow({
             .highlighted-message {
                 background: rgba(255, 255, 0, 0.15);
                 transition: background 1.5s ease-out;
+                cursor: pointer;
             }
             .unread-banner {
                 background: #5865f2;
