@@ -692,6 +692,11 @@ export async function relayMatrixMessageToDiscord(input: {
                     }
                 }
             }
+
+            // Escape unconverted @-signs to prevent Discord webhook rejection.
+            // Mentions already replaced with <@id> above; this catches stray @
+            // characters that Discord would otherwise interpret as failed mentions.
+            content = content.replace(/@(?!everyone|here)/g, "@\u200B");
         }
 
         if (skerryEmoji) {

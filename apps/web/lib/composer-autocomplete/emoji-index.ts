@@ -33,6 +33,13 @@ function canonicalToShortcode(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
 }
 
+// Overrides for emoji-picker-react canonical names that differ from
+// cross-compatible shortcode names (Discord, Twitch, GitHub, etc.).
+const CANONICAL_OVERRIDES: Record<string, string> = {
+  mexican: "taco",
+  face: "fox"
+};
+
 // Compact aliases preserved from the legacy chat-window shortcode map so users
 // who already type :smile:/:heart:/etc. still get glyphs after the rename.
 const LEGACY_ALIASES: Record<string, string> = {
@@ -54,9 +61,12 @@ function buildIndex(): { entries: EmojiEntry[]; shortcodeToGlyph: Map<string, st
 
   for (const [, list] of Object.entries((emojiData as RawEmojiData).emojis)) {
     for (const raw of list) {
-      const canonical = raw.n[raw.n.length - 1];
+      // n[last] is emoji-picker-react's canonical name. Correct most
+      // emojis, but some (🌮→"mexican", 🦊→"face") need overrides.
+      let canonical = raw.n[raw.n.length - 1];
       if (!canonical) continue;
-      const shortcode = canonicalToShortcode(canonical);
+      let shortcode = canonicalToShortcode(canonical);
+      if (CANONICAL_OVERRIDES[shortcode]) shortcode = CANONICAL_OVERRIDES[shortcode]!;
       if (!shortcode) continue;
       const glyph = codepointToGlyph(raw.u);
       const keywords = raw.n.slice(0, -1).map((k) => k.toLowerCase());

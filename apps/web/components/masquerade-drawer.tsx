@@ -34,6 +34,7 @@ function needsServer(role: Role) {
 
 export function MasqueradeDrawer() {
   const { state, dispatch } = useChat();
+  const isDark = state.theme !== "light";
   const { servers, viewerRoles } = state;
   const { showToast } = useToast();
 
@@ -161,6 +162,7 @@ export function MasqueradeDrawer() {
                     <RoleCard
                       key={r.value}
                       {...r}
+                      isDark={isDark}
                       selected={role === r.value}
                       onSelect={() => setRole(r.value)}
                     />
@@ -173,6 +175,7 @@ export function MasqueradeDrawer() {
                 <RoleCard
                   key={r.value}
                   {...r}
+                  isDark={isDark}
                   selected={role === r.value}
                   onSelect={() => setRole(r.value)}
                 />
@@ -279,8 +282,8 @@ export function MasqueradeDrawer() {
           bottom: 0;
           width: 360px;
           max-width: 100vw;
-          background: #1e1f22;
-          border-left: 1px solid rgba(255, 255, 255, 0.07);
+          background: ${isDark ? "#1e1f22" : "#ffffff"};
+          border-left: 1px solid ${isDark ? "rgba(255, 255, 255, 0.07)" : "rgba(0, 0, 0, 0.08)"};
           display: flex;
           flex-direction: column;
           z-index: 2000;
@@ -299,8 +302,8 @@ export function MasqueradeDrawer() {
           align-items: center;
           justify-content: space-between;
           padding: 16px 20px;
-          background: #2b2d31;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+          background: ${isDark ? "#2b2d31" : "#f2f3f5"};
+          border-bottom: 1px solid ${isDark ? "rgba(255, 255, 255, 0.07)" : "rgba(0, 0, 0, 0.08)"};
           flex-shrink: 0;
         }
         .mq-header-title {
@@ -309,7 +312,7 @@ export function MasqueradeDrawer() {
           gap: 10px;
           font-size: 1rem;
           font-weight: 700;
-          color: #f2f3f5;
+          color: ${isDark ? "#f2f3f5" : "#313338"};
         }
         .mq-icon {
           font-size: 1.25rem;
@@ -317,15 +320,15 @@ export function MasqueradeDrawer() {
         .mq-close {
           background: none;
           border: none;
-          color: #b5bac1;
+          color: ${isDark ? "#b5bac1" : "#5c5e66"};
           font-size: 1rem;
           cursor: pointer;
           padding: 4px 8px;
           border-radius: 4px;
         }
         .mq-close:hover {
-          background: rgba(255, 255, 255, 0.08);
-          color: #f2f3f5;
+          background: ${isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.06)"};
+          color: ${isDark ? "#f2f3f5" : "#313338"};
         }
 
         /* Body */
@@ -340,7 +343,7 @@ export function MasqueradeDrawer() {
         /* Sections */
         .mq-section {
           padding: 16px 20px;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+          border-bottom: 1px solid ${isDark ? "rgba(255, 255, 255, 0.06)" : "rgba(0, 0, 0, 0.06)"};
         }
         .mq-section-collapsible {
           opacity: 0.4;
@@ -356,7 +359,7 @@ export function MasqueradeDrawer() {
           font-weight: 800;
           text-transform: uppercase;
           letter-spacing: 0.06em;
-          color: #b5bac1;
+          color: ${isDark ? "#b5bac1" : "#5c5e66"};
           margin-bottom: 10px;
         }
         .mq-section-label-row {
@@ -386,7 +389,7 @@ export function MasqueradeDrawer() {
           font-weight: 700;
           text-transform: uppercase;
           letter-spacing: 0.05em;
-          color: #72767d;
+          color: ${isDark ? "#72767d" : "#94999e"};
           margin: 8px 0 4px;
         }
         .mq-role-group-title:first-child {
@@ -394,7 +397,7 @@ export function MasqueradeDrawer() {
         }
         .mq-divider {
           height: 1px;
-          background: rgba(255, 255, 255, 0.06);
+          background: ${isDark ? "rgba(255, 255, 255, 0.06)" : "rgba(0, 0, 0, 0.06)"};
           margin: 8px 0;
         }
 
@@ -408,18 +411,18 @@ export function MasqueradeDrawer() {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          background: #2b2d31;
+          background: ${isDark ? "#2b2d31" : "#f2f3f5"};
           border: 2px solid transparent;
           border-radius: 6px;
           padding: 8px 12px;
           cursor: pointer;
-          color: #f2f3f5;
+          color: ${isDark ? "#f2f3f5" : "#313338"};
           font-size: 0.9rem;
           text-align: left;
           transition: border-color 0.12s, background 0.12s;
         }
         .mq-server-item:hover:not(:disabled) {
-          background: #35373c;
+          background: ${isDark ? "#35373c" : "#e3e5e8"};
         }
         .mq-server-item-selected {
           border-color: #5865f2;
@@ -447,16 +450,16 @@ export function MasqueradeDrawer() {
           display: flex;
           flex-direction: column;
           align-items: flex-start;
-          background: #2b2d31;
+          background: ${isDark ? "#2b2d31" : "#f2f3f5"};
           border: 2px solid transparent;
           border-radius: 6px;
           padding: 6px 10px;
           cursor: pointer;
-          color: #f2f3f5;
+          color: ${isDark ? "#f2f3f5" : "#313338"};
           transition: border-color 0.12s, background 0.12s;
         }
         .mq-badge-chip:hover:not(:disabled) {
-          background: #35373c;
+          background: ${isDark ? "#35373c" : "#e3e5e8"};
         }
         .mq-badge-chip-selected {
           border-color: #5865f2;
@@ -471,7 +474,7 @@ export function MasqueradeDrawer() {
         }
         .mq-badge-rank {
           font-size: 0.7rem;
-          color: #b5bac1;
+          color: ${isDark ? "#b5bac1" : "#5c5e66"};
         }
 
         .mq-toggle-all {
@@ -490,7 +493,7 @@ export function MasqueradeDrawer() {
 
         .mq-empty {
           font-size: 0.82rem;
-          color: #72767d;
+          color: ${isDark ? "#72767d" : "#94999e"};
           margin: 0;
           padding: 4px 0;
         }
@@ -499,8 +502,8 @@ export function MasqueradeDrawer() {
         .mq-footer {
           flex-shrink: 0;
           padding: 16px 20px;
-          background: #2b2d31;
-          border-top: 1px solid rgba(255, 255, 255, 0.07);
+          background: ${isDark ? "#2b2d31" : "#f2f3f5"};
+          border-top: 1px solid ${isDark ? "rgba(255, 255, 255, 0.07)" : "rgba(0, 0, 0, 0.08)"};
           display: flex;
           flex-direction: column;
           gap: 10px;
@@ -509,25 +512,25 @@ export function MasqueradeDrawer() {
           display: flex;
           align-items: baseline;
           gap: 6px;
-          background: #111214;
+          background: ${isDark ? "#111214" : "#e3e5e8"};
           border-radius: 6px;
           padding: 8px 12px;
           font-size: 0.82rem;
           min-height: 34px;
         }
         .mq-preview-label {
-          color: #72767d;
+          color: ${isDark ? "#72767d" : "#94999e"};
           font-weight: 700;
           flex-shrink: 0;
         }
         .mq-preview-value {
-          color: #f2f3f5;
+          color: ${isDark ? "#f2f3f5" : "#313338"};
           font-weight: 500;
           word-break: break-word;
         }
         .mq-footer-note {
           font-size: 0.72rem;
-          color: #72767d;
+          color: ${isDark ? "#72767d" : "#94999e"};
           text-align: center;
         }
         .mq-launch-btn {
@@ -559,9 +562,10 @@ interface RoleCardProps {
   description: string;
   selected: boolean;
   onSelect: () => void;
+  isDark: boolean;
 }
 
-function RoleCard({ label, description, selected, onSelect }: RoleCardProps) {
+function RoleCard({ label, description, selected, onSelect, isDark }: RoleCardProps) {
   return (
     <button
       type="button"
@@ -575,19 +579,19 @@ function RoleCard({ label, description, selected, onSelect }: RoleCardProps) {
           display: flex;
           flex-direction: column;
           align-items: flex-start;
-          background: #2b2d31;
+          background: ${isDark ? "#2b2d31" : "#f2f3f5"};
           border: 2px solid transparent;
           border-radius: 6px;
           padding: 8px 12px;
           cursor: pointer;
-          color: #f2f3f5;
+          color: ${isDark ? "#f2f3f5" : "#313338"};
           text-align: left;
           width: 100%;
           transition: border-color 0.12s, background 0.12s;
           gap: 2px;
         }
         .mq-role-card:hover {
-          background: #35373c;
+          background: ${isDark ? "#35373c" : "#e3e5e8"};
         }
         .mq-role-card-selected {
           border-color: #5865f2;
@@ -599,7 +603,7 @@ function RoleCard({ label, description, selected, onSelect }: RoleCardProps) {
         }
         .mq-role-card-desc {
           font-size: 0.75rem;
-          color: #b5bac1;
+          color: ${isDark ? "#b5bac1" : "#5c5e66"};
           line-height: 1.3;
         }
       `}</style>

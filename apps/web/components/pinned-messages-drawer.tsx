@@ -16,6 +16,7 @@ interface Props {
 
 export function PinnedMessagesDrawer({ channelId, channelName, onClose, onJumpToMessage }: Props) {
   const { state } = useChat();
+  const isDark = state.theme !== "light";
   const [pins, setPins] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -113,6 +114,48 @@ export function PinnedMessagesDrawer({ channelId, channelName, onClose, onJumpTo
           ))}
         </ul>
       </aside>
+
+      <style jsx>{`
+        .pinned-drawer {
+          background: ${isDark ? "#1e1f22" : "#ffffff"} !important;
+          border-left-color: ${isDark ? "rgba(255, 255, 255, 0.07)" : "rgba(0, 0, 0, 0.08)"} !important;
+        }
+        .pinned-drawer__header {
+          background: ${isDark ? "#2b2d31" : "#f2f3f5"} !important;
+          border-bottom-color: ${isDark ? "rgba(255, 255, 255, 0.07)" : "rgba(0, 0, 0, 0.08)"} !important;
+        }
+        .pinned-drawer__header h2 {
+          color: ${isDark ? "#f2f3f5" : "#313338"} !important;
+        }
+        .pinned-drawer__close {
+          color: ${isDark ? "#b5bac1" : "#5c5e66"} !important;
+        }
+        .pinned-drawer__close:hover {
+          background: ${isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.06)"} !important;
+          color: ${isDark ? "#f2f3f5" : "#313338"} !important;
+        }
+        .pinned-drawer__status {
+          color: ${isDark ? "#b5bac1" : "#5c5e66"} !important;
+        }
+        .pinned-drawer__item {
+          background: ${isDark ? "#2b2d31" : "#f2f3f5"} !important;
+          border-color: ${isDark ? "rgba(255, 255, 255, 0.04)" : "rgba(0, 0, 0, 0.06)"} !important;
+          color: ${isDark ? "inherit" : "#313338"} !important;
+        }
+        .pinned-drawer__item:hover {
+          background: ${isDark ? "#35373c" : "#e3e5e8"} !important;
+          border-color: ${isDark ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.12)"} !important;
+        }
+        .pinned-drawer__item-header strong {
+          color: ${isDark ? "#f2f3f5" : "#313338"} !important;
+        }
+        .pinned-drawer__item-header time {
+          color: ${isDark ? "#72767d" : "#94999e"} !important;
+        }
+        .pinned-drawer__item-content {
+          color: ${isDark ? "#b5bac1" : "#5c5e66"} !important;
+        }
+      `}</style>
     </>
   );
 }
