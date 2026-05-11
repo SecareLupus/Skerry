@@ -61,6 +61,9 @@ export const config = {
     icon: process.env.DISCORD_BRIDGE_ICON ?? "🏝️", // Default to Unicode if emoji not yet provisioned
   },
   discordBotToken: (process.env.DISCORD_BRIDGE_BOT_TOKEN || process.env.DISCORD_BOT_TOKEN)?.trim(),
+  vapidPublicKey: process.env.VAPID_PUBLIC_KEY,
+  vapidPrivateKey: process.env.VAPID_PRIVATE_KEY,
+  vapidContactEmail: process.env.VAPID_CONTACT_EMAIL,
   voice: {
     tokenTtlSeconds: Number(process.env.SFU_TOKEN_TTL_SECONDS ?? "300"),
     url: process.env.LIVEKIT_URL ?? "ws://livekit:7880",
