@@ -63,14 +63,17 @@ export default function BridgeManager({ serverId, hubId, returnTo }: BridgeManag
 
     // Scroll the guild picker into the center of the viewport once it
     // mounts and guilds finish loading. Short delay for layout to settle.
+    // Falls back to scrolling the bridge section when guilds never load
+    // (e.g. bogus pending ID in tests or expired OAuth state).
     useEffect(() => {
-        if (oauthJustReturned && discordGuilds.length > 0) {
+        if (oauthJustReturned && (discordGuilds.length > 0 || !loading)) {
+            const target = pickerRef.current ?? document.getElementById("discord-bridge");
             const t = window.setTimeout(() => {
-                pickerRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+                target?.scrollIntoView({ behavior: "smooth", block: "center" });
             }, 300);
             return () => window.clearTimeout(t);
         }
-    }, [oauthJustReturned, discordGuilds.length]);
+    }, [oauthJustReturned, discordGuilds.length, loading]);
 
     useEffect(() => {
         if (serverId) {
@@ -229,7 +232,7 @@ export default function BridgeManager({ serverId, hubId, returnTo }: BridgeManag
                 <div className="oauth-return-banner" data-testid="oauth-return-banner">
                     <strong>⚠️ Complete Your Discord Connection</strong>
                     <p>
-                        You've authorized Skerry with Discord. Select a server
+                        You have authorized Skerry with Discord. Select a server
                         below and click <em>Confirm Selection</em> to finish
                         setting up the bridge.
                     </p>
