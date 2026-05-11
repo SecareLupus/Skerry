@@ -44,9 +44,10 @@ export default function BridgeManager({ serverId, hubId, returnTo }: BridgeManag
     const [availableDiscordChannels, setAvailableDiscordChannels] = useState<Array<{ id: string; name: string; type: number }>>([]);
     // Phase 25 #22: scroll-restore on OAuth return. The Connect Discord
     // flow does a top-level navigation, so the user lands back at the top
-    // of the settings page after Discord redirects them. Without this, the
-    // freshly-rendered guild picker is invisible until they scroll.
-    const rootRef = useRef<HTMLDivElement | null>(null);
+    // of the settings page after Discord redirects them. We scroll the
+    // guild picker into the center of the viewport so they can't miss it,
+    // and render it immediately (even during loading) to avoid a flash.
+    const pickerRef = useRef<HTMLFormElement | null>(null);
     const [oauthJustReturned, setOauthJustReturned] = useState(false);
 
     useEffect(() => {
@@ -60,18 +61,16 @@ export default function BridgeManager({ serverId, hubId, returnTo }: BridgeManag
         }
     }, []);
 
-    // Scroll-restore is gated on `!loading` because the root <div> only mounts
-    // once initial state has loaded — before that, the component renders a
-    // bare <p>Loading…</p> and `rootRef.current` is null. Tying it to
-    // `oauthJustReturned` makes sure we only scroll on actual OAuth return,
-    // not on every load.
+    // Scroll the guild picker into the center of the viewport once it
+    // mounts and guilds finish loading. Short delay for layout to settle.
     useEffect(() => {
-        if (oauthJustReturned && !loading) {
-            rootRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-            const t = window.setTimeout(() => setOauthJustReturned(false), 2500);
+        if (oauthJustReturned && discordGuilds.length > 0) {
+            const t = window.setTimeout(() => {
+                pickerRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+            }, 300);
             return () => window.clearTimeout(t);
         }
-    }, [oauthJustReturned, loading]);
+    }, [oauthJustReturned, discordGuilds.length]);
 
     useEffect(() => {
         if (serverId) {
@@ -207,7 +206,7 @@ export default function BridgeManager({ serverId, hubId, returnTo }: BridgeManag
         }
     }
 
-    if (loading) return <p>Loading Bridge settings...</p>;
+    if (loading && !discordPendingSelectionId) return <p>Loading Bridge settings...</p>;
 
     if (hubDisabled) {
         return (
@@ -221,10 +220,40 @@ export default function BridgeManager({ serverId, hubId, returnTo }: BridgeManag
     }
 
     return (
-        <div ref={rootRef} id="discord-bridge" className="settings-section">
+        <div id="discord-bridge" className="settings-section">
             <h2>Discord Bridge</h2>
             <p className="settings-description">Connect this Space to a Discord Server to sync messages between platforms.</p>
 
+            {/* OAuth return banner: visible at the top so the user can't miss it */}
+            {discordPendingSelectionId && discordGuilds.length > 0 && (
+                <div className="oauth-return-banner" data-testid="oauth-return-banner">
+                    <strong>⚠️ Complete Your Discord Connection</strong>
+                    <p>
+                        You've authorized Skerry with Discord. Select a server
+                        below and click <em>Confirm Selection</em> to finish
+                        setting up the bridge.
+                    </p>
+                    <style jsx>{`
+                        .oauth-return-banner {
+                            margin: 1rem 0;
+                            padding: 1rem 1.25rem;
+                            border: 2px solid var(--accent);
+                            border-radius: 8px;
+                            background: color-mix(in srgb, var(--accent) 8%, var(--bg-primary));
+                            animation: oauth-pulse 2s ease-in-out 3;
+                        }
+                        @keyframes oauth-pulse {
+                            0%, 100% { border-color: var(--accent); }
+                            50% { border-color: color-mix(in srgb, var(--accent) 40%, var(--bg-primary)); }
+                        }
+                    `}</style>
+                </div>
+            )}
+
+            {loading ? (
+                <p>Loading bridge status...</p>
+            ) : (
+                <>
             <div className="discord-status-panel" style={{ marginTop: '1rem', padding: '1rem', background: 'var(--background-secondary)', borderRadius: '8px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
@@ -252,12 +281,18 @@ export default function BridgeManager({ serverId, hubId, returnTo }: BridgeManag
                     </button>
                 )}
             </div>
+                </>
+            )}
 
+            {/* Guild picker: renders even while loading so it's immediately
+                visible after OAuth redirect. The scroll-restore effect above
+                centers this form in the viewport. */}
             {discordPendingSelectionId && discordGuilds.length > 0 && (
                 <form
+                    ref={pickerRef}
                     className={`stack discord-guild-picker${oauthJustReturned ? " just-returned" : ""}`}
                     onSubmit={handleSelectGuild}
-                    style={{ marginTop: '2rem', padding: '1rem', border: '1px solid var(--accent)' }}
+                    style={{ marginTop: '2rem', padding: '1.25rem', border: '2px solid var(--accent)', borderRadius: '8px', background: 'color-mix(in srgb, var(--accent) 5%, var(--bg-primary))' }}
                 >
                     <h3>Complete Connection</h3>
                     <p>Select which Discord server to bridge with:</p>
