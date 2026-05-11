@@ -1,36 +1,18 @@
 # Skerry Active Tasks
 
-## Current Goal: Sprint 3
-Land all Sprint 3 issues from GitHub Project #2. **One PR per
-isolated issue; closely coupled issues may be batched.**
+## Current Goal: Sprint 4
+Land issues #26, #72, #69, #64 from GitHub Project #2.
 
 ## Tasks
-- [ ] **Issue #80**: Drafts per channel — preserve typed content
-  across channel switches. localStorage-backed; restore on mount,
-  clear on send. Frontend-only.
-- [ ] **Issues #42 + #43** (batched — shared autocomplete popover):
-    - **#42**: `@-mention` autocomplete using channel-member display
-      names.
-    - **#43**: `:emoji:` autocomplete by emoji name.
-- [ ] **Issue #79**: Read receipts / persistent last-read divider.
-  Per-(user, channel) `last_read_message_id` (verify existing
-  unread-badge schema first); sticky divider in message list;
-  update on unfocus / explicit mark-read / scroll-to-bottom.
-- [ ] **Issue #78**: Pinned messages drawer. Side drawer scoped to
-  channel, newest-first, click-through to source. Backend pin
-  functionality already exists (Phase 15).
-- [ ] **Issue #44**: Restyle small square buttons. Common design
-  language for emoji-icon buttons. Sequenced late so it can absorb
-  any new buttons added by earlier issues.
-- [ ] **Issue #77**: Message edit history with diff/timestamp on
-  hover. Schema migration for revision rows, fetch endpoint, diff
-  popover, retention policy. Heaviest — last in sprint.
+- [ ] **Issue #26**: Discord bridge block quote fix — Skerry icon breaks `>` prefix
+- [ ] **Issue #72**: Audit log — DB table, service, routes, admin UI, retention
+- [ ] **Issue #69**: Discord OAuth UX polish — error states, reconnect, permission delta
+- [ ] **Issue #64**: PWA support — manifest + install + push notifications
 
 ## Open Questions
-- **#44 design language**: confirm the target style with the user
-  before cutting the PR (icon set, border-radius, hover states).
-- **#77 retention policy**: keep all revisions, or cap (e.g. last 5)?
-  Decide before the schema migration.
+- **#72 retention**: days (default 90) acceptable?
+- **#64 VAPID**: keys generated per-hub or global?
 
 ---
 *For historical notes and completed sprint logs, see [ARCHIVE.md](./ARCHIVE.md).*
+*Sprint 4 plan: [.hermes/plans/2026-05-10-sprint-4.md](../.hermes/plans/2026-05-10-sprint-4.md)*

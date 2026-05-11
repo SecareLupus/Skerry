@@ -686,7 +686,11 @@ export async function relayMatrixMessageToDiscord(input: {
         content = content.replace(/@(?!everyone|here)/g, "@\u200B");
 
         if (skerryEmoji) {
-            content = `${skerryEmoji} ${content}`;
+            // Block quotes ("> text") need the > at line-start to parse
+            // in Discord. Use newline separator so the emoji sits on its
+            // own line and the > kicks off a fresh line.
+            const separator = content.startsWith(">") ? "\n" : " ";
+            content = `${skerryEmoji}${separator}${content}`;
         }
 
         const files = input.attachments?.map((a: any) => ({
