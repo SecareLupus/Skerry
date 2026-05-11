@@ -142,7 +142,7 @@ export default function SpaceAuditLogPage() {
   return (
     <div className="settings-page">
       <header className="settings-header">
-        <h1>Audit Log</h1>
+        <h1 data-testid="audit-log-heading">Audit Log</h1>
         <p className="text-muted">
           A record of administrative actions taken in this space. {total > 0 && <span>{total} total entries</span>}
         </p>

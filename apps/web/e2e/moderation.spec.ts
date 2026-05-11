@@ -101,10 +101,10 @@ test.describe('Moderation', () => {
     const spaceId = new URL(page.url()).searchParams.get('server');
     if (!spaceId) throw new Error(`Could not derive server id from URL: ${page.url()}`);
 
-    await page.goto(`/settings/spaces/${spaceId}/audit-log`);
-    await expect(page.getByRole('heading', { name: 'Audit Log', level: 1 })).toBeVisible({
-      timeout: 15000,
-    });
+    const auditLogUrl = `/settings/spaces/${spaceId}/audit-log`;
+    await page.goto(auditLogUrl, { waitUntil: 'networkidle' });
+    await page.waitForURL(`**/settings/spaces/${spaceId}/audit-log`, { timeout: 15000 });
+    await expect(page.getByTestId('audit-log-heading')).toBeVisible({ timeout: 15000 });
 
     await expect(
       page.locator('.audit-entry').filter({ hasText: /kick/i }).first()
