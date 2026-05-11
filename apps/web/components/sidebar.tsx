@@ -7,6 +7,7 @@ import { Channel, Server } from "@skerry/shared";
 import { getChannelName, getChannelIcon } from "../lib/channel-utils";
 import { ContextMenu, ContextMenuItem } from "./context-menu";
 import { upsertChannelReadState, joinServer, leaveDmChannel } from "../lib/control-plane";
+import Icon from "./icon";
 
 const cn = (...classes: (string | boolean | undefined)[]) => classes.filter(Boolean).join(" ");
 
@@ -220,21 +221,21 @@ export function Sidebar({
                                 <>
                                     <button
                                         type="button"
-                                        className="icon-button"
+                                        className="btn-icon btn-icon--outline"
                                         aria-label="Masquerade"
                                         title="Masquerade as Role"
                                         onClick={() => dispatch({ type: "SET_ACTIVE_MODAL", payload: "masquerade" })}
                                     >
-                                        🎭
+                                        <Icon name="shield" size={16} />
                                     </button>
                                     <button
                                         type="button"
-                                        className="icon-button"
+                                        className="btn-icon btn-icon--outline"
                                         aria-label="Create Space"
                                         data-testid="add-space-button"
                                         onClick={() => dispatch({ type: "SET_ACTIVE_MODAL", payload: "create-space" })}
                                     >
-                                        +
+                                        <Icon name="plus" size={16} />
                                     </button>
                                 </>
                             )}
@@ -285,8 +286,9 @@ export function Sidebar({
                                             <div className="inline-mgmt persistent">
                                                 <button
                                                     type="button"
-                                                    className="icon-button"
+                                                    className="btn-icon btn-icon--outline"
                                                     title="Edit Server"
+                                                    aria-label="Edit server"
                                                     data-testid="server-settings-button"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
@@ -294,12 +296,13 @@ export function Sidebar({
                                                         dispatch({ type: "SET_ACTIVE_MODAL", payload: "rename-space" });
                                                     }}
                                                 >
-                                                    ✎
+                                                    <Icon name="pen-line" size={14} />
                                                 </button>
                                                 <button
                                                     type="button"
-                                                    className="icon-button danger"
+                                                    className="btn-icon btn-icon--outline btn-icon--danger"
                                                     title="Delete Server"
+                                                    aria-label="Delete server"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         if (confirm(`Are you sure you want to delete "${server.name}"? This cannot be undone.`)) {
@@ -308,7 +311,7 @@ export function Sidebar({
                                                         }
                                                     }}
                                                 >
-                                                    ×
+                                                    <Icon name="x" size={14} />
                                                 </button>
                                             </div>
                                         )}
@@ -322,11 +325,11 @@ export function Sidebar({
                         <h2>Direct Messages</h2>
                         <button
                             type="button"
-                            className="icon-button"
+                            className="btn-icon btn-icon--outline"
                             aria-label="New Message"
                             onClick={() => dispatch({ type: "SET_ACTIVE_MODAL", payload: "dm-picker" })}
                         >
-                            +
+                            <Icon name="plus" size={16} />
                         </button>
                     </div>
 
@@ -386,7 +389,7 @@ export function Sidebar({
                                 onClick={() => setView("servers")}
                                 title="Back to Servers"
                             >
-                                ←
+                                <Icon name="arrow-left" size={16} />
                             </button>
                             <h2 className="server-title">{activeServer?.name || "Channels"}</h2>
                         </div>
@@ -396,12 +399,12 @@ export function Sidebar({
                             <div style={{ position: "relative" }}>
                                 <button
                                     type="button"
-                                    className="icon-button"
+                                    className="btn-icon btn-icon--outline"
                                     title="Add..."
                                     data-testid="add-channel-menu-trigger"
                                     onClick={() => dispatch({ type: "SET_ADD_MENU_OPEN", payload: !isAddMenuOpen })}
                                 >
-                                    +
+                                    <Icon name="plus" size={16} />
                                 </button>
                                 {isAddMenuOpen && (
                                     <div className="add-menu-dropdown" data-testid="add-menu-dropdown">
@@ -451,25 +454,27 @@ export function Sidebar({
                                                 <div className="inline-mgmt persistent">
                                                     <button
                                                         type="button"
-                                                        className="icon-button"
+                                                        className="btn-icon btn-icon--outline"
                                                         title="Create Room"
+                                                        aria-label="Add channel to this category"
                                                         onClick={() => {
                                                             dispatch({ type: "SET_SELECTED_CATEGORY_FOR_CREATE", payload: group.id ?? "" });
                                                             dispatch({ type: "SET_ACTIVE_MODAL", payload: "create-room" });
                                                         }}
                                                     >
-                                                        +
+                                                        <Icon name="plus" size={14} />
                                                     </button>
                                                     <button
                                                         type="button"
-                                                        className="icon-button"
+                                                        className="btn-icon btn-icon--outline"
                                                         title="Rename Category"
+                                                        aria-label="Rename category"
                                                         onClick={() => {
                                                             dispatch({ type: "SET_RENAME_CATEGORY", payload: { id: group.id!, name: group.name } });
                                                             dispatch({ type: "SET_ACTIVE_MODAL", payload: "rename-category" });
                                                         }}
                                                     >
-                                                        ✎
+                                                        <Icon name="pen-line" size={14} />
                                                     </button>
                                                 </div>
                                             )}
@@ -513,20 +518,22 @@ export function Sidebar({
                                                             <div className="inline-mgmt">
                                                                 <button
                                                                     type="button"
-                                                                    className="icon-button"
+                                                                    className="btn-icon btn-icon--outline"
                                                                     title="Edit Room"
+                                                                    aria-label="Edit room"
                                                                     onClick={(e) => {
                                                                         e.stopPropagation();
                                                                         dispatch({ type: "SET_RENAME_ROOM", payload: { id: channel.id, name: channel.name, type: channel.type, categoryId: channel.categoryId, topic: channel.topic, styleContent: channel.styleContent } });
                                                                         dispatch({ type: "SET_ACTIVE_MODAL", payload: "rename-room" });
                                                                     }}
                                                                 >
-                                                                    ✎
+                                                                    <Icon name="pen-line" size={14} />
                                                                 </button>
                                                                 <button
                                                                     type="button"
-                                                                    className="icon-button danger"
+                                                                    className="btn-icon btn-icon--outline btn-icon--danger"
                                                                     title="Delete Room"
+                                                                    aria-label="Delete room"
                                                                     onClick={(e) => {
                                                                         e.stopPropagation();
                                                                         if (confirm(`Are you sure you want to delete "#${channel.name}"?`)) {
@@ -536,7 +543,7 @@ export function Sidebar({
                                                                         }
                                                                     }}
                                                                 >
-                                                                    ×
+                                                                    <Icon name="x" size={14} />
                                                                 </button>
                                                             </div>
                                                         )}

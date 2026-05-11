@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Icon from "./icon";
 import { useChat, useChatHandlers } from "../context/chat-context";
 import { searchUsers, createDirectMessage } from "../lib/control-plane";
 import { IdentityMapping } from "../lib/control-plane";
@@ -68,7 +69,7 @@ export function DMPickerModal() {
             <div className="modal-content dm-picker-modal" onClick={(e) => e.stopPropagation()}>
                 <header className="modal-header">
                     <h2>New Direct Message</h2>
-                    <button className="close-button" onClick={() => dispatch({ type: "SET_ACTIVE_MODAL", payload: null })}>×</button>
+                    <button className="close-button" onClick={() => dispatch({ type: "SET_ACTIVE_MODAL", payload: null })}><Icon name="x" size={16} /></button>
                 </header>
 
                 <div className="modal-body">

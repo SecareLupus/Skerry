@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Icon from "./icon";
 import { useChat } from "../context/chat-context";
 import { getMasqueradeToken, fetchBadges } from "../lib/control-plane";
 import { useToast } from "./toast-provider";
@@ -66,7 +67,7 @@ export function MasqueradeModal() {
       <div className="modal-card" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>🎭 Masquerade as Role</h2>
-          <button className="close-button" onClick={() => dispatch({ type: "SET_ACTIVE_MODAL", payload: null })}>✕</button>
+          <button className="close-button" onClick={() => dispatch({ type: "SET_ACTIVE_MODAL", payload: null })}><Icon name="x" size={16} /></button>
         </div>
 
         <form onSubmit={handleSubmit} className="masquerade-form">

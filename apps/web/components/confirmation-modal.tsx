@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Icon from "../components/icon";
 import { useChat } from "../context/chat-context";
 
 export function ConfirmationModal() {
@@ -45,7 +46,7 @@ export function ConfirmationModal() {
             <div className="modal-card glass-modal" onClick={(e) => e.stopPropagation()}>
                 <div className="modal-header">
                     <h2 className={danger ? 'danger' : ''}>{title}</h2>
-                    <button className="close-button" onClick={handleCancel}>✕</button>
+                    <button className="close-button" onClick={handleCancel}><Icon name="x" size={16} /></button>
                 </div>
                 
                 <div className="modal-body">

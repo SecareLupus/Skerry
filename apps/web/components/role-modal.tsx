@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Icon from "./icon";
 import { useChat } from "../context/chat-context";
 import { grantRole } from "../lib/control-plane";
 import { useToast } from "./toast-provider";
@@ -60,7 +61,7 @@ export function RoleModal() {
           <button className="close-button" onClick={() => {
             dispatch({ type: "SET_ACTIVE_MODAL", payload: null });
             dispatch({ type: "SET_ROLE_CONTEXT", payload: null });
-          }}>✕</button>
+          }}><Icon name="x" size={16} /></button>
         </div>
 
         <form onSubmit={handleSubmit} className="role-form">

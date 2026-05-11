@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useEffect, useRef } from "react";
+import Icon, { type IconName } from "./icon";
 
 export interface ContextMenuItem {
   label?: string;
-  icon?: string;
+  icon?: string; // lucide IconName or raw string (e.g. "@")
   onClick?: () => void;
   danger?: boolean;
   type?: "item" | "header" | "separator";
@@ -15,6 +16,11 @@ interface ContextMenuProps {
   y: number;
   items: ContextMenuItem[];
   onClose: () => void;
+}
+
+function isIconName(s: string): s is IconName {
+  // IconName values are all lowercase kebab-case strings
+  return /^[a-z][a-z0-9-]*$/.test(s);
 }
 
 export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
@@ -78,7 +84,15 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
               onClose();
             }}
           >
-            {item.icon && <span>{item.icon}</span>}
+            {item.icon && (
+              <span>
+                {isIconName(item.icon) ? (
+                  <Icon name={item.icon} size={16} />
+                ) : (
+                  item.icon
+                )}
+              </span>
+            )}
             {item.label}
           </button>
         );

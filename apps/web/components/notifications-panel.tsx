@@ -3,6 +3,7 @@
 import React, { useMemo, useState, useRef, useEffect } from "react";
 import { useChat, useChatHandlers } from "../context/chat-context";
 import { getChannelName } from "../lib/channel-utils";
+import Icon from "./icon";
 
 interface NotificationItem {
     channelId: string;
@@ -83,14 +84,14 @@ export function NotificationsPanel() {
         <div className="notifications-anchor" ref={ref}>
             <button
                 type="button"
-                className="icon-button"
+                className="btn-icon btn-icon--outline"
                 aria-label="Notifications"
                 aria-expanded={open}
                 title={totalCount > 0 ? `${totalCount} unread notification${totalCount === 1 ? "" : "s"}` : "Notifications"}
                 onClick={() => setOpen((v) => !v)}
                 data-testid="notifications-bell"
             >
-                <span className="bell-glyph">🔔</span>
+                <Icon name="bell" size={16} />
                 {totalCount > 0 && <span className="notif-badge" data-testid="notifications-badge">{totalCount > 99 ? "99+" : totalCount}</span>}
             </button>
 
@@ -98,7 +99,7 @@ export function NotificationsPanel() {
                 <div className="notifications-panel" role="dialog" aria-label="Notifications" data-testid="notifications-panel">
                     <header className="notifications-header">
                         <h3>Notifications</h3>
-                        <button type="button" className="close-button" aria-label="Close notifications" onClick={() => setOpen(false)}>×</button>
+                        <button type="button" className="close-button" aria-label="Close notifications" onClick={() => setOpen(false)}><Icon name="x" size={16} /></button>
                     </header>
                     {items.length === 0 ? (
                         <p className="notifications-empty">You&apos;re all caught up.</p>

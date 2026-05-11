@@ -5,6 +5,7 @@ import { useChat } from "../context/chat-context";
 import { searchMessages } from "../lib/control-plane";
 import type { ChatMessage } from "@skerry/shared";
 import { useRouter } from "next/navigation";
+import Icon from "./icon";
 
 export function SearchModal() {
     const { state, dispatch } = useChat();
@@ -66,7 +67,7 @@ export function SearchModal() {
             <div className="modal-content search-modal" onClick={(e) => e.stopPropagation()}>
                 <header className="modal-header">
                     <h2>Search Messages</h2>
-                    <button className="close-button" onClick={() => dispatch({ type: "SET_ACTIVE_MODAL", payload: null })}>×</button>
+                    <button className="close-button" onClick={() => dispatch({ type: "SET_ACTIVE_MODAL", payload: null })}><Icon name="x" size={16} /></button>
                 </header>
 
                 <div className="modal-body">

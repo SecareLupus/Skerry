@@ -19,6 +19,7 @@
     "emoji-picker-react": "^4.18.0",
     "livekit-client": "^2.17.2",
     "lottie-react": "^2.4.1",
+    "lucide-react": "^1.14.0",
     "matrix-js-sdk": "^40.3.0-rc.0",
     "next": "14.2.30",
     "prismjs": "^1.30.0",
