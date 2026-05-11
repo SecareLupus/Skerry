@@ -79,11 +79,24 @@ export async function listAuditEntries(query: AuditLogQuery): Promise<{ entries:
         );
         const total = parseInt(countResult.rows[0]?.count ?? "0", 10);
 
-        const entriesResult = await db.query<AuditLogEntry>(
+        const entriesResult = await db.query<Record<string, unknown>>(
             `select * from audit_log where ${where} order by created_at desc limit $${paramIndex++} offset $${paramIndex++}`,
             [...values, limit, offset]
         );
 
-        return { entries: entriesResult.rows, total };
+        const mapped = entriesResult.rows.map((row: Record<string, unknown>) => ({
+            id: row.id as string,
+            serverId: row.server_id as string,
+            actorUserId: row.actor_user_id as string,
+            actionType: row.action_type as string,
+            targetType: row.target_type as string,
+            targetId: row.target_id as string,
+            beforeSnapshot: row.before_snapshot as Record<string, unknown> | null,
+            afterSnapshot: row.after_snapshot as Record<string, unknown> | null,
+            metadata: row.metadata as Record<string, unknown> | null,
+            createdAt: row.created_at as string,
+        } as AuditLogEntry));
+
+        return { entries: mapped, total };
     });
 }
