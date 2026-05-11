@@ -27,7 +27,8 @@ import type {
   Badge,
   ChannelInitResponse,
   PrivilegedAction,
-  ViewerRoleBinding
+  ViewerRoleBinding,
+  AuditLogEntry
 } from "@skerry/shared";
 export type { 
   IdentityMapping, 
@@ -476,6 +477,23 @@ export async function fetchRevisions(channelId: string, messageId: string): Prom
     `/v1/channels/${encodeURIComponent(channelId)}/messages/${encodeURIComponent(messageId)}/revisions`
   );
   return json.items;
+}
+
+export async function fetchAuditLog(
+  serverId: string,
+  filters?: { actorUserId?: string; targetId?: string; actionType?: string; before?: string; after?: string; limit?: number; offset?: number }
+): Promise<{ entries: AuditLogEntry[]; total: number }> {
+  const params = new URLSearchParams();
+  if (filters?.actorUserId) params.set("actorUserId", filters.actorUserId);
+  if (filters?.targetId) params.set("targetId", filters.targetId);
+  if (filters?.actionType) params.set("actionType", filters.actionType);
+  if (filters?.before) params.set("before", filters.before);
+  if (filters?.after) params.set("after", filters.after);
+  if (filters?.limit) params.set("limit", String(filters.limit));
+  if (filters?.offset) params.set("offset", String(filters.offset));
+  const qs = params.toString();
+  const url = `/v1/servers/${encodeURIComponent(serverId)}/audit-log${qs ? `?${qs}` : ""}`;
+  return apiFetch<{ entries: AuditLogEntry[]; total: number }>(url);
 }
 
 export async function sendTypingStatus(channelId: string, isTyping: boolean): Promise<void> {
