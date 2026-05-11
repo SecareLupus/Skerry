@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import type { ModerationActionType, PrivilegedAction } from "@skerry/shared";
 import { withDb } from "../db/client.js";
 import { isActionAllowed } from "./policy-service.js";
+import { recordAuditEntry } from "./audit-service.js";
 
 function toModerationActionType(action: PrivilegedAction): ModerationActionType {
   if (action === "moderation.kick") return "kick";
@@ -15,6 +16,17 @@ function toModerationActionType(action: PrivilegedAction): ModerationActionType 
   if (action === "channel.unlock") return "unlock_channel";
   if (action === "channel.slowmode") return "set_slow_mode";
   return "set_posting_restrictions";
+}
+
+function toAuditActionType(action: PrivilegedAction): string | null {
+  if (action === "moderation.kick") return "moderation.kick";
+  if (action === "moderation.ban") return "moderation.ban";
+  if (action === "moderation.timeout") return "moderation.mute";
+  if (action === "moderation.warn") return "moderation.warn";
+  if (action === "moderation.strike") return "moderation.strike";
+  if (action === "channel.lock" || action === "channel.unlock" ||
+      action === "channel.slowmode" || action === "channel.posting") return "channel.update";
+  return null;
 }
 
 export async function executePrivilegedAction<T>(input: {
@@ -64,6 +76,25 @@ export async function executePrivilegedAction<T>(input: {
       ]
     );
   });
+
+  // Record to audit_log when applicable (server-scoped, mappable action)
+  const auditAction = toAuditActionType(input.action);
+  if (auditAction && input.scope.serverId) {
+    const targetType = input.targetUserId ? "user" :
+      input.targetMessageId ? "message" :
+      input.scope.channelId ? "channel" : "server";
+    const targetId = input.targetUserId ?? input.targetMessageId ??
+      input.scope.channelId ?? input.scope.serverId!;
+
+    await recordAuditEntry({
+      serverId: input.scope.serverId,
+      actorUserId: input.actorUserId,
+      actionType: auditAction,
+      targetType,
+      targetId,
+      metadata: { reason: input.reason, ...(input.metadata ?? {}) }
+    });
+  }
 
   return result;
 }
