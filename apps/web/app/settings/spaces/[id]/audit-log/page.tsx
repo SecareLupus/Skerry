@@ -4,8 +4,30 @@ import React, { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { fetchAuditLog } from "../../../../../lib/control-plane";
 import type { AuditLogEntry, AuditActionType } from "@skerry/shared";
-import { AUDIT_ACTION_TYPES } from "@skerry/shared";
 import { useToast } from "../../../../../components/toast-provider";
+
+// Duplicated from @skerry/shared to avoid runtime import issues in Next.js
+const AUDIT_ACTION_TYPES: readonly AuditActionType[] = [
+    "role.grant",
+    "role.revoke",
+    "channel.create",
+    "channel.delete",
+    "channel.update",
+    "category.create",
+    "category.delete",
+    "category.update",
+    "moderation.warn",
+    "moderation.strike",
+    "moderation.mute",
+    "moderation.kick",
+    "moderation.ban",
+    "permission.edit",
+    "invite.generate",
+    "invite.redeem",
+    "integration.connect",
+    "integration.disconnect",
+    "server.update",
+];
 
 const ACTION_LABELS: Record<string, string> = {
   "role.grant": "Role Granted",
