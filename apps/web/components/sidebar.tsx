@@ -288,6 +288,7 @@ export function Sidebar({
                                                     type="button"
                                                     className="btn-icon btn-icon--outline"
                                                     title="Edit Server"
+                                                    aria-label="Edit server"
                                                     data-testid="server-settings-button"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
@@ -301,6 +302,7 @@ export function Sidebar({
                                                     type="button"
                                                     className="btn-icon btn-icon--outline btn-icon--danger"
                                                     title="Delete Server"
+                                                    aria-label="Delete server"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         if (confirm(`Are you sure you want to delete "${server.name}"? This cannot be undone.`)) {
@@ -454,6 +456,7 @@ export function Sidebar({
                                                         type="button"
                                                         className="btn-icon btn-icon--outline"
                                                         title="Create Room"
+                                                        aria-label="Create room in category"
                                                         onClick={() => {
                                                             dispatch({ type: "SET_SELECTED_CATEGORY_FOR_CREATE", payload: group.id ?? "" });
                                                             dispatch({ type: "SET_ACTIVE_MODAL", payload: "create-room" });
@@ -465,6 +468,7 @@ export function Sidebar({
                                                         type="button"
                                                         className="btn-icon btn-icon--outline"
                                                         title="Rename Category"
+                                                        aria-label="Rename category"
                                                         onClick={() => {
                                                             dispatch({ type: "SET_RENAME_CATEGORY", payload: { id: group.id!, name: group.name } });
                                                             dispatch({ type: "SET_ACTIVE_MODAL", payload: "rename-category" });
@@ -516,6 +520,7 @@ export function Sidebar({
                                                                     type="button"
                                                                     className="btn-icon btn-icon--outline"
                                                                     title="Edit Room"
+                                                                    aria-label="Edit room"
                                                                     onClick={(e) => {
                                                                         e.stopPropagation();
                                                                         dispatch({ type: "SET_RENAME_ROOM", payload: { id: channel.id, name: channel.name, type: channel.type, categoryId: channel.categoryId, topic: channel.topic, styleContent: channel.styleContent } });
@@ -528,6 +533,7 @@ export function Sidebar({
                                                                     type="button"
                                                                     className="btn-icon btn-icon--outline btn-icon--danger"
                                                                     title="Delete Room"
+                                                                    aria-label="Delete room"
                                                                     onClick={(e) => {
                                                                         e.stopPropagation();
                                                                         if (confirm(`Are you sure you want to delete "#${channel.name}"?`)) {
