@@ -456,7 +456,7 @@ export function Sidebar({
                                                         type="button"
                                                         className="btn-icon btn-icon--outline"
                                                         title="Create Room"
-                                                        aria-label="New room in this category"
+                                                        aria-label="Add channel to this category"
                                                         onClick={() => {
                                                             dispatch({ type: "SET_SELECTED_CATEGORY_FOR_CREATE", payload: group.id ?? "" });
                                                             dispatch({ type: "SET_ACTIVE_MODAL", payload: "create-room" });
