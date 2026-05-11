@@ -665,3 +665,53 @@ export interface ChannelInitResponse {
     readState: ChannelReadState | null;
     permissions: PrivilegedAction[];
 }
+
+// --- Audit Log -------------------------------------------------------
+
+export const AUDIT_ACTION_TYPES = [
+    "role.grant",
+    "role.revoke",
+    "channel.create",
+    "channel.delete",
+    "channel.update",
+    "category.create",
+    "category.delete",
+    "category.update",
+    "moderation.warn",
+    "moderation.strike",
+    "moderation.mute",
+    "moderation.kick",
+    "moderation.ban",
+    "permission.edit",
+    "invite.generate",
+    "invite.redeem",
+    "integration.connect",
+    "integration.disconnect",
+    "server.update",
+] as const;
+
+export type AuditActionType = (typeof AUDIT_ACTION_TYPES)[number];
+
+export interface AuditLogEntry {
+    id: string;
+    serverId: string;
+    actorUserId: string;
+    actionType: AuditActionType;
+    targetType: string;          // e.g. "user", "channel", "role"
+    targetId: string;
+    beforeSnapshot: Record<string, unknown> | null;
+    afterSnapshot: Record<string, unknown> | null;
+    metadata: Record<string, unknown> | null;  // IP, user-agent, reason, etc.
+    createdAt: string;
+}
+
+export interface AuditLogQuery {
+    serverId: string;
+    actorUserId?: string;
+    targetId?: string;
+    actionType?: AuditActionType;
+    before?: string;   // ISO timestamp
+    after?: string;    // ISO timestamp
+    limit?: number;
+    offset?: number;
+}

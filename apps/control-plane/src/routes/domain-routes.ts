@@ -7,6 +7,7 @@ import { registerChannelRoutes } from "./channel-routes.js";
 import { registerChannelInitRoutes } from "./channel-init-routes.js";
 import { registerMessageRoutes } from "./message-routes.js";
 import { registerModerationRoutes } from "./moderation-routes.js";
+import { registerAuditRoutes } from "./audit-routes.js";
 import { registerVoiceRoutes } from "./voice-routes.js";
 import { registerDiscordRoutes } from "./discord-routes.js";
 import { registerMediaRoutes } from "./media-routes.js";
@@ -30,6 +31,7 @@ export async function registerDomainRoutes(app: FastifyInstance): Promise<void> 
   await registerChannelInitRoutes(app);
   await registerMessageRoutes(app);
   await registerModerationRoutes(app);
+  await registerAuditRoutes(app);
   await registerVoiceRoutes(app);
   await registerDiscordRoutes(app);
   await registerMediaRoutes(app);
