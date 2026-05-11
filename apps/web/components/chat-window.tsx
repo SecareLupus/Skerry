@@ -1032,6 +1032,7 @@ export function ChatWindow({
                                 className={`btn-icon btn-icon--outline ${voiceMuted ? "btn-icon--active" : ""}`}
                                 onClick={() => handleToggleMuteDeafen(!voiceMuted, voiceDeafened)}
                                 title={voiceMuted ? "Unmute" : "Mute"}
+                                aria-label={voiceMuted ? "Unmute microphone" : "Mute microphone"}
                             >
                                 <Icon name={voiceMuted ? "mic-off" : "mic"} size={16} />
                             </button>
@@ -1040,6 +1041,7 @@ export function ChatWindow({
                                 className={`btn-icon btn-icon--outline ${voiceDeafened ? "btn-icon--active" : ""}`}
                                 onClick={() => handleToggleMuteDeafen(voiceMuted, !voiceDeafened)}
                                 title={voiceDeafened ? "Undeafen" : "Deafen"}
+                                aria-label={voiceDeafened ? "Undeafen audio" : "Deafen audio"}
                             >
                                 <Icon name={voiceDeafened ? "volume-1" : "headphones"} size={16} />
                             </button>
@@ -1048,6 +1050,7 @@ export function ChatWindow({
                                 className={`btn-icon btn-icon--outline ${voiceVideoEnabled ? "btn-icon--active" : ""}`}
                                 onClick={() => handleToggleVideo(!voiceVideoEnabled)}
                                 title={voiceVideoEnabled ? "Disable Video" : "Enable Video"}
+                                aria-label={voiceVideoEnabled ? "Turn off camera" : "Turn on camera"}
                             >
                                 <Icon name={voiceVideoEnabled ? "video" : "camera"} size={16} />
                             </button>
@@ -1056,6 +1059,7 @@ export function ChatWindow({
                                 className={`btn-icon btn-icon--outline ${voiceScreenShareEnabled ? "btn-icon--active" : ""}`}
                                 onClick={() => handleToggleScreenShare(!voiceScreenShareEnabled)}
                                 title={voiceScreenShareEnabled ? "Stop Sharing" : "Share Screen"}
+                                aria-label={voiceScreenShareEnabled ? "Stop screen sharing" : "Start screen sharing"}
                             >
                                 <Icon name="video" size={16} />
                             </button>
@@ -1064,6 +1068,7 @@ export function ChatWindow({
                                 className="btn-icon btn-icon--outline"
                                 onClick={() => dispatch({ type: "SET_ACTIVE_MODAL", payload: "voice-settings" })}
                                 title="Voice Settings"
+                                aria-label="Open voice settings"
                             >
                                 <Icon name="settings" size={16} />
                             </button>
@@ -1072,6 +1077,7 @@ export function ChatWindow({
                                 className="btn-icon btn-icon--outline btn-icon--danger"
                                 onClick={() => handleLeaveVoice()}
                                 title="Leave Voice"
+                                aria-label="Disconnect from voice"
                             >
                                 <Icon name="phone-off" size={16} />
                             </button>
@@ -1215,6 +1221,7 @@ export function ChatWindow({
                                                 setReactionTargetMessageId(message.id);
                                             }}
                                             title="Add Reaction"
+                                            aria-label="React with emoji"
                                         >
                                             <Icon name="smile-plus" size={16} />
                                         </button>
@@ -1229,6 +1236,7 @@ export function ChatWindow({
                                                 }
                                             }}
                                             title="Reply"
+                                            aria-label="Quote reply"
                                         >
                                             <Icon name="reply" size={16} />
                                         </button>
@@ -1246,6 +1254,7 @@ export function ChatWindow({
                                                     setEditContent(message.content);
                                                 }}
                                                 title="Edit"
+                                                aria-label="Edit"
                                             >
                                                 <Icon name="pen-line" size={16} />
                                             </button>
