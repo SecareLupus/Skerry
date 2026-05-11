@@ -3,6 +3,7 @@ import { buildApp } from "./app.js";
 import { config } from "./config.js";
 import { startDiscordBot } from "./services/discord-bot-client.js";
 import { initDb } from "./db/client.js";
+import { initPushService } from "./services/push-service.js";
 
 import { ensureAppserviceRegistration } from "./matrix/synapse-bootstrap.js";
 import { startTimeoutWorker } from "./workers/timeout-worker.js";
@@ -19,19 +20,26 @@ async function start() {
     await app.listen({ port: config.port, host: "0.0.0.0" });
     console.log(`Control plane running at http://localhost:${config.port}`);
 
+    // Initialize VAPID for web push
+    initPushService();
+
     // Start Discord bot client
     await startDiscordBot();
 
-    // Start background background worker for timeouts
+    // Start background worker for timeouts
     startTimeoutWorker();
   } catch (err) {
     app.log.error(err);
     process.exit(1);
   }
+
+  // Graceful shutdown
+  for (const signal of ["SIGINT", "SIGTERM"] as const) {
+    process.on(signal, async () => {
+      await app.close();
+      process.exit(0);
+    });
+  }
 }
 
-start().catch(err => {
-  console.error("FATAL ERROR DURING STARTUP:");
-  console.error(err);
-  process.exit(1);
-});
+start();

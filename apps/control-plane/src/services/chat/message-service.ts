@@ -394,6 +394,15 @@ export async function createMessage(input: {
              sendMentionNotification(mentioned.email, authorDisplayName, channelName, input.content.slice(0, 200), `${config.webBaseUrl}/channels/${serverId}/${input.channelId}/${message.id}`).catch(err => console.error(err));
           }
         }
+        // Push notification for all mentioned users (even online — mobile may be backgrounded)
+        if (serverId) {
+          const { sendPushToUsers } = await import("../push-service.js");
+          sendPushToUsers(mentionedUserIds, {
+            title: `@${authorDisplayName} in #${channelName}`,
+            body: input.content.slice(0, 200),
+            url: `/?server=${serverId}&channel=${input.channelId}`,
+          }).catch(err => console.error("[push] mention send failed:", err));
+        }
       }
     }
 

@@ -715,3 +715,15 @@ export interface AuditLogQuery {
     limit?: number;
     offset?: number;
 }
+
+// --- Push Notifications -----------------------------------------------
+
+export interface PushSubscription {
+    id: string;
+    productUserId: string;
+    endpoint: string;
+    p256dhKey: string;
+    authKey: string;
+    serverId?: string | null;
+    createdAt: string;
+}

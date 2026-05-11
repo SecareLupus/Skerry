@@ -28,6 +28,7 @@ export const viewport: Viewport = {
 import { ToastProvider } from "../components/toast-provider";
 import { ChatProvider } from "../context/chat-context";
 import { DynamicManifest } from "../components/dynamic-manifest";
+import { PushSubscriber } from "../components/push-subscriber";
 import { ModalManager } from "../components/modal-manager";
 import { AppInitializer } from "../components/app-initializer";
 import { ThemeScript } from "../components/theme-script";
@@ -41,6 +42,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <ToastProvider>
           <ChatProvider>
             <DynamicManifest />
+            <PushSubscriber />
             <MasqueradeBanner />
             <AppInitializer>
               {children}

@@ -16,6 +16,7 @@ import { registerFederationRoutes } from "./federation-routes.js";
 import { registerInviteRoutes } from "./invite-routes.js";
 import { registerStickerRoutes } from "./sticker-routes.js";
 import { registerWebhookRoutes } from "./webhook-routes.js";
+import { registerPushRoutes } from "./push-routes.js";
 
 /**
  * Registers all domain-specific routes for the Skerry platform.
@@ -40,4 +41,5 @@ export async function registerDomainRoutes(app: FastifyInstance): Promise<void> 
   await registerInviteRoutes(app);
   await registerStickerRoutes(app);
   await registerWebhookRoutes(app);
+  await registerPushRoutes(app);
 }
