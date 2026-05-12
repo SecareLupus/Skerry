@@ -285,7 +285,7 @@ export function useChatInitialization({
         if (nextServerId !== state.selectedServerId || state.discordMappings.length === 0) {
           void listDiscordBridgeMappings(nextServerId)
             .then((items) => dispatch({ type: "SET_DISCORD_MAPPINGS", payload: items }))
-            .catch(() => {});
+            .catch((err) => console.warn("[chat-init] failed to fetch Discord mappings", err));
         }
 
         // Use a small delay to ensure the DOM has rendered the reversed messages 
