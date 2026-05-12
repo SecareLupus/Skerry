@@ -369,8 +369,10 @@ export function useChatInitialization({
     setDraftMessage(draftMessagesByChannel[channelId] ?? "");
 
     try {
-      // REFACTOR: Just call refreshChatState with force=true to avoid duplicate code
-      await refreshChatState(selectedServerId ?? undefined, channelId, undefined, true);
+      // REFACTOR: Just call refreshChatState to avoid duplicate code.
+      // force=false: the server hasn't changed, so we can reuse cached
+      // servers/roles/hubs/channels/categories (#55).
+      await refreshChatState(selectedServerId ?? undefined, channelId, undefined, false);
     } catch (cause) {
       dispatch({ type: "SET_ERROR", payload: cause instanceof Error ? cause.message : "Failed to load channel." });
     }
