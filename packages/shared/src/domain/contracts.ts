@@ -180,6 +180,7 @@ export interface Hub {
     oidcConfig?: Record<string, any>;
     allowSpaceDiscordBridge?: boolean;
     allowSpaceCustomization?: boolean;
+    defaultAutoJoinHubMembers?: boolean;
     suspension?: HubSuspension;
     createdAt: string;
 }

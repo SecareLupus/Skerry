@@ -81,6 +81,14 @@ export async function createServerWorkflow(input: {
 
   const server = await withDb(async (db) => {
     const id = randomId("srv");
+
+    // Read the hub's default auto-join setting (#108)
+    const hubRow = await db.query<{ default_auto_join: boolean }>(
+      "select default_auto_join_hub_members as default_auto_join from hubs where id = $1",
+      [input.hubId]
+    );
+    const autoJoin = hubRow.rows[0]?.default_auto_join ?? true;
+
     const row = await db.query<{
       id: string;
       hub_id: string;
@@ -95,9 +103,9 @@ export async function createServerWorkflow(input: {
       icon_url: string | null;
     }>(
       `insert into servers (id, hub_id, name, type, matrix_space_id, created_by_user_id, owner_user_id, auto_join_hub_members, join_policy)
-       values ($1, $2, $3, 'default', $4, $5, $6, true, 'open')
+       values ($1, $2, $3, 'default', $4, $5, $6, $7, 'open')
        returning *`,
-      [id, input.hubId, input.name, matrixSpaceId, input.productUserId, ownerUserId]
+      [id, input.hubId, input.name, matrixSpaceId, input.productUserId, ownerUserId, autoJoin]
     );
 
     const value = row.rows[0];
