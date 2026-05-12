@@ -102,8 +102,26 @@ export async function startDiscordBot() {
                             }
 
                             return url ? { url, sourceUrl: e.data.url || url } : null;
-                        }).filter(Boolean) as Array<{ url: string; sourceUrl: string; filename?: string; isSticker?: boolean }>
+                                        }).filter(Boolean) as Array<{ url: string; sourceUrl: string; filename?: string; isSticker?: boolean }>
                     ];
+
+                    // Resolve Discord reply reference to Skerry internal message ID.
+                    // Discord gives us a snowflake; the frontend matches replyToId
+                    // against Skerry's `id` column, not `external_message_id`.
+                    let resolvedReplyToId: string | undefined;
+                    const referenceMessageId: string | undefined = !message.channel.isThread()
+                        ? message.reference?.messageId ?? undefined
+                        : undefined;
+                    if (referenceMessageId) {
+                        resolvedReplyToId = await withDb(async (db) => {
+                            const row = await db.query<{ id: string }>(
+                                `select id from chat_messages
+                                 where external_message_id = $1 and external_provider = 'discord'`,
+                                [referenceMessageId]
+                            );
+                            return row.rows[0]?.id;
+                        });
+                    }
 
                     await relayDiscordMessageToMappedChannel({
                         serverId,
@@ -114,7 +132,7 @@ export async function startDiscordBot() {
                         content: message.content,
                         messageId: message.id,
                         media,
-                        replyToId: !message.channel.isThread() ? (message.reference?.messageId ?? undefined) : undefined,
+                        replyToId: resolvedReplyToId,
                         externalThreadId: message.channel.isThread() ? message.channelId : undefined
                     });
 
