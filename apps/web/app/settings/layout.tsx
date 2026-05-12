@@ -57,6 +57,12 @@ export default function SettingsLayout({
       hidden: !canManageCurrentSpace || !selectedServerId 
     },
     { 
+      label: "Reports", 
+      href: `/settings/spaces/${selectedServerId}/reports`, 
+      icon: "alert-triangle", 
+      hidden: !canManageCurrentSpace || !selectedServerId 
+    },
+    { 
       label: "Room Settings", 
       href: `/settings/rooms/${selectedChannelId}`, 
       icon: "message-square", 
