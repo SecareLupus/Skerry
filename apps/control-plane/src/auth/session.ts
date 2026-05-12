@@ -121,3 +121,61 @@ export function createMasqueradeToken(
 export function verifyMasqueradeToken(token: string): SessionPayload | null {
   return verify(token);
 }
+
+// --- Pending identity token (OIDC split-detection interstitial) ---
+
+export interface PendingIdentityPayload {
+  provider: string;
+  oidcSubject: string;
+  email: string | null;
+  displayName: string | null;
+  avatarUrl: string | null;
+  accessToken: string | null;
+  refreshToken: string | null;
+  tokenExpiresAt: string | null;
+  expiresAt: number;
+}
+
+export function createPendingIdentityToken(payload: Omit<PendingIdentityPayload, "expiresAt">): string {
+  return createSessionToken({
+    productUserId: "__pending__",
+    provider: payload.provider,
+    oidcSubject: payload.oidcSubject,
+    expiresAt: Date.now() + 5 * 60 * 1000, // 5-minute TTL
+  } as SessionPayload);
+}
+
+const PENDING_IDENTITY_KEY_PREFIX = "pending_identity:";
+
+export function setPendingIdentityCookie(reply: FastifyReply, payload: Omit<PendingIdentityPayload, "expiresAt">): string {
+  const fullPayload: PendingIdentityPayload = {
+    ...payload,
+    expiresAt: Date.now() + 5 * 60 * 1000,
+  };
+  const token = createPendingIdentityToken(fullPayload);
+  // Store the full payload in a separate cookie that the interstitial page reads
+  reply.header("Set-Cookie",
+    `pending_identity=${Buffer.from(JSON.stringify(fullPayload)).toString("base64url")}; Path=/; HttpOnly; SameSite=Lax; Max-Age=300`
+  );
+  return token;
+}
+
+export function getPendingIdentityCookie(request: FastifyRequest): PendingIdentityPayload | null {
+  const cookieHeader = request.headers.cookie;
+  if (!cookieHeader) return null;
+  const parts = cookieHeader.split(";").map(p => p.trim());
+  const raw = parts.find(p => p.startsWith("pending_identity="));
+  if (!raw) return null;
+  try {
+    const encoded = raw.replace("pending_identity=", "");
+    return JSON.parse(Buffer.from(encoded, "base64url").toString("utf8")) as PendingIdentityPayload;
+  } catch {
+    return null;
+  }
+}
+
+export function clearPendingIdentityCookie(reply: FastifyReply): void {
+  reply.header("Set-Cookie",
+    "pending_identity=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0"
+  );
+}

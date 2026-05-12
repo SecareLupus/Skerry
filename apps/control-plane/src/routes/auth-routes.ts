@@ -313,18 +313,64 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
     } else if (!linkedIdentity) {
       const existingUserIdFromEmail =
         profile.email ? await findUniqueProductUserIdByEmail(profile.email) : null;
-      identity = await upsertIdentityMapping({
-        provider: profile.provider,
-        oidcSubject: profile.oidcSubject,
-        email: profile.email,
-        preferredUsername: null,
-        displayName: profile.displayName,
-        avatarUrl: profile.avatarUrl,
-        productUserId: existingUserIdFromEmail ?? undefined,
-        accessToken: exchanged.accessToken,
-        refreshToken: exchanged.refreshToken,
-        tokenExpiresAt: exchanged.tokenExpiresAt
-      });
+
+      if (existingUserIdFromEmail) {
+        // Email matches an existing account — link this new provider to it.
+        identity = await upsertIdentityMapping({
+          provider: profile.provider,
+          oidcSubject: profile.oidcSubject,
+          email: profile.email,
+          preferredUsername: null,
+          displayName: profile.displayName,
+          avatarUrl: profile.avatarUrl,
+          productUserId: existingUserIdFromEmail,
+          accessToken: exchanged.accessToken,
+          refreshToken: exchanged.refreshToken,
+          tokenExpiresAt: exchanged.tokenExpiresAt
+        });
+      } else {
+        // No email match. Check if any accounts exist on the platform —
+        // if so, this might be an existing user with a different email
+        // on another provider. Redirect to an interstitial instead of
+        // silently minting a second account (#107).
+        const { setPendingIdentityCookie } = await import("../auth/session.js");
+        const hasExistingUsers = await withDb(async (db) => {
+          const r = await db.query<{ exists: boolean }>(
+            "select exists(select 1 from identity_mappings limit 1) as exists"
+          );
+          return r.rows[0]?.exists ?? false;
+        });
+
+        if (hasExistingUsers) {
+          setPendingIdentityCookie(reply, {
+            provider: profile.provider,
+            oidcSubject: profile.oidcSubject,
+            email: profile.email,
+            displayName: profile.displayName,
+            avatarUrl: profile.avatarUrl,
+            accessToken: exchanged.accessToken,
+            refreshToken: exchanged.refreshToken ?? null,
+            tokenExpiresAt: exchanged.tokenExpiresAt ?? null,
+          });
+          const dest = new URL("/auth/link-or-create", config.webBaseUrl);
+          reply.redirect(dest.toString(), 302);
+          return;
+        }
+
+        // Platform has zero users — first signup, proceed normally.
+        identity = await upsertIdentityMapping({
+          provider: profile.provider,
+          oidcSubject: profile.oidcSubject,
+          email: profile.email,
+          preferredUsername: null,
+          displayName: profile.displayName,
+          avatarUrl: profile.avatarUrl,
+          productUserId: undefined,
+          accessToken: exchanged.accessToken,
+          refreshToken: exchanged.refreshToken,
+          tokenExpiresAt: exchanged.tokenExpiresAt
+        });
+      }
     }
 
     if (!identity) {
@@ -347,6 +393,52 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
     }
     const destination = destinationUrl.toString();
     reply.redirect(destination, 302);
+  });
+
+  // Consumes the pending identity cookie set by the OIDC split-detection
+  // flow. Creates the identity mapping and logs the user in.
+  app.post("/auth/confirm-new-account", async (request, reply) => {
+    const { getPendingIdentityCookie, clearPendingIdentityCookie } = await import("../auth/session.js");
+    const pending = getPendingIdentityCookie(request);
+    if (!pending) {
+      reply.code(400).send({ message: "No pending identity found. The link may have expired." });
+      return;
+    }
+
+    const linkedIdentity = await getIdentityByProviderSubject({
+      provider: pending.provider as IdentityProvider,
+      oidcSubject: pending.oidcSubject,
+    });
+    if (linkedIdentity) {
+      // Already linked (race condition or double-submit) — just log in.
+      setSessionCookie(reply, {
+        productUserId: linkedIdentity.productUserId,
+        provider: linkedIdentity.provider,
+        oidcSubject: linkedIdentity.oidcSubject,
+      });
+    } else {
+      const identity = await upsertIdentityMapping({
+        provider: pending.provider as IdentityProvider,
+        oidcSubject: pending.oidcSubject,
+        email: pending.email,
+        preferredUsername: null,
+        displayName: pending.displayName,
+        avatarUrl: pending.avatarUrl,
+        productUserId: undefined, // mint new account
+        accessToken: pending.accessToken ?? undefined,
+        refreshToken: pending.refreshToken ?? undefined,
+        tokenExpiresAt: pending.tokenExpiresAt ?? undefined,
+      });
+      setSessionCookie(reply, {
+        productUserId: identity.productUserId,
+        provider: identity.provider,
+        oidcSubject: identity.oidcSubject,
+      });
+    }
+
+    clearPendingIdentityCookie(reply);
+    const dest = new URL(config.webBaseUrl);
+    reply.redirect(dest.toString(), 302);
   });
 
   app.get("/auth/session/me", { preHandler: requireAuth }, async (request, reply) => {
