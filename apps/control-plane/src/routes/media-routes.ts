@@ -16,6 +16,36 @@ import path from "node:path";
 
 const STICKER_CACHE_PRIMARY = process.env.STICKER_CACHE_DIR || "/app/cache/stickers";
 const STICKER_CACHE_FALLBACK = path.join(os.tmpdir(), "escapehatch-stickers");
+const STICKER_CACHE_MAX_BYTES = parseInt(process.env.STICKER_CACHE_MAX_MB ?? "500", 10) * 1024 * 1024;
+
+// LRU eviction: track each cached file's size and mtime. When total exceeds
+// the cap, evict oldest entries until under the limit.
+const cacheFileSizes = new Map<string, { size: number; mtime: number }>();
+let cacheTotalBytes = 0;
+
+async function evictStickerCacheIfNeeded(cacheDir: string, newFileSize: number): Promise<void> {
+    cacheTotalBytes += newFileSize;
+    if (cacheTotalBytes <= STICKER_CACHE_MAX_BYTES) return;
+
+    // Sort by mtime ascending (oldest first)
+    const sorted = [...cacheFileSizes.entries()]
+        .sort(([, a], [, b]) => a.mtime - b.mtime);
+
+    for (const [file, info] of sorted) {
+        if (cacheTotalBytes <= STICKER_CACHE_MAX_BYTES * 0.8) break; // evict to 80% of cap
+        const filePath = path.join(cacheDir, file);
+        try {
+            await fs.unlink(filePath);
+            cacheTotalBytes -= info.size;
+            cacheFileSizes.delete(file);
+            logEvent("info", "sticker_cache_evicted", { file, size: info.size });
+        } catch (err) {
+            // File already gone or permission error — remove from tracking
+            cacheTotalBytes -= info.size;
+            cacheFileSizes.delete(file);
+        }
+    }
+}
 
 async function resolveCacheDir(): Promise<string | null> {
   for (const dir of [STICKER_CACHE_PRIMARY, STICKER_CACHE_FALLBACK]) {
@@ -121,7 +151,10 @@ export async function registerMediaRoutes(app: FastifyInstance): Promise<void> {
 
       if (cachePath) {
         // Atomic write so concurrent requests can't observe a partial file via stat().
-        await atomicWrite(cachePath, finalBuffer).catch((err: Error) => {
+        await atomicWrite(cachePath, finalBuffer).then(() => {
+          cacheFileSizes.set(`${hash}.webp`, { size: finalBuffer.length, mtime: Date.now() });
+          evictStickerCacheIfNeeded(stickerCacheDir!, finalBuffer.length).catch(() => {});
+        }).catch((err: Error) => {
           logEvent("error", "sticker_cache_write_failed", { cachePath, error: err.message });
         });
       }
