@@ -101,6 +101,18 @@ export default function HubSettingsPage() {
                     <p className="settings-description">When enabled, individual Space Owners can bridge their rooms to Discord without Hub Admin intervention.</p>
                 </section>
 
+                <section className="settings-row checkbox-row">
+                    <label className="checkbox-container">
+                        <input 
+                            type="checkbox" 
+                            checked={settings.defaultAutoJoinHubMembers !== false}
+                            onChange={(e) => setSettings({ ...settings, defaultAutoJoinHubMembers: e.target.checked })}
+                        />
+                        <span className="checkbox-label">Auto-join new hub members to new spaces</span>
+                    </label>
+                    <p className="settings-description">When enabled, new spaces created in this hub will default to automatically adding all current and future hub members. Space owners can change this per-space.</p>
+                </section>
+
                 <hr style={{ margin: '1rem 0', borderColor: 'var(--border)' }} />
 
                 <section className="settings-row">

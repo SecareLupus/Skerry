@@ -4,7 +4,8 @@ import type { Hub, Server, Channel } from "@skerry/shared";
 export async function getHubSettings(hubId: string): Promise<Partial<Hub>> {
   return withDb(async (db) => {
     const res = await db.query(
-      `select theme, space_customization_limits, oidc_config, allow_space_discord_bridge, 
+      `select theme, space_customization_limits, oidc_config, allow_space_discord_bridge,
+              default_auto_join_hub_members,
               is_suspended, suspended_at, suspension_expires_at, unlock_code_hash
        from hubs where id = $1`,
       [hubId]
@@ -16,6 +17,7 @@ export async function getHubSettings(hubId: string): Promise<Partial<Hub>> {
       spaceCustomizationLimits: row.space_customization_limits,
       oidcConfig: row.oidc_config,
       allowSpaceDiscordBridge: row.allow_space_discord_bridge,
+      defaultAutoJoinHubMembers: row.default_auto_join_hub_members,
       suspension: {
         isSuspended: row.is_suspended,
         suspendedAt: row.suspended_at,
@@ -31,6 +33,7 @@ export async function updateHubSettings(hubId: string, settings: {
   spaceCustomizationLimits?: any;
   oidcConfig?: any;
   allowSpaceDiscordBridge?: boolean;
+  defaultAutoJoinHubMembers?: boolean;
   suspension?: {
     isSuspended?: boolean;
     suspendedAt?: string | null;
@@ -45,10 +48,11 @@ export async function updateHubSettings(hubId: string, settings: {
         space_customization_limits = case when $3::jsonb is not null then $3::jsonb else space_customization_limits end,
         oidc_config = case when $4::jsonb is not null then $4::jsonb else oidc_config end,
         allow_space_discord_bridge = coalesce($5, allow_space_discord_bridge),
-        is_suspended = coalesce($6, is_suspended),
-        suspended_at = case when $7::text is not null or $10::boolean then $7::timestamptz else suspended_at end,
-        suspension_expires_at = case when $8::text is not null or $11::boolean then $8::timestamptz else suspension_expires_at end,
-        unlock_code_hash = case when $9::text is not null or $12::boolean then $9::text else unlock_code_hash end
+        default_auto_join_hub_members = coalesce($6, default_auto_join_hub_members),
+        is_suspended = coalesce($7, is_suspended),
+        suspended_at = case when $8::text is not null or $11::boolean then $8::timestamptz else suspended_at end,
+        suspension_expires_at = case when $9::text is not null or $12::boolean then $9::timestamptz else suspension_expires_at end,
+        unlock_code_hash = case when $10::text is not null or $13::boolean then $10::text else unlock_code_hash end
       where id = $1`,
       [
         hubId,
@@ -56,6 +60,7 @@ export async function updateHubSettings(hubId: string, settings: {
         settings.spaceCustomizationLimits ? JSON.stringify(settings.spaceCustomizationLimits) : null,
         settings.oidcConfig ? JSON.stringify(settings.oidcConfig) : null,
         settings.allowSpaceDiscordBridge,
+        settings.defaultAutoJoinHubMembers,
         settings.suspension?.isSuspended,
         settings.suspension?.suspendedAt,
         settings.suspension?.expiresAt,
