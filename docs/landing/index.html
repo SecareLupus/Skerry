@@ -213,9 +213,26 @@
       .demo-sidebar { display: none; }
       .nav-links { display: none; }
     }
+    /* ── Lightbox ── */
+    .screenshot-card img { cursor: pointer; }
+    .lightbox {
+      display: none; position: fixed; inset: 0; z-index: 9999;
+      background: rgba(0,0,0,0.85); align-items: center; justify-content: center;
+    }
+    .lightbox.open { display: flex; }
+    .lightbox img { max-width: 90vw; max-height: 90vh; border-radius: 8px; box-shadow: 0 0 60px rgba(0,0,0,0.5); }
+    .lightbox-close {
+      position: absolute; top: 24px; right: 32px; color: #fff; font-size: 2rem;
+      cursor: pointer; background: none; border: none; line-height: 1;
+    }
   </style>
 </head>
 <body>
+
+<div class="lightbox" id="lightbox" onclick="this.classList.remove('open')">
+  <button class="lightbox-close" onclick="document.getElementById('lightbox').classList.remove('open')">&times;</button>
+  <img id="lightbox-img" src="" alt="" onclick="event.stopPropagation()" />
+</div>
 
 <nav>
   <div class="nav-inner">
@@ -358,6 +375,19 @@
     Built by <a href="https://github.com/SecareLupus">@SecareLupus</a> and contributors.
   </p>
 </footer>
+
+<script>
+document.querySelectorAll('.screenshot-card img').forEach(img => {
+  img.addEventListener('click', () => {
+    const lb = document.getElementById('lightbox');
+    document.getElementById('lightbox-img').src = img.src;
+    lb.classList.add('open');
+  });
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') document.getElementById('lightbox').classList.remove('open');
+});
+</script>
 
 </body>
 </html>
