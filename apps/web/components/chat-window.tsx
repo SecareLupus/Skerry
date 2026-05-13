@@ -7,7 +7,7 @@ import { Category, Channel, ChatMessage, MentionMarker, ModerationAction, Modera
 import { getChannelName } from "../lib/channel-utils";
 import { ContextMenu, ContextMenuItem } from "./context-menu";
 import { useToast } from "./toast-provider";
-import { performModerationAction, createReport, uploadMedia, updateMessage, addReaction, removeReaction, deleteMessage, listChannelMembers, inviteToChannel, updateChannel, searchUsers, formatMessageTime, pinMessage, unpinMessage, sendTypingStatus, getFirstUnreadMessageId } from "../lib/control-plane";
+import { performModerationAction, createReport, uploadMedia, updateMessage, addReaction, deleteMessage, listChannelMembers, inviteToChannel, updateChannel, searchUsers, formatMessageTime, pinMessage, unpinMessage, sendTypingStatus, getFirstUnreadMessageId } from "../lib/control-plane";
 import dynamic from "next/dynamic";
 
 // @ts-ignore - emoji-picker-react types mismatch with Next.js dynamic
@@ -64,65 +64,8 @@ interface ChatWindowProps {
 
 // LandingPageView is now imported from ./landing-page-view
 
-
-const normalizeMediaUrl = (url: string) => {
-    if (!url) return url;
-    // Handle Discord external proxy: https://images-ext-1.discordapp.net/external/.../https/media.tenor.com/...
-    if (url.includes("images-ext-") && url.includes("/https/")) {
-        const parts = url.split("/https/");
-        if (parts.length > 1) return "https://" + parts[1];
-    }
-    
-    // Convert media.discordapp.net to cdn.discordapp.com for stickers/emojis
-    // media subdomains are often more restricted or intended for dynamic resizing
-    if (url.includes("media.discordapp.net") && (url.includes("/stickers/") || url.includes("/emojis/"))) {
-        return url.replace("media.discordapp.net", "cdn.discordapp.com");
-    }
-
-    return url;
-};
-
-const getProxiedUrl = (url: string) => {
-    if (!url) return url;
-    const normalized = normalizeMediaUrl(url);
-    const controlPlaneUrl = process.env.NEXT_PUBLIC_CONTROL_PLANE_URL || "";
-    
-    // Always proxy stickers to avoid CORS/Referer issues
-    if (normalized.includes("discordapp.net/stickers/") || normalized.includes("discordapp.com/stickers/")) {
-        return `${controlPlaneUrl}/v1/media/proxy?url=${encodeURIComponent(normalized)}`;
-    }
-    
-    // Proxy Discord, Tenor, Giphy assets as they often have strict hotlinking/CORS policies
-    if (
-        normalized.includes("discordapp.net") || 
-        normalized.includes("discordapp.com") ||
-        normalized.includes("tenor.com") ||
-        normalized.includes("giphy.com")
-    ) {
-        return `${controlPlaneUrl}/v1/media/proxy?url=${encodeURIComponent(normalized)}`;
-    }
-    
-    return normalized;
-};
-
-function ReactionEmoji({ emoji }: { emoji: string }) {
-    const customMatch = /^<(a?):([a-zA-Z0-9_-]+):(\d+)>$/.exec(emoji);
-    if (customMatch) {
-        const animated = customMatch[1] === "a";
-        const name = customMatch[2]!;
-        const id = customMatch[3]!;
-        const ext = animated ? "gif" : "webp";
-        return (
-            <img
-                src={`https://cdn.discordapp.com/emojis/${id}.${ext}?size=32&quality=lossless`}
-                alt={`:${name}:`}
-                title={`:${name}:`}
-                style={{ width: "1.1em", height: "1.1em", verticalAlign: "middle", objectFit: "contain" }}
-            />
-        );
-    }
-    return <span>{emoji}</span>;
-}
+import { normalizeMediaUrl, getProxiedUrl } from "../lib/media";
+import { Reactions } from "./reactions";
 
 const LottieSticker = React.memo(function LottieSticker({ url }: { url: string }) {
     const controlPlaneUrl = process.env.NEXT_PUBLIC_CONTROL_PLANE_URL || "";
@@ -1466,52 +1409,29 @@ export function ChatWindow({
                                     )}
 
 
-                                    {/* Reactions rendering */}
-                                    {message.reactions && message.reactions.length > 0 && (
-                                        <div className="message-reactions-container" style={{ display: "flex", flexWrap: "wrap", gap: "0.25rem", marginTop: "0.25rem" }}>
-                                            {message.reactions.map((r: any) => (
-                                                <button
-                                                    key={r.emoji}
-                                                    data-testid="reaction-badge"
-                                                    title={r.displayNames ? r.displayNames.join(', ') : ''}
-                                                    type="button"
-                                                    className={`interaction-btn ${r.me ? "active" : ""}`}
-                                                    style={{ padding: "1px 6px", borderRadius: "12px", fontSize: "0.85rem", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.25rem" }}
-                                                    onClick={() => {
-                                                        const emoji = r.emoji;
-                                                        const isMe = r.me;
-                                                        
-                                                        // Optimistic update
-                                                        dispatch({
-                                                            type: "UPDATE_MESSAGES",
-                                                            payload: (current) => current.map(m => {
-                                                                if (m.id !== message.id) return m;
-                                                                const newReactions = (m.reactions || []).map(react => {
-                                                                    if (react.emoji !== emoji) return react;
-                                                                    return {
-                                                                        ...react,
-                                                                        count: isMe ? Math.max(0, react.count - 1) : react.count + 1,
-                                                                        me: !isMe
-                                                                    };
-                                                                }).filter(react => react.count > 0);
-                                                                return { ...m, reactions: newReactions };
-                                                            })
-                                                        });
-
-                                                        if (isMe) {
-                                                            void removeReaction(message.channelId, message.id, emoji);
-                                                        } else {
-                                                            void addReaction(message.channelId, message.id, emoji);
-                                                        }
-                                                    }}
-                                                >
-                                                    <ReactionEmoji emoji={r.emoji} />
-                                                    <span style={{ fontWeight: 600, opacity: 0.8 }}>{r.count}</span>
-                                                </button>
-                                            ))}
-                                        </div>
-                                    )}
-
+                                    {/* Reactions */}
+                                    <Reactions
+                                        reactions={message.reactions || []}
+                                        channelId={message.channelId}
+                                        messageId={message.id}
+                                        onToggle={(emoji, isMe) => {
+                                            dispatch({
+                                                type: "UPDATE_MESSAGES",
+                                                payload: (current) => current.map(m => {
+                                                    if (m.id !== message.id) return m;
+                                                    const newReactions = (m.reactions || []).map(react => {
+                                                        if (react.emoji !== emoji) return react;
+                                                        return {
+                                                            ...react,
+                                                            count: isMe ? Math.max(0, react.count - 1) : react.count + 1,
+                                                            me: !isMe
+                                                        };
+                                                    }).filter(react => react.count > 0);
+                                                    return { ...m, reactions: newReactions };
+                                                })
+                                            });
+                                        }}
+                                    />
 
                                     {message.repliesCount ? (
                                         <button

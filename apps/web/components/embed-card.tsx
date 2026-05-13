@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { LinkEmbed } from "@skerry/shared";
 import { GifPlayer } from "./gif-player";
+import { getProxiedUrl } from "../lib/media";
 const getYouTubeEmbedUrl = (url: string) => {
     if (!url) return null;
     const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
@@ -17,23 +18,6 @@ const getTwitchEmbedUrl = (url: string) => {
         return `https://player.twitch.tv/?channel=${channel}&parent=${domain}&autoplay=false`;
     }
     return null;
-};
-
-const getProxiedUrl = (url: string) => {
-    if (!url) return url;
-    const controlPlaneUrl = process.env.NEXT_PUBLIC_CONTROL_PLANE_URL || "";
-    
-    // Proxy Discord, Tenor, and Giphy assets as they often have strict hotlinking/CORS policies
-    if (
-        url.includes("discordapp.net") || 
-        url.includes("discordapp.com") ||
-        url.includes("tenor.com") ||
-        url.includes("giphy.com")
-    ) {
-        return `${controlPlaneUrl}/v1/media/proxy?url=${encodeURIComponent(url)}`;
-    }
-    
-    return url;
 };
 
 interface EmbedCardProps {
