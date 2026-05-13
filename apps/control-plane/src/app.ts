@@ -7,6 +7,7 @@ import rateLimit from "@fastify/rate-limit";
 import { registerAuthRoutes } from "./routes/auth-routes.js";
 import { registerDomainRoutes } from "./routes/domain-routes.js";
 import { registerMediaRoutes } from "./routes/media-routes.js";
+import { csrfGuard } from "./auth/middleware.js";
 import { config } from "./config.js";
 console.log(`[Config] Web Base URL: ${config.webBaseUrl}`);
 console.log(`[Config] Rate Limit: ${config.rateLimitPerMinute}`);
@@ -96,6 +97,9 @@ export async function buildApp() {
       durationMs: Math.round(duration * 1000)
     });
   });
+
+  // CSRF protection: reject cross-origin mutations
+  app.addHook("preHandler", csrfGuard);
 
   app.setErrorHandler((error, request, reply) => {
     // Determine if it's a real Error or something else (like a string or plain object)

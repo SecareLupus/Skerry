@@ -3,6 +3,7 @@ import { getSession, verifyMasqueradeToken } from "./session.js";
 import { hasInitializedPlatform } from "../services/bootstrap-service.js";
 import { ensureIdentityTokenValid } from "../services/identity-service.js";
 import { verifyFederatedToken, resolveFederatedUser } from "../services/federation-service.js";
+import { config } from "../config.js";
 
 export interface ScopedAuthContext {
   productUserId: string;
@@ -133,5 +134,69 @@ export async function requireInitialized(request: FastifyRequest, reply: Fastify
       code: "initialization_check_failed",
       requestId: request.id
     });
+  }
+}
+
+/**
+ * Reject cross-origin mutation requests (POST/PUT/PATCH/DELETE).
+ *
+ * Modern browsers respect SameSite=Lax (which blocks cross-site POST),
+ * but this provides defense-in-depth for older browsers and non-browser
+ * clients that may send cookies from cross-origin contexts.
+ *
+ * Requests without an Origin/Referer header are allowed (server-to-server
+ * calls, CLI tools, WebSocket upgrades).
+ */
+export async function csrfGuard(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const method = request.method.toUpperCase();
+  if (["GET", "HEAD", "OPTIONS"].includes(method)) return;
+
+  // OIDC callbacks arrive as GET redirects, so mutations during the
+  // callback phase are fine — but auth endpoints that accept POST
+  // (dev-login, confirm-new-account) should still be checked.
+  // Exempt the auth callback path since it uses GET.
+  if (request.url.startsWith("/auth/callback/")) return;
+
+  const rawOrigin = request.headers.origin ?? request.headers.referer;
+  if (!rawOrigin) return; // no origin header = likely server-to-server
+
+  // Compare origins by scheme+host, ignoring port differences.
+  // This handles Caddy's port-mapping (E2E uses localhost:8080, webBaseUrl is localhost).
+  const requestOrigin = safeParseOrigin(rawOrigin);
+  const allowedOrigin = safeParseOrigin(config.webBaseUrl);
+  if (!requestOrigin || !allowedOrigin) return; // can't parse, allow through
+
+  if (requestOrigin === allowedOrigin) return;
+
+  // Allow localhost on any port in dev environments
+  const isLocalhostAllowed =
+    allowedOrigin.startsWith("http://localhost") ||
+    allowedOrigin.startsWith("http://127.0.0.1");
+  if (isLocalhostAllowed) {
+    const isLocalhostRequest =
+      requestOrigin.startsWith("http://localhost") ||
+      requestOrigin.startsWith("http://127.0.0.1");
+    if (isLocalhostRequest) return;
+  }
+
+  // Allow in dev auth bypass mode
+  if (config.devAuthBypass) return;
+
+  reply.code(403).send({
+    statusCode: 403,
+    error: "Forbidden",
+    code: "csrf_origin_mismatch",
+    message: "Cross-origin mutation requests are not permitted.",
+    requestId: request.id
+  });
+}
+
+/** Parse an origin/URL into scheme+host for comparison, ignoring path and port. */
+function safeParseOrigin(url: string): string | null {
+  try {
+    const u = new URL(url.replace(/\/$/, ""));
+    return `${u.protocol}//${u.hostname}`;
+  } catch {
+    return null;
   }
 }
