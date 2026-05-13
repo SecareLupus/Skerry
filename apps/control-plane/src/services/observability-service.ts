@@ -26,6 +26,21 @@ export const activeConnections = new Counter({
   registers: [registry],
 });
 
+export const httpErrorsTotal = new Counter({
+  name: "http_errors_total",
+  help: "Total number of HTTP errors (5xx)",
+  labelNames: ["method", "route", "status_code"],
+  registers: [registry],
+});
+
+export const httpRequestBodyBytes = new Histogram({
+  name: "http_request_body_bytes",
+  help: "Size of HTTP request bodies in bytes",
+  labelNames: ["method", "route"],
+  buckets: [1024, 16384, 65536, 262144, 1048576, 4194304],
+  registers: [registry],
+});
+
 type LogLevel = "info" | "warn" | "error";
 
 function writeLine(line: string): void {
