@@ -11,6 +11,12 @@ import { csrfGuard } from "./auth/middleware.js";
 import { config } from "./config.js";
 console.log(`[Config] Web Base URL: ${config.webBaseUrl}`);
 console.log(`[Config] Rate Limit: ${config.rateLimitPerMinute}`);
+if (config.devAuthBypass) {
+  console.warn("[SECURITY] Dev auth bypass is ENABLED — anyone can create accounts without OIDC. Disable in production by setting DEV_AUTH_BYPASS=false.");
+}
+if (config.sessionSecret === "dev-insecure-session-secret") {
+  console.warn("[SECURITY] Using default dev session secret — set SESSION_SECRET for production.");
+}
 import { logEvent, httpRequestsTotal, httpRequestDurationSeconds } from "./services/observability-service.js";
 
 declare module "fastify" {
@@ -138,10 +144,17 @@ export async function buildApp() {
         : "code" in parsedError && typeof parsedError.code === "string"
           ? parsedError.code
           : "internal_error";
+
+    // For intentional client errors (4xx with a known code), expose the
+    // developer-provided message. For unexpected 5xx errors, use a generic
+    // message to avoid leaking internal details (#143).
+    const isIntentional = statusCode < 500 && code !== "internal_error";
     const message =
       parsedError instanceof ZodError
         ? "Request validation failed."
-        : parsedError.message || STATUS_CODES[statusCode] || "Internal Server Error";
+        : isIntentional
+          ? parsedError.message || STATUS_CODES[statusCode] || "Error"
+          : "Internal Server Error";
     
     // Detect request cancellation/abortion OR intentional rate limiting
     const isAborted = request.raw.destroyed || reply.raw.writableEnded || 

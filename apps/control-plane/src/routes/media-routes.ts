@@ -88,6 +88,17 @@ export async function registerMediaRoutes(app: FastifyInstance): Promise<void> {
       })
       .parse(request.body);
 
+    // Reject uploads larger than 50 MB (base64 encoded ~33% overhead = 67 MB limit on field)
+    const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
+    if (payload.base64Data.length > MAX_UPLOAD_BYTES * 1.37) {
+      reply.code(413).send({
+        error: "Payload Too Large",
+        code: "upload_too_large",
+        message: `Upload exceeds ${MAX_UPLOAD_BYTES / (1024 * 1024)} MB limit.`
+      });
+      return;
+    }
+
     const allowed = await canEditServerSettings({
       productUserId: request.auth!.productUserId,
       serverId: payload.serverId,
