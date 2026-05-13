@@ -59,13 +59,20 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.REPO_OWNER }}/skerry-${{ matrix.target.name }}:${{ github.event.inputs.version }}
             ${{ env.REGISTRY }}/${{ env.REPO_OWNER }}/skerry-${{ matrix.target.name }}:latest
 
-  package-deploy-kit:
+  release:
     needs: build-and-push
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: write
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Create git tag
+        run: |
+          git tag ${{ github.event.inputs.version }}
+          git push origin ${{ github.event.inputs.version }}
 
       - name: Package deploy kit
         run: |

@@ -96,24 +96,19 @@ This generates unique secrets, pulls images, runs migrations, and starts the ent
 
 Docker images are published to GitHub Container Registry (GHCR) on manual release, not on push to main.
 
-1. **Tag the release**:
-   ```bash
-   git tag v0.1.0-alpha
-   git push --tags
-   ```
+1. **Publish**: Run the **Publish Docker Images** workflow via GitHub Actions → `workflow_dispatch` with a version tag (e.g. `v0.1.0-alpha`). This:
+   - Creates the git tag on main
+   - Builds and pushes three images to `ghcr.io/secarelupus/`:
+     - `skerry-control-plane:{version}`
+     - `skerry-web:{version}`
+     - `skerry-sticker-renderer:{version}`
+   - Uploads the deploy kit as a workflow artifact
 
-2. **Publish images**: Run the **Publish Docker Images** workflow via GitHub Actions → `workflow_dispatch` with the version tag (e.g. `v0.1.0-alpha`). Publishes three images to `ghcr.io/secarelupus/`:
-   - `skerry-control-plane:v0.1.0-alpha`
-   - `skerry-web:v0.1.0-alpha`
-   - `skerry-sticker-renderer:v0.1.0-alpha`
-
-3. **Deploy**: Update `SKERRY_VERSION` in `.env` (or the compose file directly), then:
+2. **Deploy**: Download the deploy kit from the workflow artifacts, update `SKERRY_VERSION` in `.env`, then:
    ```bash
    docker compose pull
    docker compose up -d
    ```
-
-To pin a specific version in production, set `SKERRY_VERSION=v0.1.0-alpha` in `.env`. The compose file defaults to `v0.1.0-alpha` when unset.
 
 ## Development
 
