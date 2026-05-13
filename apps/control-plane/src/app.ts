@@ -75,7 +75,6 @@ export async function buildApp() {
   });
 
   app.addHook("onRequest", async (request) => {
-    console.log(`[DEBUG] Incoming Request: ${request.method} ${request.url}`);
     request.startTime = Date.now();
   });
 
@@ -108,22 +107,28 @@ export async function buildApp() {
   app.addHook("preHandler", csrfGuard);
 
   app.setErrorHandler((error, request, reply) => {
-    // Determine if it's a real Error or something else (like a string or plain object)
-    const isStandardError = error instanceof Error;
-    
-    // Extract info from raw object if available
-    const rawStatusCode = (error as any)?.statusCode || (error as any)?.status;
-    const rawCode = (error as any)?.code;
-    const rawMessage = (error as any)?.message;
-
-    const parsedError = isStandardError ? error : new Error(typeof error === 'string' ? error : rawMessage || JSON.stringify(error) || "Unknown Error");
-    
-    // Propagate raw properties to the parsed error
-    if (!isStandardError) {
-      if (rawStatusCode) (parsedError as any).statusCode = rawStatusCode;
-      if (rawCode) (parsedError as any).code = rawCode;
-      Object.assign(parsedError, { raw: error });
+    // Errors can carry extra properties beyond the Error prototype:
+    // statusCode, code, message from Fastify/Zod, etc.
+    interface StructuredError extends Error {
+      statusCode?: number;
+      status?: number;
+      code?: string;
+      raw?: unknown;
     }
+    const structured = error as StructuredError;
+    const isStandardError = error instanceof Error;
+
+    // Extract info from raw object if available
+    const rawStatusCode = structured.statusCode ?? structured.status;
+    const rawCode = structured.code;
+    const rawMessage = structured.message;
+
+    const parsedError: StructuredError = isStandardError
+      ? structured
+      : Object.assign(
+          new Error(typeof error === 'string' ? error : rawMessage || JSON.stringify(error) || "Unknown Error"),
+          { statusCode: rawStatusCode, code: rawCode, raw: error }
+        );
 
     const statusCode = (() => {
       if (parsedError instanceof ZodError) {
@@ -132,8 +137,8 @@ export async function buildApp() {
       if (rawStatusCode && typeof rawStatusCode === "number") {
         return rawStatusCode;
       }
-      if ("statusCode" in parsedError && typeof (parsedError as any).statusCode === "number") {
-        return (parsedError as any).statusCode;
+      if (parsedError.statusCode && typeof parsedError.statusCode === "number") {
+        return parsedError.statusCode;
       }
       return 500;
     })();
@@ -141,7 +146,7 @@ export async function buildApp() {
     const code =
       parsedError instanceof ZodError
         ? "validation_error"
-        : "code" in parsedError && typeof parsedError.code === "string"
+        : parsedError.code && typeof parsedError.code === "string"
           ? parsedError.code
           : "internal_error";
 
@@ -155,11 +160,11 @@ export async function buildApp() {
         : isIntentional
           ? parsedError.message || STATUS_CODES[statusCode] || "Error"
           : "Internal Server Error";
-    
+
     // Detect request cancellation/abortion OR intentional rate limiting
-    const isAborted = request.raw.destroyed || reply.raw.writableEnded || 
-                     parsedError.message?.includes("aborted") || 
-                     (parsedError as any).code === "ECONNRESET" ||
+    const isAborted = request.raw.destroyed || reply.raw.writableEnded ||
+                     parsedError.message?.includes("aborted") ||
+                     ("code" in parsedError && (parsedError as StructuredError).code === "ECONNRESET") ||
                      statusCode === 429;
 
     // Log full error for 500s to allow diagnostics, but skip for aborted/throttled requests

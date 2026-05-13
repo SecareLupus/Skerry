@@ -82,19 +82,14 @@ export function useChatMutations({
     const firstHub = hubs?.[0];
     if (!effectiveHubId && hubs && hubs.length === 1 && firstHub) {
         effectiveHubId = firstHub.id;
-        console.log('[handleCreateSpace] Auto-selecting single available hub:', effectiveHubId);
     }
 
-    console.log('[handleCreateSpace] Submitting...', { effectiveHubId, spaceName });
-    
     if (!effectiveHubId || !spaceName.trim()) {
       const errorMsg = !effectiveHubId ? "No hub selected" : "Space name is empty";
       console.warn(`[handleCreateSpace] Aborting: ${errorMsg} (hubs count: ${hubs?.length ?? 0}, selectedHubId: ${selectedHubIdForCreate})`);
       showToast(`Please select a hub and enter a space name (${errorMsg})`, "error");
       return;
     }
-
-    console.log(`[handleCreateSpace] Initiating creation on hub: ${effectiveHubId} name: ${spaceName}`);
 
     dispatch({ type: "SET_CREATING_SPACE", payload: true });
     dispatch({ type: "SET_ERROR", payload: null });

@@ -45,7 +45,6 @@ export function GifPlayer({ src, alt, className, style, onClick }: GifPlayerProp
             style={style}
             onClick={onClick}
             onError={() => {
-                console.log("GifPlayer: Image failed, trying video fallback", src);
                 setUseVideo(true);
             }}
         />
