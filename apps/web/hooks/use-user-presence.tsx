@@ -48,6 +48,7 @@ export function useUserPresence(userIds: string[]) {
 export function PresenceDot({ isOnline }: { isOnline?: boolean }) {
   return (
     <span
+      role="status"
       aria-label={isOnline ? "Online" : "Offline"}
       style={{
         display: "inline-block",
