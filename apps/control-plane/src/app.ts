@@ -17,7 +17,7 @@ if (config.devAuthBypass) {
 if (config.sessionSecret === "dev-insecure-session-secret") {
   console.warn("[SECURITY] Using default dev session secret — set SESSION_SECRET for production.");
 }
-import { logEvent, httpRequestsTotal, httpRequestDurationSeconds } from "./services/observability-service.js";
+import { logEvent, httpRequestsTotal, httpRequestDurationSeconds, httpErrorsTotal, httpRequestBodyBytes } from "./services/observability-service.js";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -76,6 +76,11 @@ export async function buildApp() {
 
   app.addHook("onRequest", async (request) => {
     request.startTime = Date.now();
+    const contentLength = parseInt(request.headers["content-length"] ?? "0", 10);
+    if (contentLength > 0) {
+      const route = request.routeOptions?.url ?? request.url;
+      httpRequestBodyBytes.observe({ method: request.method, route }, contentLength);
+    }
   });
 
   app.addHook("onResponse", async (request, reply) => {
@@ -178,6 +183,14 @@ export async function buildApp() {
       }
     }
     const errorLabel = STATUS_CODES[statusCode] ?? "Error";
+
+    if (statusCode >= 500) {
+      httpErrorsTotal.inc({
+        method: request.method,
+        route: request.routeOptions?.url ?? request.url,
+        status_code: statusCode
+      });
+    }
 
     logEvent("error", "request_failed", {
       requestId: request.id,
