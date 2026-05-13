@@ -10,7 +10,6 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  REPO_OWNER: ${{ github.repository_owner }}
   DOCKER_BUILDKIT: 1
 
 jobs:
@@ -34,6 +33,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Lowercase owner (GHCR requires lowercase image names)
+        id: repo
+        run: echo "owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
@@ -52,12 +55,12 @@ jobs:
           target: ${{ matrix.target.docker-target }}
           push: true
           cache-from: |
-            type=registry,ref=${{ env.REGISTRY }}/${{ env.REPO_OWNER }}/skerry-${{ matrix.target.name }}:buildcache
+            type=registry,ref=${{ env.REGISTRY }}/${{ steps.repo.outputs.owner }}/skerry-${{ matrix.target.name }}:buildcache
           cache-to: |
-            type=registry,ref=${{ env.REGISTRY }}/${{ env.REPO_OWNER }}/skerry-${{ matrix.target.name }}:buildcache,mode=max
+            type=registry,ref=${{ env.REGISTRY }}/${{ steps.repo.outputs.owner }}/skerry-${{ matrix.target.name }}:buildcache,mode=max
           tags: |
-            ${{ env.REGISTRY }}/${{ env.REPO_OWNER }}/skerry-${{ matrix.target.name }}:${{ github.event.inputs.version }}
-            ${{ env.REGISTRY }}/${{ env.REPO_OWNER }}/skerry-${{ matrix.target.name }}:latest
+            ${{ env.REGISTRY }}/${{ steps.repo.outputs.owner }}/skerry-${{ matrix.target.name }}:${{ github.event.inputs.version }}
+            ${{ env.REGISTRY }}/${{ steps.repo.outputs.owner }}/skerry-${{ matrix.target.name }}:latest
 
   release:
     needs: build-and-push
