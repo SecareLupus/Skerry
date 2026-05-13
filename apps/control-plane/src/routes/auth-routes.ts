@@ -118,7 +118,7 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
     return { primaryProvider, providers };
   });
 
-  app.post("/auth/dev-login", async (request, reply) => {
+  app.post("/auth/dev-login", { config: { rateLimit: { max: 5, timeWindow: "1 minute" } } }, async (request, reply) => {
     if (!config.devAuthBypass) {
       reply.code(404).send({ message: "Developer auth is disabled." });
       return;
@@ -397,7 +397,7 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
 
   // Consumes the pending identity cookie set by the OIDC split-detection
   // flow. Creates the identity mapping and logs the user in.
-  app.post("/auth/confirm-new-account", async (request, reply) => {
+  app.post("/auth/confirm-new-account", { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } }, async (request, reply) => {
     const { getPendingIdentityCookie, clearPendingIdentityCookie } = await import("../auth/session.js");
     const pending = getPendingIdentityCookie(request);
     if (!pending) {
@@ -587,7 +587,7 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
     reply.code(204).send();
   });
 
-  app.post("/auth/masquerade-token", { preHandler: requireAuth }, async (request, reply) => {
+  app.post("/auth/masquerade-token", { preHandler: requireAuth, config: { rateLimit: { max: 10, timeWindow: "1 minute" } } }, async (request, reply) => {
     const actor = request.auth!;
     if (actor.isMasquerading) {
       reply.code(400).send({ message: "Already masquerading." });
