@@ -3,6 +3,7 @@
 import React, { useEffect, useCallback, useRef } from "react";
 import { useChat } from "../context/chat-context";
 import { useTheme } from "../hooks/use-theme";
+import { ErrorBoundary } from "./error-boundary";
 import {
     fetchAuthProviders,
     fetchViewerSession,
@@ -65,5 +66,5 @@ export function AppInitializer({ children }: { children: React.ReactNode }) {
         void init();
     }, [refreshGlobalState, dispatch]);
 
-    return <>{children}</>;
+    return <ErrorBoundary>{children}</ErrorBoundary>;
 }
