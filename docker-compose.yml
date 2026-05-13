@@ -60,11 +60,7 @@ services:
       - "3478:3478/udp"
 
   control-plane:
-    build:
-      context: .
-      target: control-plane
-      args:
-        NEXT_PUBLIC_BASE_DOMAIN: ${BASE_DOMAIN:-localhost}
+    image: ghcr.io/secarelupus/skerry-control-plane:${SKERRY_VERSION:-v0.1.0-alpha}
     networks:
       - default
       - backend
@@ -103,11 +99,7 @@ services:
       retries: 3
 
   web:
-    build:
-      context: .
-      target: web
-      args:
-        NEXT_PUBLIC_BASE_DOMAIN: ${BASE_DOMAIN:-localhost}
+    image: ghcr.io/secarelupus/skerry-web:${SKERRY_VERSION:-v0.1.0-alpha}
     networks:
       - default
       - backend
@@ -145,9 +137,7 @@ services:
           memory: 128M
   
   sticker-renderer:
-    build:
-      context: .
-      target: sticker-renderer
+    image: ghcr.io/secarelupus/skerry-sticker-renderer:${SKERRY_VERSION:-v0.1.0-alpha}
     networks:
       - default
       - backend

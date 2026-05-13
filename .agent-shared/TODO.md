@@ -1,18 +1,18 @@
 # Skerry Active Tasks
 
-## Current Goal: Sprint 4
-Land issues #26, #72, #69, #64 from GitHub Project #2.
+## Current Goal: Pre-Alpha Polish
+Security hardening complete. Sprint 4 items all closed. Last remaining pre-alpha critical: #146.
 
 ## Tasks
-- [ ] **Issue #26**: Discord bridge block quote fix — Skerry icon breaks `>` prefix
-- [ ] **Issue #72**: Audit log — DB table, service, routes, admin UI, retention
-- [ ] **Issue #69**: Discord OAuth UX polish — error states, reconnect, permission delta
-- [ ] **Issue #64**: PWA support — manifest + install + push notifications
+- [ ] **Issue #146**: Publish Docker images to GHCR and refactor production compose
+- [ ] **Issue #133**: PostgreSQL backup automation
+- [ ] **Issue #125**: Account merge — post-hoc OIDC resolution
+- [ ] **Issue #107**: OIDC different-email-per-provider silently creates duplicate accounts (bug)
+- [ ] **Issue #106**: Per-user SSE fan-out for DM channel events
 
 ## Open Questions
-- **#72 retention**: days (default 90) acceptable?
-- **#64 VAPID**: keys generated per-hub or global?
+- **#133 snapshot frequency**: hourly? daily?
+- **#125 merge UX**: which account wins? user chooses?
 
 ---
 *For historical notes and completed sprint logs, see [ARCHIVE.md](./ARCHIVE.md).*
-*Sprint 4 plan: [.hermes/plans/2026-05-10-sprint-4.md](../.hermes/plans/2026-05-10-sprint-4.md)*
