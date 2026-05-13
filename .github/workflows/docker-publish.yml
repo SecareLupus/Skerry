@@ -81,7 +81,15 @@ jobs:
         run: |
           tar -czf skerry-deploy-${{ github.event.inputs.version }}.tar.gz deploy/
 
-      - name: Upload deploy kit
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.version }}
+          name: ${{ github.event.inputs.version }}
+          files: skerry-deploy-${{ github.event.inputs.version }}.tar.gz
+          generate_release_notes: true
+
+      - name: Upload deploy kit (backup artifact)
         uses: actions/upload-artifact@v4
         with:
           name: skerry-deploy-${{ github.event.inputs.version }}
