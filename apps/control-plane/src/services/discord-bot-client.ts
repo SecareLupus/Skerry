@@ -3,6 +3,13 @@ import { config } from "../config.js";
 import { relayDiscordMessageToMappedChannel } from "./discord-bridge-service.js";
 import { logEvent } from "./observability-service.js";
 import { withDb } from "../db/client.js";
+
+/** Discord thread channels expose parentId even though the base Channel type doesn't. */
+interface ChannelWithParent { parentId: string; }
+
+function parentIdOf(channel: { isThread(): boolean } & { parentId?: string | null }): string | undefined {
+  return channel.isThread() ? (channel as ChannelWithParent).parentId : undefined;
+}
 import fs from "node:fs";
 import path from "node:path";
 import { findEmojiByName } from "./chat/emoji-service.js";
@@ -56,7 +63,7 @@ export async function startDiscordBot() {
             if (message.author.bot) return;
 
             // Find all servers that have a mapping for this Discord channel (or its parent if it's a thread)
-            const discordChannelIdForMapping = message.channel.isThread() ? (message.channel as any).parentId : message.channelId;
+            const discordChannelIdForMapping = parentIdOf(message.channel) ?? message.channelId;
             const serverIds = await withDb(async (db) => {
                 const rows = await db.query<{ server_id: string }>(
                     "select server_id from discord_bridge_channel_mappings where guild_id = $1 and discord_channel_id = $2 and enabled = true",
@@ -125,7 +132,7 @@ export async function startDiscordBot() {
 
                     await relayDiscordMessageToMappedChannel({
                         serverId,
-                        discordChannelId: message.channel.isThread() ? (message.channel as any).parentId : message.channelId,
+                        discordChannelId: parentIdOf(message.channel) ?? message.channelId,
                         authorId: message.author.id,
                         authorName: message.member?.displayName ?? message.author.displayName ?? message.author.username,
                         authorAvatarUrl: message.author.displayAvatarURL({ extension: 'webp', size: 128 }),
@@ -184,7 +191,7 @@ export async function startDiscordBot() {
 
             if (!contentChanged && !pinChanged) return;
 
-            const discordChannelIdForMapping = newMessage.channel.isThread() ? (newMessage.channel as any).parentId : newMessage.channelId;
+            const discordChannelIdForMapping = parentIdOf(newMessage.channel) ?? newMessage.channelId;
             const serverIds = await withDb(async (db) => {
                 const rows = await db.query<{ server_id: string }>(
                     "select server_id from discord_bridge_channel_mappings where guild_id = $1 and discord_channel_id = $2 and enabled = true",
@@ -243,7 +250,7 @@ export async function startDiscordBot() {
 
             if (message.author?.bot) return;
 
-            const discordChannelIdForMapping = message.channel.isThread() ? (message.channel as any).parentId : channelId;
+            const discordChannelIdForMapping = parentIdOf(message.channel) ?? channelId;
             const serverIds = await withDb(async (db) => {
                 const rows = await db.query<{ server_id: string }>(
                     "select server_id from discord_bridge_channel_mappings where guild_id = $1 and discord_channel_id = $2 and enabled = true",
@@ -283,7 +290,7 @@ export async function startDiscordBot() {
             const emoji = encodeDiscordReactionEmoji(reaction.emoji);
             if (!emoji) return;
 
-            const discordChannelIdForMapping = message.channel.isThread() ? (message.channel as any).parentId : channelId;
+            const discordChannelIdForMapping = parentIdOf(message.channel) ?? channelId;
             const serverIds = await withDb(async (db) => {
                 const rows = await db.query<{ server_id: string }>(
                     "select server_id from discord_bridge_channel_mappings where guild_id = $1 and discord_channel_id = $2 and enabled = true",
@@ -342,7 +349,7 @@ export async function startDiscordBot() {
             const emoji = encodeDiscordReactionEmoji(reaction.emoji);
             if (!emoji) return;
 
-            const discordChannelIdForMapping = message.channel.isThread() ? (message.channel as any).parentId : message.channelId;
+            const discordChannelIdForMapping = parentIdOf(message.channel) ?? message.channelId;
             const serverIds = await withDb(async (db) => {
                 const rows = await db.query<{ server_id: string }>(
                     "select server_id from discord_bridge_channel_mappings where guild_id = $1 and discord_channel_id = $2 and enabled = true",
@@ -388,7 +395,7 @@ export async function startDiscordBot() {
         client.on(Events.TypingStart, async (typing) => {
             if (typing.user.bot) return;
 
-            const discordChannelIdForMapping = typing.channel.isThread() ? (typing.channel as any).parentId : typing.channel.id;
+            const discordChannelIdForMapping = parentIdOf(typing.channel) ?? typing.channel.id;
             const serverIds = await withDb(async (db) => {
                 const rows = await db.query<{ server_id: string }>(
                     "select server_id from discord_bridge_channel_mappings where guild_id = $1 and discord_channel_id = $2 and enabled = true",
