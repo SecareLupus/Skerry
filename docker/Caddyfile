@@ -44,5 +44,8 @@
 # is handling SSL termination. This disables Caddy's Auto-HTTPS
 # and stops the "Too Many Redirects" loop.
 http://{$NEXT_PUBLIC_BASE_DOMAIN}, http://localhost, http://127.0.0.1 {
+    header {
+        Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https: wss:; frame-src 'self' https:; media-src 'self' https:; font-src 'self'"
+    }
     import common_handlers
 }
