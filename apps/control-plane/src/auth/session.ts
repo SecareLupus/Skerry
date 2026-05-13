@@ -57,31 +57,37 @@ export function setSessionCookie(
   const ttlSeconds = Math.max(60, config.sessionTtlSeconds);
   const expiresAt = payload.expiresAt ?? (Date.now() + ttlSeconds * 1000);
   const token = createSessionToken({ ...payload, expiresAt });
-  const cookieOptions = `; Path=/; HttpOnly; SameSite=Lax; Max-Age=${ttlSeconds}${
+  const cookieOptions = `; Path=/; HttpOnly; SameSite=Lax; Max-Age=${ttlSeconds}${secureFlag(reply)}${
     config.baseDomain && config.baseDomain !== "127.0.0.1" ? `; Domain=${config.baseDomain}` : ""
   }`;
 
-  console.log(`[AUTH DEBUG] setSessionCookie: id=${reply.request.id} for ${payload.oidcSubject}`);
-  
   // Set the current session cookie and clear the legacy one
   reply.header("Set-Cookie", [
     `skerry_session=${token}${cookieOptions}`,
-    `escapehatch_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${
+    `escapehatch_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secureFlag(reply)}${
       config.baseDomain && config.baseDomain !== "127.0.0.1" ? `; Domain=${config.baseDomain}` : ""
     }`
   ]);
 }
 
 export function clearSessionCookie(reply: FastifyReply): void {
-  const cookieOptions = `; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${
+  const cookieOptions = `; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secureFlag(reply)}${
     config.baseDomain && config.baseDomain !== "127.0.0.1" ? `; Domain=${config.baseDomain}` : ""
   }`;
-  
+
   // Clear both current and legacy cookies
   reply.header("Set-Cookie", [
     `skerry_session=${cookieOptions}`,
     `escapehatch_session=${cookieOptions}`
   ]);
+}
+
+/** Append Secure flag when the request arrived over HTTPS (or behind a TLS-terminating proxy). */
+function secureFlag(reply: FastifyReply): string {
+  const proto =
+    reply.request.headers["x-forwarded-proto"] ??
+    (reply.request.protocol as string | undefined);
+  return proto === "https" ? "; Secure" : "";
 }
 
 export function getSession(request: FastifyRequest): SessionPayload | null {
@@ -155,7 +161,7 @@ export function setPendingIdentityCookie(reply: FastifyReply, payload: Omit<Pend
   const token = createPendingIdentityToken(fullPayload);
   // Store the full payload in a separate cookie that the interstitial page reads
   reply.header("Set-Cookie",
-    `pending_identity=${Buffer.from(JSON.stringify(fullPayload)).toString("base64url")}; Path=/; HttpOnly; SameSite=Lax; Max-Age=300`
+    `pending_identity=${Buffer.from(JSON.stringify(fullPayload)).toString("base64url")}; Path=/; HttpOnly; SameSite=Lax; Max-Age=300${secureFlag(reply)}`
   );
   return token;
 }
@@ -176,6 +182,6 @@ export function getPendingIdentityCookie(request: FastifyRequest): PendingIdenti
 
 export function clearPendingIdentityCookie(reply: FastifyReply): void {
   reply.header("Set-Cookie",
-    "pending_identity=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0"
+    `pending_identity=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secureFlag(reply)}`
   );
 }
