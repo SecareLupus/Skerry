@@ -184,6 +184,10 @@ function MessageContent({ message, hiddenUrls = [] }: { message: MessageItem; hi
             return glyph ?? full;
         });
 
+        // Sanitize before rendering: strips any raw HTML that could execute
+        // if the markdown pipeline ever changes (defense-in-depth for #136).
+        processedText = DOMPurify.sanitize(processedText);
+
         return (
             <ReactMarkdown
                 components={{
