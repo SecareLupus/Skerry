@@ -1,0 +1,63 @@
+name: Publish Docker Images
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g. v0.1.0-alpha)'
+        required: true
+        type: string
+
+env:
+  REGISTRY: ghcr.io
+  # <owner>/<repo> in lowercase — GHCR requires images to match the owner
+  REPO_OWNER: ${{ github.repository_owner }}
+  # BuildKit for multi-stage monorepo caching
+  DOCKER_BUILDKIT: 1
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: write
+
+    strategy:
+      matrix:
+        target:
+          - name: control-plane
+            docker-target: control-plane
+          - name: web
+            docker-target: web
+          - name: sticker-renderer
+            docker-target: sticker-renderer
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push ${{ matrix.target.name }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          target: ${{ matrix.target.docker-target }}
+          push: true
+          # Caching — store in GHCR to share between targets
+          cache-from: |
+            type=registry,ref=${{ env.REGISTRY }}/${{ env.REPO_OWNER }}/skerry-${{ matrix.target.name }}:buildcache
+          cache-to: |
+            type=registry,ref=${{ env.REGISTRY }}/${{ env.REPO_OWNER }}/skerry-${{ matrix.target.name }}:buildcache,mode=max
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.REPO_OWNER }}/skerry-${{ matrix.target.name }}:${{ github.event.inputs.version }}
+            ${{ env.REGISTRY }}/${{ env.REPO_OWNER }}/skerry-${{ matrix.target.name }}:latest

@@ -51,9 +51,6 @@ export type {
 };
 
 
-const publicBaseDomain = process.env.NEXT_PUBLIC_BASE_DOMAIN ?? "localhost";
-const isLocal = publicBaseDomain === "localhost" || publicBaseDomain === "127.0.0.1";
-
 // SSR needs to talk to the control-plane container directly via Docker network.
 // Browser can use relative paths since Caddy proxies /v1 and /auth to the control-plane.
 const isServer = typeof window === "undefined";

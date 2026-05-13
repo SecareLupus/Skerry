@@ -32,7 +32,6 @@ export function useVoice() {
   // Reset voice state ONLY if the server actually changed
   useEffect(() => {
     if (previousServerIdRef.current !== selectedServerId) {
-      console.log("[useVoice] Voice reset effect: Server changed. Previous:", previousServerIdRef.current, "New:", selectedServerId);
       dispatch({ type: "SET_VOICE_CONNECTED", payload: false });
       dispatch({ type: "SET_VOICE_MUTED", payload: false });
       dispatch({ type: "SET_VOICE_DEAFENED", payload: false });

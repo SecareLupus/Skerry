@@ -3,7 +3,8 @@
 import React, { useEffect, useState, useRef, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import { useChat, MessageItem } from "../context/chat-context";
-import { listMessages, sendMessage, uploadMedia, formatMessageTime, connectMessageStream, deleteMessage, performModerationAction, updateMessage, addReaction, removeReaction, pinMessage, unpinMessage } from "../lib/control-plane";
+import { listMessages, sendMessage, uploadMedia, formatMessageTime, connectMessageStream, deleteMessage, performModerationAction, updateMessage, addReaction, pinMessage, unpinMessage } from "../lib/control-plane";
+import { Reactions } from "./reactions";
 import dynamic from "next/dynamic";
 
 // @ts-ignore - emoji-picker-react types mismatch with Next.js dynamic
@@ -553,20 +554,11 @@ export function ThreadPanel() {
                                     )}
                                 </div>
                             ))}
-                            {parentMessage.reactions && parentMessage.reactions.length > 0 && (
-                                <div className="reactions" style={{ display: "flex", flexWrap: "wrap", gap: "0.25rem", marginTop: "0.5rem" }}>
-                                    {parentMessage.reactions.map((r: any) => (
-                                        <button
-                                            key={r.emoji}
-                                            className={`interaction-btn ${r.me ? "active" : ""}`}
-                                            onClick={() => r.me ? removeReaction(parentMessage.channelId, parentMessage.id, r.emoji) : addReaction(parentMessage.channelId, parentMessage.id, r.emoji)}
-                                        >
-                                            <span>{r.emoji}</span>
-                                            <span style={{ fontWeight: 600, opacity: 0.8 }}>{r.count}</span>
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
+                            <Reactions
+                                reactions={parentMessage.reactions}
+                                channelId={parentMessage.channelId}
+                                messageId={parentMessage.id}
+                            />
                         </article>
                     </div>
                 )}
@@ -623,44 +615,27 @@ export function ThreadPanel() {
                                             )}
                                         </div>
                                     ))}
-                                    {reply.reactions && reply.reactions.length > 0 && (
-                                        <div className="reactions" style={{ display: "flex", flexWrap: "wrap", gap: "0.25rem", marginTop: "0.5rem" }}>
-                                            {reply.reactions.map((r: any) => (
-                                                <button
-                                                    key={r.emoji}
-                                                    className={`interaction-btn ${r.me ? "active" : ""}`}
-                                                    onClick={() => {
-                                                        const emoji = r.emoji;
-                                                        const isMe = r.me;
-                                                        const updateFn = (m: MessageItem) => {
-                                                            if (m.id !== reply.id) return m;
-                                                            const newReactions = (m.reactions || []).map(react => {
-                                                                if (react.emoji !== emoji) return react;
-                                                                return {
-                                                                    ...react,
-                                                                    count: isMe ? Math.max(0, react.count - 1) : react.count + 1,
-                                                                    me: !isMe
-                                                                };
-                                                            }).filter(react => react.count > 0);
-                                                            return { ...m, reactions: newReactions };
-                                                        };
-                                                        
-                                                        setReplies(prev => prev.map(updateFn));
-                                                        if (parentMessage?.id === reply.id) setParentMessage(updateFn(parentMessage));
-
-                                                        if (isMe) {
-                                                            void removeReaction(reply.channelId, reply.id, emoji);
-                                                        } else {
-                                                            void addReaction(reply.channelId, reply.id, emoji);
-                                                        }
-                                                    }}
-                                                >
-                                                    <span>{r.emoji}</span>
-                                                    <span style={{ fontWeight: 600, opacity: 0.8 }}>{r.count}</span>
-                                                </button>
-                                            ))}
-                                        </div>
-                                    )}
+                                    <Reactions
+                                        reactions={reply.reactions || []}
+                                        channelId={reply.channelId}
+                                        messageId={reply.id}
+                                        onToggle={(emoji, isMe) => {
+                                            const updateFn = (m: MessageItem) => {
+                                                if (m.id !== reply.id) return m;
+                                                const newReactions = (m.reactions || []).map(react => {
+                                                    if (react.emoji !== emoji) return react;
+                                                    return {
+                                                        ...react,
+                                                        count: isMe ? Math.max(0, react.count - 1) : react.count + 1,
+                                                        me: !isMe
+                                                    };
+                                                }).filter(react => react.count > 0);
+                                                return { ...m, reactions: newReactions };
+                                            };
+                                            setReplies(prev => prev.map(updateFn));
+                                            if (parentMessage?.id === reply.id) setParentMessage(updateFn(parentMessage));
+                                        }}
+                                    />
                                 </article>
                             </li>
                         ))}
