@@ -1448,6 +1448,15 @@ export async function updatePresence(): Promise<void> {
     method: "POST"
   });
 }
+
+export async function fetchUserPresence(userIds: string[]): Promise<Record<string, { isOnline: boolean; lastSeenAt: string }>> {
+  if (userIds.length === 0) return {};
+  const json = await apiFetch<{ items: Record<string, { isOnline: boolean; lastSeenAt: string }> }>("/v1/users/presence", {
+    method: "POST",
+    body: JSON.stringify({ userIds })
+  });
+  return json.items;
+}
 export async function listHubMembers(hubId: string): Promise<IdentityMapping[]> {
   const json = await apiFetch<{ items: IdentityMapping[] }>(`/v1/hubs/${encodeURIComponent(hubId)}/members`);
   return json.items;

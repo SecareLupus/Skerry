@@ -7,7 +7,7 @@ import {
 } from "../services/identity-service.js";
 import { fetchDiscordUserProfile } from "../services/discord-bot-client.js";
 import { getUnreadSummary } from "../services/chat/read-state-service.js";
-import { updateUserPresence } from "../services/presence-service.js";
+import { updateUserPresence, listUserPresence } from "../services/presence-service.js";
 import {
   listAllowedActions,
   listRoleBindings,
@@ -71,6 +71,12 @@ export async function registerUserRoutes(app: FastifyInstance): Promise<void> {
   app.post("/v1/me/presence", initializedAuthHandlers, async (request, reply) => {
     await updateUserPresence(request.auth!.productUserId);
     reply.code(204).send();
+  });
+
+  app.post("/v1/users/presence", initializedAuthHandlers, async (request) => {
+    const { userIds } = z.object({ userIds: z.array(z.string()).max(500) }).parse(request.body);
+    const presenceMap = await listUserPresence(userIds);
+    return { items: presenceMap };
   });
 
   app.get("/v1/me/roles", initializedAuthHandlers, async (request) => {
