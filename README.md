@@ -56,6 +56,21 @@ When running via Docker Compose, services communicate using service names as hos
 
 ## Quick Start (Docker)
 
+### Using the Deploy Kit (recommended)
+
+Download the latest deploy kit from the [releases page](https://github.com/SecareLupus/Skerry/releases):
+
+```bash
+tar -xzf skerry-deploy-v0.1.0-alpha.tar.gz
+cd deploy
+cp .env.example .env
+# Edit .env with your domain and OAuth credentials
+chmod +x scripts/bootstrap-hub.sh
+./scripts/bootstrap-hub.sh
+```
+
+### From Source (development)
+
 ```bash
 pnpm install
 cp .env.example .env
