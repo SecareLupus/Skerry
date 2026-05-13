@@ -1,0 +1,9 @@
+# Generated at runtime — do not commit
+docker/synapse/*.signing.key
+docker/synapse/*.db
+docker/synapse/*.db-*
+docker/synapse/media_store/
+docker/synapse/skerry-appservice.yaml
+
+# User's actual environment
+.env

@@ -10,9 +10,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  # <owner>/<repo> in lowercase — GHCR requires images to match the owner
   REPO_OWNER: ${{ github.repository_owner }}
-  # BuildKit for multi-stage monorepo caching
   DOCKER_BUILDKIT: 1
 
 jobs:
@@ -53,7 +51,6 @@ jobs:
           file: ./Dockerfile
           target: ${{ matrix.target.docker-target }}
           push: true
-          # Caching — store in GHCR to share between targets
           cache-from: |
             type=registry,ref=${{ env.REGISTRY }}/${{ env.REPO_OWNER }}/skerry-${{ matrix.target.name }}:buildcache
           cache-to: |
@@ -61,3 +58,29 @@ jobs:
           tags: |
             ${{ env.REGISTRY }}/${{ env.REPO_OWNER }}/skerry-${{ matrix.target.name }}:${{ github.event.inputs.version }}
             ${{ env.REGISTRY }}/${{ env.REPO_OWNER }}/skerry-${{ matrix.target.name }}:latest
+
+  release:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create git tag
+        run: |
+          git tag ${{ github.event.inputs.version }}
+          git push origin ${{ github.event.inputs.version }}
+
+      - name: Package deploy kit
+        run: |
+          tar -czf skerry-deploy-${{ github.event.inputs.version }}.tar.gz deploy/
+
+      - name: Upload deploy kit
+        uses: actions/upload-artifact@v4
+        with:
+          name: skerry-deploy-${{ github.event.inputs.version }}
+          path: skerry-deploy-${{ github.event.inputs.version }}.tar.gz
+          retention-days: 90
