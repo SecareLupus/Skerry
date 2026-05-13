@@ -825,7 +825,7 @@ export function ChatWindow({
                 label: "Direct Message",
                 icon: "message-square",
                 onClick: () => {
-                    console.log("DM user", userContextMenu.userId);
+                    // TODO: implement DM creation from user context menu
                 }
             }
         ];
@@ -835,7 +835,7 @@ export function ChatWindow({
                 label: "Ignore / Block",
                 icon: "ban",
                 onClick: () => {
-                    console.log("Block user", userContextMenu.userId);
+                    // TODO: implement block from user context menu
                 }
             });
         }

@@ -75,7 +75,6 @@ export async function buildApp() {
   });
 
   app.addHook("onRequest", async (request) => {
-    console.log(`[DEBUG] Incoming Request: ${request.method} ${request.url}`);
     request.startTime = Date.now();
   });
 

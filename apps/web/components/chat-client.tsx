@@ -296,9 +296,6 @@ export function ChatClient() {
   } = mutations;
 
   const dispatch = useCallback((action: any) => {
-    if (action.type?.startsWith("SET_VOICE_") || action.type === "SET_LOADING") {
-      console.log("[ChatClient] DISPATCH:", action.type, action.payload);
-    }
     originalDispatch(action);
   }, [originalDispatch]);
 
@@ -598,12 +595,6 @@ export function ChatClient() {
 
     // 5. If we reach here, the URL has DRIFTED to an unexpected value.
     // This is likely user navigation (Back/Forward). Sync back to the URL.
-    console.log("[ChatClient] True URL drift detected! Syncing state to URL.", { 
-      current: currentUrlSelection, 
-      previous: previousUrlRef.current,
-      target: targetUrlSelectionRef.current,
-      state: stateUrlMapping
-    });
 
     targetUrlSelectionRef.current = null;
     previousUrlRef.current = currentUrlSelection;

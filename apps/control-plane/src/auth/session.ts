@@ -93,7 +93,6 @@ function secureFlag(reply: FastifyReply): string {
 export function getSession(request: FastifyRequest): SessionPayload | null {
   const cookieHeader = request.headers.cookie;
   if (!cookieHeader) {
-    console.log(`[AUTH DEBUG] No cookie header for ${request.method} ${request.url} id=${request.id}`);
     return null;
   }
 
@@ -103,15 +102,11 @@ export function getSession(request: FastifyRequest): SessionPayload | null {
 
   const raw = skerryRaw || legacyRaw;
   if (!raw) {
-    console.log(`[AUTH DEBUG] session missing in header for ${request.method} ${request.url} id=${request.id}`);
     return null;
   }
 
   const token = raw.replace("skerry_session=", "").replace("escapehatch_session=", "");
   const payload = verify(token);
-  if (!payload) {
-    console.log(`[AUTH DEBUG] Session token verification failed for ${request.method} ${request.url} id=${request.id}`);
-  }
   return payload;
 }
 
