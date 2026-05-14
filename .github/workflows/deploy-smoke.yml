@@ -1,0 +1,68 @@
+name: Deploy Smoke Test
+
+on:
+  pull_request:
+    paths:
+      - 'deploy/**'
+      - 'docker-compose.yml'
+      - 'Dockerfile'
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build images from source
+        run: |
+          docker build --target control-plane -t ghcr.io/secarelupus/skerry-control-plane:v0.1.0-alpha .
+          docker build --target web -t ghcr.io/secarelupus/skerry-web:v0.1.0-alpha .
+          docker build --target sticker-renderer -t ghcr.io/secarelupus/skerry-sticker-renderer:v0.1.0-alpha .
+
+      - name: Start deploy stack
+        run: |
+          cd deploy
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d
+
+      - name: Verify init generated .env.ops
+        run: |
+          for i in $(seq 1 30); do
+            if [ -f deploy/.env.ops ]; then break; fi
+            sleep 2
+          done
+          test -f deploy/.env.ops || { echo "FAIL: .env.ops not generated after 60s"; exit 1; }
+          grep -q 'POSTGRES_PASSWORD=' deploy/.env.ops || { echo "FAIL: POSTGRES_PASSWORD missing"; exit 1; }
+          grep -q 'SESSION_SECRET=' deploy/.env.ops || { echo "FAIL: SESSION_SECRET missing"; exit 1; }
+          grep -q 'SETUP_BOOTSTRAP_TOKEN=' deploy/.env.ops || { echo "FAIL: SETUP_BOOTSTRAP_TOKEN missing"; exit 1; }
+          echo "OK: .env.ops generated with required secrets"
+
+      - name: Wait for services healthy
+        run: |
+          for i in $(seq 1 40); do
+            if curl -fsS http://localhost:8080/health 2>/dev/null; then
+              echo "OK: services healthy"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "FAIL: health endpoint not ready after 200s"
+          exit 1
+
+      - name: Verify web UI serves Skerry
+        run: |
+          curl -fsS http://localhost:8080/ | grep -q 'Skerry' || { echo "FAIL: web UI missing Skerry"; exit 1; }
+          echo "OK: web UI serves Skerry"
+
+      - name: Verify platform is uninitialized
+        run: |
+          curl -fsS http://localhost:8080/auth/bootstrap-status | grep -q '"initialized":false' || { echo "FAIL: platform should be uninitialized"; exit 1; }
+          echo "OK: platform uninitialized, ready for first admin"
+
+      - name: Tear down
+        if: always()
+        run: |
+          cd deploy
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml down -v 2>/dev/null || true
