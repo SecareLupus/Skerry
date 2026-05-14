@@ -25,6 +25,7 @@ jobs:
       - name: Start deploy stack
         run: |
           cd deploy
+          docker compose run --rm init
           docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d
 
       - name: Verify init generated .env.ops

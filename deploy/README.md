@@ -8,11 +8,14 @@ Everything needed to run a Skerry Hub from pre-built Docker images.
 # 1. (Optional) Edit .env — BASE_DOMAIN defaults to localhost
 #    Uncomment OAuth providers to enable login.
 
-# 2. Start
+# 2. Initialize (first run only — generates secrets and .env.ops)
+docker compose run --rm init
+
+# 3. Start
 docker compose up -d
 ```
 
-First run auto-generates secrets, creates the Synapse signing key, and writes `.env.ops`. The bootstrap token is printed to the console — visit your domain, log in, and enter it when prompted during initial setup.
+First run requires `docker compose run --rm init` to generate secrets. Subsequent starts just need `docker compose up -d` — init runs as a dependency but exits immediately since `.env.ops` already exists.
 
 ## Access
 
