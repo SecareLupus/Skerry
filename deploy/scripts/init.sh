@@ -35,6 +35,9 @@ gen_secret() {
   openssl rand -hex 32
 }
 
+# Install openssl once, needed for secret generation and signing key
+apk add --no-cache openssl >/dev/null 2>&1
+
 POSTGRES_USER="${POSTGRES_USER:-skerry}"
 POSTGRES_DB="${POSTGRES_DB:-skerry}"
 POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-$(gen_secret)}"
@@ -122,7 +125,6 @@ EOF
 # ---------- generate Synapse signing key ----------
 if [ ! -f "$SYNAPSE_SIGNING_KEY" ]; then
   echo "Generating Synapse signing key..."
-  apk add --no-cache openssl >/dev/null 2>&1
   openssl genpkey -algorithm ED25519 -out "$SYNAPSE_SIGNING_KEY"
 fi
 
