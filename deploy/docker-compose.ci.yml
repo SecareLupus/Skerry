@@ -1,0 +1,5 @@
+# CI override for deploy smoke test — remaps Caddy to port 8080
+services:
+  caddy:
+    ports:
+      - "8080:80"

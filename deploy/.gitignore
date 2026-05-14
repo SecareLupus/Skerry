@@ -1,5 +1,4 @@
 # Generated at runtime — never commit
-.env.ops
 docker/synapse/*.signing.key
 docker/synapse/*.db
 docker/synapse/*.db-*

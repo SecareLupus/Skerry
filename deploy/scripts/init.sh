@@ -15,7 +15,7 @@ if [ ! -f "$ENV_USER" ]; then
   exit 1
 fi
 
-BASE_DOMAIN=$(grep -E '^BASE_DOMAIN=' "$ENV_USER" | tail -1 | sed 's/^BASE_DOMAIN=//' | tr -d '"'"'"' || true)
+BASE_DOMAIN=$(grep -E '^BASE_DOMAIN=' "$ENV_USER" | tail -1 | sed -e 's/^BASE_DOMAIN=//' -e "s/^[\"']//" -e "s/[\"']$//" || true)
 if [ -z "$BASE_DOMAIN" ]; then
   echo "ERROR: BASE_DOMAIN is not set in $ENV_USER."
   echo "  Edit $ENV_USER and set BASE_DOMAIN to your domain (e.g. BASE_DOMAIN=skerry.chat)"
@@ -56,7 +56,7 @@ LIVEKIT_URL="${LIVEKIT_URL:-ws://livekit:7880}"
 # ---------- pull user overrides from .env ----------
 load_user_value() {
   local key=$1
-  grep -E "^${key}=" "$ENV_USER" 2>/dev/null | tail -1 | sed "s/^${key}=//" | tr -d '"'"'"' || true
+  grep -E "^${key}=" "$ENV_USER" 2>/dev/null | tail -1 | sed -e "s/^${key}=//" -e "s/^[\"']//" -e "s/[\"']$//" || true
 }
 
 for key in \
@@ -69,6 +69,7 @@ for key in \
   SETUP_BOOTSTRAP_TOKEN \
   SKERRY_VERSION \
   SYNAPSE_BASE_URL SYNAPSE_SERVER_NAME LIVEKIT_URL \
+  DATABASE_URL \
   ; do
   val=$(load_user_value "$key")
   if [ -n "$val" ]; then
@@ -85,6 +86,7 @@ BASE_DOMAIN=$BASE_DOMAIN
 POSTGRES_USER=$POSTGRES_USER
 POSTGRES_DB=$POSTGRES_DB
 POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+DATABASE_URL=postgres://$POSTGRES_USER:$POSTGRES_PASSWORD@postgres:5432/$POSTGRES_DB
 SESSION_SECRET=$SESSION_SECRET
 SYNAPSE_AS_TOKEN=$SYNAPSE_AS_TOKEN
 SYNAPSE_HS_TOKEN=$SYNAPSE_HS_TOKEN
@@ -109,7 +111,7 @@ TWITCH_CLIENT_ID=$TWITCH_CLIENT_ID
 TWITCH_CLIENT_SECRET=$TWITCH_CLIENT_SECRET
 OIDC_TWITCH_CLIENT_ID=$TWITCH_CLIENT_ID
 OIDC_TWITCH_CLIENT_SECRET=$TWITCH_CLIENT_SECRET
-EMAIL=$EMAIL
+EMAIL=${EMAIL:-admin@localhost}
 
 SKERRY_VERSION=${SKERRY_VERSION:-v0.1.0-alpha}
 
@@ -122,10 +124,17 @@ SYNAPSE_SERVER_NAME=$SYNAPSE_SERVER_NAME
 LIVEKIT_URL=$LIVEKIT_URL
 EOF
 
+# ---------- prepare Synapse data directory ----------
+mkdir -p "${SYNAPSE_CONFIG_DIR}/media_store"
+chmod 777 "${SYNAPSE_CONFIG_DIR}/media_store" 2>/dev/null || true
+
 # ---------- generate Synapse signing key ----------
 if [ ! -f "$SYNAPSE_SIGNING_KEY" ]; then
   echo "Generating Synapse signing key..."
-  openssl genpkey -algorithm ED25519 -out "$SYNAPSE_SIGNING_KEY"
+  KEY_ID="a_$(openssl rand -hex 3)"
+  SEED=$(openssl rand -base64 32 | tr -d '\n' | head -c 43)
+  echo "ed25519 ${KEY_ID} ${SEED}" > "$SYNAPSE_SIGNING_KEY"
+  chmod 644 "$SYNAPSE_SIGNING_KEY"
 fi
 
 echo "skerry-init: .env.ops is ready"

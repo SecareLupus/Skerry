@@ -8,11 +8,14 @@ Everything needed to run a Skerry Hub from pre-built Docker images.
 # 1. (Optional) Edit .env — BASE_DOMAIN defaults to localhost
 #    Uncomment OAuth providers to enable login.
 
-# 2. Start
-docker compose up -d
+# 2. Initialize (first run only — generates secrets and .env.ops)
+docker compose run --rm init
+
+# 3. Start
+docker compose --env-file .env.ops up -d
 ```
 
-First run auto-generates secrets, creates the Synapse signing key, and writes `.env.ops`. The bootstrap token is printed to the console — visit your domain, log in, and enter it when prompted during initial setup.
+First run requires `docker compose run --rm init` to generate secrets. Subsequent starts just need `docker compose --env-file .env.ops up -d` — init runs as a dependency but exits immediately since `.env.ops` already exists.
 
 ## Access
 
@@ -37,13 +40,13 @@ BASE_DOMAIN=skerry.chat    # Change from localhost for production
 #EMAIL=
 ```
 
-Secrets (`POSTGRES_PASSWORD`, `SESSION_SECRET`, etc.) are auto-generated on first run and stored in `.env.ops`. Edit `.env` to change settings; changes are merged on next `docker compose up -d`.
+Secrets (`POSTGRES_PASSWORD`, `SESSION_SECRET`, etc.) are auto-generated on first run and stored in `.env.ops`. Edit `.env` to change settings; changes are merged on next `docker compose --env-file .env.ops up -d`.
 
 ## Upgrading
 
 ```bash
 docker compose pull
-docker compose up -d
+docker compose --env-file .env.ops up -d
 ```
 
 ## Files
