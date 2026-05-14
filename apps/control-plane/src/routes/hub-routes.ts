@@ -241,6 +241,21 @@ export async function registerHubRoutes(app: FastifyInstance): Promise<void> {
     });
 
     const unsubscribe = subscribeToHubEvents(params.hubId, (event, payload) => {
+      // #106 — scope DM channel.created events to participants only.
+      // The createDmChannel payload includes a participants array with
+      // productUserId entries.  Dropping the event here keeps other
+      // users' product IDs off the wire for non-participants.
+      if (
+        event === "channel.created" &&
+        payload &&
+        typeof payload === "object" &&
+        Array.isArray(payload.participants) &&
+        !payload.participants.some(
+          (p: { productUserId: string }) => p.productUserId === request.auth!.productUserId
+        )
+      ) {
+        return;
+      }
       writeEvent(event, payload);
     });
 
