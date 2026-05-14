@@ -17,11 +17,7 @@ echo "BASE_DOMAIN=skerry.chat" > .env
 docker compose up -d
 ```
 
-First run auto-generates secrets, creates the Synapse signing key, and writes `.env.ops`. The bootstrap token is saved to `.bootstrap-token` — visit your domain and enter it when prompted during initial setup.
-
-```bash
-cat .bootstrap-token
-```
+First run auto-generates secrets, creates the Synapse signing key, and writes `.env.ops`. The bootstrap token is printed to the console — visit your domain, log in, and enter it when prompted during initial setup.
 
 ## Access
 

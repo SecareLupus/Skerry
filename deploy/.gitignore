@@ -1,6 +1,5 @@
 # Generated at runtime — never commit
 .env.ops
-.bootstrap-token
 docker/synapse/*.signing.key
 docker/synapse/*.db
 docker/synapse/*.db-*

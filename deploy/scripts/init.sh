@@ -125,8 +125,7 @@ if [ "$OPS_EXISTED" = false ]; then
   echo "============================================"
   echo "  Bootstrap token: $SETUP_BOOTSTRAP_TOKEN"
   echo ""
-  echo "  Visit http://${BASE_DOMAIN} and enter this token"
-  echo "  when prompted during initial setup."
+  echo "  Visit http://${BASE_DOMAIN}, log in, and enter"
+  echo "  this token when prompted during initial setup."
   echo "============================================"
-  echo "$SETUP_BOOTSTRAP_TOKEN" > .bootstrap-token
 fi
