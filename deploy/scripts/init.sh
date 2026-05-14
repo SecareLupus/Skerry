@@ -124,10 +124,17 @@ SYNAPSE_SERVER_NAME=$SYNAPSE_SERVER_NAME
 LIVEKIT_URL=$LIVEKIT_URL
 EOF
 
+# ---------- prepare Synapse data directory ----------
+mkdir -p "${SYNAPSE_CONFIG_DIR}/media_store"
+chmod 777 "${SYNAPSE_CONFIG_DIR}/media_store" 2>/dev/null || true
+
 # ---------- generate Synapse signing key ----------
 if [ ! -f "$SYNAPSE_SIGNING_KEY" ]; then
   echo "Generating Synapse signing key..."
-  openssl genpkey -algorithm ED25519 -out "$SYNAPSE_SIGNING_KEY"
+  KEY_ID="a_$(openssl rand -hex 3)"
+  SEED=$(openssl rand -base64 32 | tr -d '\n' | head -c 43)
+  echo "ed25519 ${KEY_ID} ${SEED}" > "$SYNAPSE_SIGNING_KEY"
+  chmod 644 "$SYNAPSE_SIGNING_KEY"
 fi
 
 echo "skerry-init: .env.ops is ready"
