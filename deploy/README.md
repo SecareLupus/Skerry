@@ -1,78 +1,73 @@
 # Skerry Deployment Kit
 
-This directory contains everything needed to deploy a Skerry Hub from
-pre-built Docker images on GitHub Container Registry.
+Everything needed to run a Skerry Hub from pre-built Docker images.
+
+## Quick Start
+
+```bash
+# 1. Set your domain
+echo "BASE_DOMAIN=skerry.chat" > .env
+
+# 2. (Optional) Enable OAuth — uncomment and fill in:
+#    DISCORD_CLIENT_ID=...
+#    DISCORD_CLIENT_SECRET=...
+#    DISCORD_BOT_TOKEN=...
+
+# 3. Start
+docker compose up -d
+```
+
+First run auto-generates secrets, creates the Synapse signing key, and writes `.env.ops`. Subsequent starts reuse the same secrets and merge any changes from `.env`.
+
+## Access
+
+- **Web UI**: `http://localhost` (or your `BASE_DOMAIN`)
+- **Health**: `http://localhost/health`
+
+## Configuration
+
+Edit `.env` — only `BASE_DOMAIN` is required. All other values are optional.
+
+```bash
+BASE_DOMAIN=skerry.chat    # REQUIRED
+
+# Optional — OAuth (uncomment to enable)
+#DISCORD_CLIENT_ID=
+#DISCORD_CLIENT_SECRET=
+#DISCORD_BOT_TOKEN=
+#GOOGLE_CLIENT_ID=
+#GOOGLE_CLIENT_SECRET=
+#TWITCH_CLIENT_ID=
+#TWITCH_CLIENT_SECRET=
+#EMAIL=
+```
+
+Secrets (`POSTGRES_PASSWORD`, `SESSION_SECRET`, etc.) are auto-generated on first run and stored in `.env.ops`. Edit `.env` to change settings; changes are merged on next `docker compose up -d`.
+
+## Upgrading
+
+```bash
+docker compose pull
+docker compose up -d
+```
 
 ## Files
 
 ```
 .
-├── docker-compose.yml              # Service orchestration (uses GHCR images)
-├── .env.example                    # Environment template → copy to .env
+├── .env                    # You edit this
+├── .env.ops               # Generated — do not edit
+├── docker-compose.yml
 ├── docker/
-│   ├── Caddyfile                   # Reverse proxy routing
-│   └── synapse/
-│       ├── homeserver.yaml         # Synapse Matrix config
-│       ├── hub-localhost.log.config
-│       └── setup-synapse.sh        # Signing key generator
-├── scripts/
-│   ├── bootstrap-hub.sh            # One-command setup
-│   └── backup-db.sh                # PostgreSQL backup (daily cron)
-└── README.md
-```
-
-## Quick Start
-
-```bash
-# 1. Configure
-cp .env.example .env
-# Edit .env with your domain and OAuth credentials
-
-# 2. Bootstrap (generates secrets, pulls images, runs migrations, starts)
-chmod +x scripts/bootstrap-hub.sh
-./scripts/bootstrap-hub.sh
-```
-
-Or step by step:
-
-```bash
-cp .env.example .env
-# Edit .env — set BASE_DOMAIN and OAuth credentials at minimum
-
-# Generate Synapse signing key
-bash docker/synapse/setup-synapse.sh
-
-# Pull images
-docker compose pull
-
-# Start
-docker compose up -d
-```
-
-## Access
-
-- **Web UI**: `http://localhost` (or your `BASE_DOMAIN`)
-- **Health check**: `http://localhost/health`
-- **Metrics**: `http://localhost/metrics` (if `METRICS_TOKEN` configured)
-
-## Upgrading
-
-```bash
-# Edit .env and bump SKERRY_VERSION
-SKERRY_VERSION=v0.2.0-alpha docker compose pull
-docker compose up -d
+│   ├── Caddyfile
+│   └── synapse/            # Synapse config
+└── scripts/
+    ├── init.sh             # First-run initialization
+    └── backup-db.sh        # Daily PostgreSQL backup
 ```
 
 ## Requirements
 
-- Docker Engine 24+ with Compose v2
-- A domain name (for OAuth redirects and federation)
+- Docker Engine 24+ with Compose v2.20+
+- A domain name (for OAuth redirects)
 - Discord application credentials (for login)
-
-## Images
-
-| Image | Registry |
-|-------|----------|
-| `skerry-control-plane` | `ghcr.io/secarelupus/skerry-control-plane` |
-| `skerry-web` | `ghcr.io/secarelupus/skerry-web` |
-| `skerry-sticker-renderer` | `ghcr.io/secarelupus/skerry-sticker-renderer` |

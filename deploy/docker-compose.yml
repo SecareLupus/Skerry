@@ -1,16 +1,17 @@
 services:
+  init:
+    image: alpine:latest
+    entrypoint: ["sh", "-c", "apk add --no-cache openssl >/dev/null 2>&1 && sh /deploy/scripts/init.sh"]
+    volumes:
+      - .:/deploy
+
   postgres:
     image: postgres:16
     env_file:
-      - .env
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
-    # PostgreSQL is only reachable via the internal Docker network.
-    # For local psql access, use: docker compose exec postgres psql
-    # ports:
-    #   - "127.0.0.1:5432:5432"
+      - .env.ops
+    depends_on:
+      init:
+        condition: service_completed_successfully
     volumes:
       - pg_data:/var/lib/postgresql/data
     deploy:
@@ -18,7 +19,7 @@ services:
         limits:
           memory: 512M
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U skerry -d skerry"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -26,13 +27,10 @@ services:
   synapse:
     image: matrixdotorg/synapse:latest
     env_file:
-      - .env
+      - .env.ops
     depends_on:
-      - postgres
-    environment:
-      SYNAPSE_SERVER_NAME: hub-localhost
-      SYNAPSE_REPORT_STATS: "no"
-    # Port 8008 is now internal only
+      postgres:
+        condition: service_healthy
     volumes:
       - ./docker/synapse:/data
     deploy:
@@ -43,9 +41,8 @@ services:
   livekit:
     image: livekit/livekit-server:v1.9.11
     env_file:
-      - .env
+      - .env.ops
     command: [ "--dev", "--bind", "0.0.0.0" ]
-    # Signaling port 7880 is now internal only
     ports:
       - "7881:7881"
       - "7882:7882/udp"
@@ -53,7 +50,7 @@ services:
   coturn:
     image: coturn/coturn:4.6
     env_file:
-      - .env
+      - .env.ops
     command: [ "-n", "--log-file=stdout", "--realm=localhost", "--fingerprint" ]
     ports:
       - "3478:3478"
@@ -65,26 +62,14 @@ services:
       - default
       - backend
     env_file:
-      - .env
-    environment:
-      - PORT=4000
-      - DATABASE_URL=postgres://postgres:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      - NEXT_PUBLIC_BASE_DOMAIN=${BASE_DOMAIN:-localhost}
-      - SESSION_SECRET=${SESSION_SECRET}
-      - OIDC_DISCORD_CLIENT_ID=${OIDC_DISCORD_CLIENT_ID}
-      - OIDC_DISCORD_CLIENT_SECRET=${OIDC_DISCORD_CLIENT_SECRET}
-      - OIDC_GOOGLE_CLIENT_ID=${OIDC_GOOGLE_CLIENT_ID}
-      - OIDC_GOOGLE_CLIENT_SECRET=${OIDC_GOOGLE_CLIENT_SECRET}
-      - OIDC_TWITCH_CLIENT_ID=${OIDC_TWITCH_CLIENT_ID}
-      - OIDC_TWITCH_CLIENT_SECRET=${OIDC_TWITCH_CLIENT_SECRET}
-      - DISCORD_BRIDGE_CLIENT_ID=${DISCORD_BRIDGE_CLIENT_ID}
-      - DISCORD_BRIDGE_CLIENT_SECRET=${DISCORD_BRIDGE_CLIENT_SECRET}
-      - DISCORD_BRIDGE_BOT_TOKEN=${DISCORD_BRIDGE_BOT_TOKEN}
-      - SYNAPSE_AS_REGISTRATION_PATH=/app/docker/synapse/skerry-appservice.yaml
+      - .env.ops
     depends_on:
-      - postgres
-      - synapse
-      - livekit
+      postgres:
+        condition: service_healthy
+      synapse:
+        condition: service_started
+      livekit:
+        condition: service_started
     volumes:
       - ./docker/synapse:/app/docker/synapse
       - sticker_cache:/app/cache/stickers
@@ -104,12 +89,10 @@ services:
       - default
       - backend
     env_file:
-      - .env
-    environment:
-      - PORT=3000
-      - NEXT_PUBLIC_BASE_DOMAIN=${BASE_DOMAIN:-localhost}
+      - .env.ops
     depends_on:
-      - control-plane
+      control-plane:
+        condition: service_healthy
     deploy:
       resources:
         limits:
@@ -128,25 +111,23 @@ services:
       - ./docker/Caddyfile:/etc/caddy/Caddyfile
       - caddy_data:/data
       - caddy_config:/config
-    environment:
-      - NEXT_PUBLIC_BASE_DOMAIN=${BASE_DOMAIN:-localhost}
-      - EMAIL=${EMAIL}
+    env_file:
+      - .env.ops
     deploy:
       resources:
         limits:
           memory: 128M
-  
+
   sticker-renderer:
     image: ghcr.io/secarelupus/skerry-sticker-renderer:${SKERRY_VERSION:-v0.1.0-alpha}
     networks:
       - default
       - backend
-    environment:
-      - PORT=3000
+    env_file:
+      - .env.ops
     deploy:
       resources:
         limits:
-          # Rendering is heavy, give it some room but cap it
           cpus: '0.5'
           memory: 1G
     healthcheck:
@@ -164,11 +145,8 @@ services:
     volumes:
       - ./scripts/backup-db.sh:/usr/local/bin/backup-db.sh:ro
       - pg_backups:/backups
-    environment:
-      - PGHOST=postgres
-      - PGUSER=${POSTGRES_USER}
-      - PGPASSWORD=${POSTGRES_PASSWORD}
-      - PGDATABASE=${POSTGRES_DB}
+    env_file:
+      - .env.ops
     entrypoint: ["sh", "-c", "while true; do /usr/local/bin/backup-db.sh; sleep 86400; done"]
     depends_on:
       - postgres
