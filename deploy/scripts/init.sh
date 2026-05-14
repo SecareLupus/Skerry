@@ -45,6 +45,11 @@ LIVEKIT_API_KEY="${LIVEKIT_API_KEY:-$(gen_secret)}"
 LIVEKIT_API_SECRET="${LIVEKIT_API_SECRET:-$(gen_secret)}"
 SETUP_BOOTSTRAP_TOKEN="${SETUP_BOOTSTRAP_TOKEN:-$(gen_secret)}"
 
+# ---------- internal service defaults (overridable) ----------
+SYNAPSE_BASE_URL="${SYNAPSE_BASE_URL:-http://synapse:8008}"
+SYNAPSE_SERVER_NAME="${SYNAPSE_SERVER_NAME:-hub-localhost}"
+LIVEKIT_URL="${LIVEKIT_URL:-ws://livekit:7880}"
+
 # ---------- pull user overrides from .env ----------
 load_user_value() {
   local key=$1
@@ -60,6 +65,7 @@ for key in \
   LIVEKIT_API_KEY LIVEKIT_API_SECRET \
   SETUP_BOOTSTRAP_TOKEN \
   SKERRY_VERSION \
+  SYNAPSE_BASE_URL SYNAPSE_SERVER_NAME LIVEKIT_URL \
   ; do
   val=$(load_user_value "$key")
   if [ -n "$val" ]; then
@@ -108,9 +114,9 @@ SKERRY_VERSION=${SKERRY_VERSION:-v0.1.0-alpha}
 LIVEKIT_API_KEY=$LIVEKIT_API_KEY
 LIVEKIT_API_SECRET=$LIVEKIT_API_SECRET
 SETUP_BOOTSTRAP_TOKEN=$SETUP_BOOTSTRAP_TOKEN
-SYNAPSE_BASE_URL=http://synapse:8008
-SYNAPSE_SERVER_NAME=hub-localhost
-LIVEKIT_URL=ws://livekit:7880
+SYNAPSE_BASE_URL=$SYNAPSE_BASE_URL
+SYNAPSE_SERVER_NAME=$SYNAPSE_SERVER_NAME
+LIVEKIT_URL=$LIVEKIT_URL
 EOF
 
 # ---------- generate Synapse signing key ----------
