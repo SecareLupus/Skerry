@@ -116,6 +116,7 @@ EOF
 # ---------- generate Synapse signing key ----------
 if [ ! -f "$SYNAPSE_SIGNING_KEY" ]; then
   echo "Generating Synapse signing key..."
+  apk add --no-cache openssl >/dev/null 2>&1
   openssl genpkey -algorithm ED25519 -out "$SYNAPSE_SIGNING_KEY"
 fi
 
