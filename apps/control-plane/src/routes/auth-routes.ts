@@ -353,6 +353,7 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
             tokenExpiresAt: exchanged.tokenExpiresAt ?? null,
           });
           const dest = new URL("/auth/link-or-create", config.webBaseUrl);
+          dest.searchParams.set("provider", profile.provider);
           reply.redirect(dest.toString(), 302);
           return;
         }
