@@ -125,7 +125,7 @@ if [ "$OPS_EXISTED" = false ]; then
   echo "============================================"
   echo "  Bootstrap token: $SETUP_BOOTSTRAP_TOKEN"
   echo ""
-  echo "  Use this token at http://${BASE_DOMAIN}/setup"
-  echo "  to create the first admin account."
+  echo "  Visit http://${BASE_DOMAIN} and enter this token"
+  echo "  when prompted during initial setup."
   echo "============================================"
 fi
