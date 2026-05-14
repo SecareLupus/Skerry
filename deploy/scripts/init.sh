@@ -23,7 +23,9 @@ if [ -z "$BASE_DOMAIN" ]; then
 fi
 
 # ---------- load existing .env.ops if present ----------
+OPS_EXISTED=false
 if [ -f "$ENV_OPS" ]; then
+  OPS_EXISTED=true
   # shellcheck disable=SC1090
   . "$ENV_OPS"
 fi
@@ -118,3 +120,12 @@ if [ ! -f "$SYNAPSE_SIGNING_KEY" ]; then
 fi
 
 echo "skerry-init: .env.ops is ready"
+if [ "$OPS_EXISTED" = false ]; then
+  echo ""
+  echo "============================================"
+  echo "  Bootstrap token: $SETUP_BOOTSTRAP_TOKEN"
+  echo ""
+  echo "  Use this token at http://${BASE_DOMAIN}/setup"
+  echo "  to create the first admin account."
+  echo "============================================"
+fi
