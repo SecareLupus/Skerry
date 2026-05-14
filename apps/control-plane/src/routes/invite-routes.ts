@@ -31,10 +31,6 @@ export async function registerInviteRoutes(app: FastifyInstance): Promise<void> 
 
     const productUserId = request.auth!.productUserId;
     const isHubManager = await canManageHub({ productUserId, hubId: params.hubId });
-    if (!isHubManager) {
-      reply.code(403).send({ message: "Forbidden: insufficient hub management scope." });
-      return;
-    }
 
     if (payload.defaultServerId) {
       const serverRow = await withDb((db) =>
@@ -86,6 +82,10 @@ export async function registerInviteRoutes(app: FastifyInstance): Promise<void> 
           return;
         }
       }
+    } else if (!isHubManager) {
+      // Non-space-scoped roles (or bare invites) still require hub-manager authority.
+      reply.code(403).send({ message: "Forbidden: only hub managers can issue unscoped invites." });
+      return;
     }
 
     const badgeIds = payload.defaultBadgeIds ?? [];
