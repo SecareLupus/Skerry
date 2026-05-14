@@ -15,7 +15,7 @@ if [ ! -f "$ENV_USER" ]; then
   exit 1
 fi
 
-BASE_DOMAIN=$(grep -E '^BASE_DOMAIN=' "$ENV_USER" | sed 's/^BASE_DOMAIN=//' | tr -d '"'"'"' || true)
+BASE_DOMAIN=$(grep -E '^BASE_DOMAIN=' "$ENV_USER" | tail -1 | sed 's/^BASE_DOMAIN=//' | tr -d '"'"'"' || true)
 if [ -z "$BASE_DOMAIN" ]; then
   echo "ERROR: BASE_DOMAIN is not set in $ENV_USER."
   echo "  Edit $ENV_USER and set BASE_DOMAIN to your domain (e.g. BASE_DOMAIN=skerry.chat)"
