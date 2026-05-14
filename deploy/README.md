@@ -12,10 +12,10 @@ Everything needed to run a Skerry Hub from pre-built Docker images.
 docker compose run --rm init
 
 # 3. Start
-docker compose up -d
+docker compose --env-file .env.ops up -d
 ```
 
-First run requires `docker compose run --rm init` to generate secrets. Subsequent starts just need `docker compose up -d` — init runs as a dependency but exits immediately since `.env.ops` already exists.
+First run requires `docker compose run --rm init` to generate secrets. Subsequent starts just need `docker compose --env-file .env.ops up -d` — init runs as a dependency but exits immediately since `.env.ops` already exists.
 
 ## Access
 
@@ -40,13 +40,13 @@ BASE_DOMAIN=skerry.chat    # Change from localhost for production
 #EMAIL=
 ```
 
-Secrets (`POSTGRES_PASSWORD`, `SESSION_SECRET`, etc.) are auto-generated on first run and stored in `.env.ops`. Edit `.env` to change settings; changes are merged on next `docker compose up -d`.
+Secrets (`POSTGRES_PASSWORD`, `SESSION_SECRET`, etc.) are auto-generated on first run and stored in `.env.ops`. Edit `.env` to change settings; changes are merged on next `docker compose --env-file .env.ops up -d`.
 
 ## Upgrading
 
 ```bash
 docker compose pull
-docker compose up -d
+docker compose --env-file .env.ops up -d
 ```
 
 ## Files
