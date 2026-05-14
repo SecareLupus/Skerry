@@ -5,15 +5,10 @@ Everything needed to run a Skerry Hub from pre-built Docker images.
 ## Quick Start
 
 ```bash
-# 1. Set your domain
-echo "BASE_DOMAIN=skerry.chat" > .env
+# 1. (Optional) Edit .env — BASE_DOMAIN defaults to localhost
+#    Uncomment OAuth providers to enable login.
 
-# 2. (Optional) Enable OAuth — uncomment and fill in:
-#    DISCORD_CLIENT_ID=...
-#    DISCORD_CLIENT_SECRET=...
-#    DISCORD_BOT_TOKEN=...
-
-# 3. Start
+# 2. Start
 docker compose up -d
 ```
 
@@ -26,10 +21,10 @@ First run auto-generates secrets, creates the Synapse signing key, and writes `.
 
 ## Configuration
 
-Edit `.env` — only `BASE_DOMAIN` is required. All other values are optional.
+Edit `.env` — `BASE_DOMAIN` defaults to `localhost` (works for local testing). Set it to your domain for production.
 
 ```bash
-BASE_DOMAIN=skerry.chat    # REQUIRED
+BASE_DOMAIN=skerry.chat    # Change from localhost for production
 
 # Optional — OAuth (uncomment to enable)
 #DISCORD_CLIENT_ID=
