@@ -2,6 +2,7 @@ services:
   init:
     image: alpine:latest
     entrypoint: ["sh", "/deploy/scripts/init.sh"]
+    working_dir: /deploy
     volumes:
       - .:/deploy
 

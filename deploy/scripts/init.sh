@@ -15,7 +15,7 @@ if [ ! -f "$ENV_USER" ]; then
   exit 1
 fi
 
-BASE_DOMAIN=$(grep -E '^BASE_DOMAIN=' "$ENV_USER" | tail -1 | sed 's/^BASE_DOMAIN=//' | tr -d '"'"'"' || true)
+BASE_DOMAIN=$(grep -E '^BASE_DOMAIN=' "$ENV_USER" | tail -1 | sed -e 's/^BASE_DOMAIN=//' -e "s/^[\"']//" -e "s/[\"']$//" || true)
 if [ -z "$BASE_DOMAIN" ]; then
   echo "ERROR: BASE_DOMAIN is not set in $ENV_USER."
   echo "  Edit $ENV_USER and set BASE_DOMAIN to your domain (e.g. BASE_DOMAIN=skerry.chat)"
@@ -56,7 +56,7 @@ LIVEKIT_URL="${LIVEKIT_URL:-ws://livekit:7880}"
 # ---------- pull user overrides from .env ----------
 load_user_value() {
   local key=$1
-  grep -E "^${key}=" "$ENV_USER" 2>/dev/null | tail -1 | sed "s/^${key}=//" | tr -d '"'"'"' || true
+  grep -E "^${key}=" "$ENV_USER" 2>/dev/null | tail -1 | sed -e "s/^${key}=//" -e "s/^[\"']//" -e "s/[\"']$//" || true
 }
 
 for key in \
@@ -69,6 +69,7 @@ for key in \
   SETUP_BOOTSTRAP_TOKEN \
   SKERRY_VERSION \
   SYNAPSE_BASE_URL SYNAPSE_SERVER_NAME LIVEKIT_URL \
+  DATABASE_URL \
   ; do
   val=$(load_user_value "$key")
   if [ -n "$val" ]; then
@@ -85,6 +86,7 @@ BASE_DOMAIN=$BASE_DOMAIN
 POSTGRES_USER=$POSTGRES_USER
 POSTGRES_DB=$POSTGRES_DB
 POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+DATABASE_URL=postgres://$POSTGRES_USER:$POSTGRES_PASSWORD@postgres:5432/$POSTGRES_DB
 SESSION_SECRET=$SESSION_SECRET
 SYNAPSE_AS_TOKEN=$SYNAPSE_AS_TOKEN
 SYNAPSE_HS_TOKEN=$SYNAPSE_HS_TOKEN
