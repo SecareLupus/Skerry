@@ -83,6 +83,7 @@ export interface ViewerSession {
   linkedIdentities: Array<{
     provider: string;
     oidcSubject: string;
+    productUserId: string;
     displayName: string | null;
     email: string | null;
     avatarUrl: string | null;
@@ -1432,6 +1433,27 @@ export async function blockUser(userId: string): Promise<void> {
 export async function unblockUser(userId: string): Promise<void> {
   await apiFetch(`/auth/blocks/${encodeURIComponent(userId)}`, {
     method: "DELETE"
+  });
+}
+
+export interface MergeAccountsResult {
+  targetProductUserId: string;
+  sourceProductUserId: string;
+  migratedMessages: number;
+  migratedServerMembers: number;
+  migratedHubMembers: number;
+  migratedRoleBindings: number;
+  migratedUserPresence: number;
+  migratedVoicePresence: number;
+  migratedUserBadges: number;
+  mergedIdentities: number;
+}
+
+export async function mergeAccounts(sourceProductUserId: string): Promise<MergeAccountsResult> {
+  return apiFetch<MergeAccountsResult>("/auth/merge-accounts", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sourceProductUserId })
   });
 }
 
