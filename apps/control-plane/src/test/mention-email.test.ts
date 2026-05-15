@@ -32,12 +32,12 @@ test("Mention Email Notifications", async (t) => {
       
       // Insert identities
       await db.query(`
-        insert into identity_mappings (id, provider, oidc_subject, product_user_id, preferred_username, email)
+        insert into identity_mappings (id, provider, oidc_subject, product_user_id, display_name, email)
         values ('idm_1', 'google', 'sub1', $1, 'sender', 'sender@example.com')
       `, [senderId]);
       
       await db.query(`
-        insert into identity_mappings (id, provider, oidc_subject, product_user_id, preferred_username, email)
+        insert into identity_mappings (id, provider, oidc_subject, product_user_id, display_name, email)
         values ('idm_2', 'google', 'sub2', $1, $2, $3)
       `, [mentionedId, mentionedUsername, mentionedEmail]);
 

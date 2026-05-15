@@ -167,7 +167,7 @@ export async function listBadgeAssignments(badgeId: string): Promise<IdentityMap
              from user_badges ub
              join identity_mappings im on im.product_user_id = ub.product_user_id
              where ub.badge_id = $1
-             order by im.product_user_id, im.preferred_username is not null desc, im.updated_at desc`,
+             order by im.product_user_id, im.display_name is not null desc, im.updated_at desc`,
             [badgeId]
         );
         return rows.rows.map(mapRow);
@@ -182,7 +182,7 @@ export async function listServerBadgeAssignments(serverId: string): Promise<Reco
              join badges b on b.id = ub.badge_id
              join identity_mappings im on im.product_user_id = ub.product_user_id
              where b.server_id = $1
-             order by ub.badge_id, im.product_user_id, im.preferred_username is not null desc, im.updated_at desc`,
+             order by ub.badge_id, im.product_user_id, im.display_name is not null desc, im.updated_at desc`,
             [serverId]
         );
 

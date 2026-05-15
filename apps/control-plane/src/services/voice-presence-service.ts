@@ -109,7 +109,7 @@ export async function listVoicePresence(input: { channelId: string; serverId: st
       video_quality: "low" | "medium" | "high";
       joined_at: string;
       updated_at: string;
-      preferred_username: string | null;
+      display_name: string | null;
       email: string | null;
       channel_server_id: string;
     }>(
@@ -122,16 +122,16 @@ export async function listVoicePresence(input: { channelId: string; serverId: st
          vp.video_quality,
          vp.joined_at,
          vp.updated_at,
-         profile.preferred_username,
+         profile.display_name,
          profile.email,
          ch.server_id as channel_server_id
        from voice_presence vp
        join channels ch on ch.id = vp.channel_id
        left join lateral (
-         select im.preferred_username, im.email
+         select im.display_name, im.email
          from identity_mappings im
          where im.product_user_id = vp.product_user_id
-         order by (im.preferred_username is not null) desc, im.updated_at desc, im.created_at asc
+         order by (im.display_name is not null) desc, im.updated_at desc, im.created_at asc
          limit 1
        ) profile on true
        where vp.channel_id = $1
@@ -144,7 +144,7 @@ export async function listVoicePresence(input: { channelId: string; serverId: st
       channelId: row.channel_id,
       serverId: row.channel_server_id,
       userId: row.product_user_id,
-      displayName: row.preferred_username ?? row.email ?? `user-${row.product_user_id.slice(0, 8)}`,
+      displayName: row.display_name ?? row.email ?? `user-${row.product_user_id.slice(0, 8)}`,
       muted: row.muted,
       deafened: row.deafened,
       videoEnabled: row.video_enabled,

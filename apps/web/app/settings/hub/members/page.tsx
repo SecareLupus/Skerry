@@ -21,7 +21,7 @@ export default function HubMembersPage() {
       // Map IdentityMapping to MemberEntry
       setMembers(items.map(m => ({
         productUserId: m.productUserId,
-        displayName: m.preferredUsername || m.email?.split('@')[0] || m.productUserId,
+        displayName: m.displayName || m.email?.split('@')[0] || m.productUserId,
         avatarUrl: m.avatarUrl,
         isBridged: false, // Hub list is Skerry users only
         isOnline: false   // Hub list doesn't track presence globally yet

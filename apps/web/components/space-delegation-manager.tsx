@@ -102,7 +102,7 @@ export function SpaceDelegationManager({ serverId }: SpaceDelegationManagerProps
                         {assignments.map(a => (
                             <li key={a.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', background: 'var(--bg-input)', borderRadius: '6px', border: '1px solid var(--border)' }}>
                                 <div>
-                                    <div style={{ fontWeight: 600 }}>{a.assignedUser ? (a.assignedUser.displayName || a.assignedUser.preferredUsername) : a.assignedUserId}</div>
+                                    <div style={{ fontWeight: 600 }}>{a.assignedUser ? (a.assignedUser.displayName || a.assignedUser.oidcDisplayName) : a.assignedUserId}</div>
                                     <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Assigned by {a.actorUserId} on {new Date(a.createdAt).toLocaleDateString()}</div>
                                 </div>
                                 <button

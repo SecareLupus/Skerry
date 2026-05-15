@@ -91,7 +91,7 @@ export function DMPickerModal() {
                         {results.map((user) => {
                             const matrixLocalpart = user.matrixUserId?.replace(/^@/, "").split(":")[0] ?? null;
                             const renderedName =
-                                user.displayName ?? user.preferredUsername ?? matrixLocalpart ?? "Unknown User";
+                                user.displayName ?? user.oidcDisplayName ?? matrixLocalpart ?? "Unknown User";
                             return (
                                 <li key={user.productUserId} className="user-result-item" onClick={() => handleSelectUser(user)}>
                                     <div className="user-avatar-placeholder">

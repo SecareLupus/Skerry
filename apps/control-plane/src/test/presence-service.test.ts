@@ -39,7 +39,7 @@ test("user is considered online immediately after updateUserPresence", async (t)
     provider: "dev",
     oidcSubject: "presence_online",
     email: "presence-online@dev.local",
-    preferredUsername: "presence-online",
+    displayName: "presence-online",
     avatarUrl: null
   });
 
@@ -80,7 +80,7 @@ test("user is marked offline after last_seen_at exceeds the 2-minute threshold",
     provider: "dev",
     oidcSubject: "presence_stale",
     email: "presence-stale@dev.local",
-    preferredUsername: "presence-stale",
+    displayName: "presence-stale",
     avatarUrl: null
   });
 
@@ -110,7 +110,7 @@ test("presence update is idempotent — repeated pings keep user online", async 
     provider: "dev",
     oidcSubject: "presence_idempotent",
     email: "presence-idempotent@dev.local",
-    preferredUsername: "presence-idempotent",
+    displayName: "presence-idempotent",
     avatarUrl: null
   });
 
@@ -130,7 +130,7 @@ test("listUserPresence handles multiple users with mixed online/offline state", 
     provider: "dev",
     oidcSubject: "presence_multi_online",
     email: "presence-multi-online@dev.local",
-    preferredUsername: "presence-multi-online",
+    displayName: "presence-multi-online",
     avatarUrl: null
   });
 
@@ -138,7 +138,7 @@ test("listUserPresence handles multiple users with mixed online/offline state", 
     provider: "dev",
     oidcSubject: "presence_multi_offline",
     email: "presence-multi-offline@dev.local",
-    preferredUsername: "presence-multi-offline",
+    displayName: "presence-multi-offline",
     avatarUrl: null
   });
 
@@ -175,7 +175,7 @@ test("POST /v1/me/presence endpoint updates presence and returns 204", async (t)
       provider: "dev",
       oidcSubject: "presence_route_user",
       email: "presence-route@dev.local",
-      preferredUsername: "presence-route",
+      displayName: "presence-route",
       avatarUrl: null
     });
     const cookie = createAuthCookie({

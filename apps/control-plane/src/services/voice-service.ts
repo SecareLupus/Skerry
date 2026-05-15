@@ -38,7 +38,7 @@ export async function issueVoiceToken(input: {
       const expiresAt = new Date(Date.now() + ttlSeconds * 1000);
 
       const identity = await getIdentityByProductUserId(input.actorUserId);
-      const displayName = identity?.displayName || identity?.preferredUsername || input.actorUserId;
+      const displayName = identity?.displayName || identity?.oidcDisplayName || input.actorUserId;
       const metadata = JSON.stringify({
         avatarUrl: identity?.avatarUrl ?? null,
       });

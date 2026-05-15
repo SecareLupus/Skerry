@@ -31,7 +31,7 @@ test("notifications summary returns unread counts and mentions", async (t) => {
       provider: "dev",
       oidcSubject: "notif_admin",
       email: "notif-admin@dev.local",
-      preferredUsername: "notif-admin",
+      displayName: "notif-admin",
       avatarUrl: null
     });
     const adminCookie = createAuthCookie(adminIdentity.productUserId);
@@ -52,7 +52,7 @@ test("notifications summary returns unread counts and mentions", async (t) => {
       provider: "dev",
       oidcSubject: "notif_member",
       email: "notif-member@dev.local",
-      preferredUsername: "notif-member",
+      displayName: "notif-member",
       avatarUrl: null
     });
     const memberCookie = createAuthCookie(memberIdentity.productUserId);

@@ -68,7 +68,7 @@ export function SpaceOwnershipTransfer({ serverId }: SpaceOwnershipTransferProps
             <div style={{ padding: '1rem', background: 'var(--bg-surface-hover)', borderRadius: '6px', border: '1px solid var(--border)', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
                 <div>
                     <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Current Owner: </span>
-                    <strong style={{ fontSize: '1.1rem' }}>{currentOwner ? (currentOwner.displayName || currentOwner.preferredUsername) : server?.ownerUserId}</strong>
+                    <strong style={{ fontSize: '1.1rem' }}>{currentOwner ? (currentOwner.displayName || currentOwner.oidcDisplayName) : server?.ownerUserId}</strong>
                 </div>
             </div>
 
@@ -97,7 +97,7 @@ export function SpaceOwnershipTransfer({ serverId }: SpaceOwnershipTransferProps
                 ) : (
                     <div className="confirm-box" style={{ padding: '1rem', background: 'var(--bg-surface)', border: '1px solid var(--danger, #ff4d4f)', borderRadius: '6px', marginTop: '1rem' }}>
                         <p style={{ margin: '0 0 1rem 0', fontWeight: 'bold', color: 'var(--danger, #ff4d4f)' }}>Are you absolutely sure?</p>
-                        <p style={{ margin: '0 0 1rem 0', fontSize: '0.9rem' }}>This action cannot be undone. You are transferring full ownership to <strong>{selectedUser.displayName || selectedUser.preferredUsername}</strong>.</p>
+                        <p style={{ margin: '0 0 1rem 0', fontSize: '0.9rem' }}>This action cannot be undone. You are transferring full ownership to <strong>{selectedUser.displayName || selectedUser.oidcDisplayName}</strong>.</p>
                         <div style={{ display: 'flex', gap: '1rem' }}>
                             <button
                                 className="danger-button"

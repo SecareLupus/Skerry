@@ -31,7 +31,7 @@ export function useChatMessaging({
       id: tempId,
       channelId: selectedChannelId,
       authorUserId: state.viewer.productUserId,
-      authorDisplayName: state.viewer.identity?.preferredUsername ?? "You",
+      authorDisplayName: state.viewer.identity?.displayName ?? "You",
       content,
       attachments,
       createdAt: new Date().toISOString(),

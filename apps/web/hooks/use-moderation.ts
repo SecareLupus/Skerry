@@ -21,9 +21,9 @@ export function useModeration(setUrlSelection: (serverId: string | null, channel
     blockedUserIds
   } = state;
 
-  const [userContextMenu, setUserContextMenu] = useState<{ x: number; y: number; userId: string; displayName: string } | null>(null);
+  const [userContextMenu, setUserContextMenu] = useState<{ x: number; y: number; userId: string; displayName: string | null } | null>(null);
 
-  const handleUserContextMenu = useCallback((event: React.MouseEvent, member: { id: string, displayName: string }) => {
+  const handleUserContextMenu = useCallback((event: React.MouseEvent, member: { id: string, displayName: string | null }) => {
     event.preventDefault();
     setUserContextMenu({ x: event.clientX, y: event.clientY, userId: member.id, displayName: member.displayName });
   }, []);

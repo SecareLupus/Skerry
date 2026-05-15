@@ -38,7 +38,7 @@ test("API Snapshot: Core Domain Endpoints", async (t) => {
       provider: "dev",
       oidcSubject: "api_admin",
       email: "api-admin@dev.local",
-      preferredUsername: "api-admin",
+      displayName: "api-admin",
       avatarUrl: null
     });
     const adminCookie = createAuthCookie({

@@ -82,7 +82,7 @@ export default function SettingsLayout({
         <div className="topbar-meta">
           {viewer && (
             <span className="status-indicator">
-              {viewer.identity?.preferredUsername || viewer.identity?.email}
+              {viewer.identity?.displayName || viewer.identity?.email}
             </span>
           )}
         </div>

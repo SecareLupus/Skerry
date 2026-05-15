@@ -49,7 +49,7 @@ test("hub invite with defaultRole + defaultServerId applies role binding and ser
       provider: "dev",
       oidcSubject: "invite_default_joiner",
       email: "invite-default-joiner@dev.local",
-      preferredUsername: "invite-default-joiner",
+      displayName: "invite-default-joiner",
       avatarUrl: null
     });
     const newUserCookie = createAuthCookie({
@@ -143,7 +143,7 @@ test("hub invite can be created, looked up, and used to join by a new member", a
       provider: "dev",
       oidcSubject: "invite_joiner",
       email: "invite-joiner@dev.local",
-      preferredUsername: "invite-joiner",
+      displayName: "invite-joiner",
       avatarUrl: null
     });
     const newUserCookie = createAuthCookie({
@@ -188,7 +188,7 @@ test("hub invite list excludes revoked invites; revoke 404s the public lookup bu
       provider: "dev",
       oidcSubject: "redeem_then_revoke",
       email: "redeem-then-revoke@dev.local",
-      preferredUsername: "redeem-then-revoke",
+      displayName: "redeem-then-revoke",
       avatarUrl: null
     });
     const redeemerCookie = createAuthCookie({
@@ -243,7 +243,7 @@ test("hub invite list excludes revoked invites; revoke 404s the public lookup bu
       provider: "dev",
       oidcSubject: "late_redeemer",
       email: "late-redeemer@dev.local",
-      preferredUsername: "late-redeemer",
+      displayName: "late-redeemer",
       avatarUrl: null
     });
     const lateCookie = createAuthCookie({
@@ -297,7 +297,7 @@ test("redeeming the same invite twice is idempotent (one role binding, one audit
       provider: "dev",
       oidcSubject: "double_redeemer",
       email: "double-redeemer@dev.local",
-      preferredUsername: "double-redeemer",
+      displayName: "double-redeemer",
       avatarUrl: null
     });
     const cookie = createAuthCookie({
@@ -377,7 +377,7 @@ test("hub invite with default badges grants user_badges on redemption", async (t
       provider: "dev",
       oidcSubject: "badge_redeemer",
       email: "badge-redeemer@dev.local",
-      preferredUsername: "badge-redeemer",
+      displayName: "badge-redeemer",
       avatarUrl: null
     });
     const cookie = createAuthCookie({

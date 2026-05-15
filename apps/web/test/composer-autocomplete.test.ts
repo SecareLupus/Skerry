@@ -8,8 +8,8 @@ import type { ChatMember } from "../context/chat-context";
 function makeMember(p: Partial<ChatMember>): ChatMember {
   return {
     productUserId: "usr_a",
-    displayName: "Alice",
-    preferredUsername: "alice",
+    displayName: "alice",
+    oidcDisplayName: "Alice",
     isOnline: true,
     ...p
   };
@@ -86,9 +86,9 @@ test("shortcodeToGlyph: unknown name returns null", () => {
 
 test("mentionItems: ranks exact > prefix > substring", () => {
   const members = [
-    makeMember({ productUserId: "u1", displayName: "Talia", preferredUsername: "tal" }), // substring "ali" in "Talia"
-    makeMember({ productUserId: "u2", displayName: "Charlie", preferredUsername: "alistair" }), // prefix "alistair"
-    makeMember({ productUserId: "u3", displayName: "Alice", preferredUsername: "ali" }) // exact handle match
+    makeMember({ productUserId: "u1", displayName: "Talia", oidcDisplayName: "tal" }), // substring "ali" in "Talia"
+    makeMember({ productUserId: "u2", displayName: "Charlie", oidcDisplayName: "alistair" }), // prefix "alistair"
+    makeMember({ productUserId: "u3", displayName: "Alice", oidcDisplayName: "ali" }) // exact handle match
   ];
   const items = mentionItems("ali", members);
   assert.equal(items[0]!.key, "u3"); // exact
@@ -96,9 +96,9 @@ test("mentionItems: ranks exact > prefix > substring", () => {
   assert.equal(items[2]!.key, "u1"); // substring
 });
 
-test("mentionItems: bridged users without preferredUsername are disabled", () => {
+test("mentionItems: bridged users without displayName are disabled", () => {
   const members = [
-    makeMember({ productUserId: "discord_1", displayName: "Bridged Bob", preferredUsername: null, isBridged: true })
+    makeMember({ productUserId: "discord_1", displayName: null, oidcDisplayName: "Bridged Bob", isBridged: true })
   ];
   const items = mentionItems("bo", members);
   assert.equal(items.length, 1);
@@ -107,7 +107,7 @@ test("mentionItems: bridged users without preferredUsername are disabled", () =>
 });
 
 test("mentionItems: mentionable user inserts '@handle ' with trailing space", () => {
-  const members = [makeMember({ productUserId: "u1", displayName: "Alice", preferredUsername: "alice" })];
+  const members = [makeMember({ productUserId: "u1", displayName: "alice", oidcDisplayName: "Alice" })];
   const items = mentionItems("ali", members);
   assert.equal(items[0]!.insertText, "@alice ");
 });

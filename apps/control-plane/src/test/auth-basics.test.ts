@@ -95,7 +95,7 @@ test("authenticated bootstrap + provisioning context + permission gate flow", as
       provider: "dev",
       oidcSubject: "it_admin",
       email: "it-admin@dev.local",
-      preferredUsername: "it-admin",
+      displayName: "it-admin",
       avatarUrl: null
     });
     const adminCookie = createAuthCookie({
@@ -151,7 +151,7 @@ test("authenticated bootstrap + provisioning context + permission gate flow", as
       provider: "dev",
       oidcSubject: "it_member",
       email: "it-user@dev.local",
-      preferredUsername: "it-user",
+      displayName: "it-user",
       avatarUrl: null
     });
     const memberCookie = createAuthCookie({
@@ -228,14 +228,14 @@ test("session includes linked identities for same product user", async (t) => {
       provider: "dev",
       oidcSubject: "linked_primary",
       email: "linked@example.test",
-      preferredUsername: "linkeduser",
+      displayName: "linkeduser",
       avatarUrl: null
     });
     await upsertIdentityMapping({
       provider: "google",
       oidcSubject: "google_sub_1",
       email: "linked@example.test",
-      preferredUsername: null,
+      displayName: null,
       avatarUrl: null,
       productUserId: primary.productUserId
     });
@@ -273,21 +273,21 @@ test("onboarding username assignment updates linked identities and enforces uniq
       provider: "dev",
       oidcSubject: "existing_user",
       email: "existing@example.test",
-      preferredUsername: "taken_name",
+      displayName: "taken_name",
       avatarUrl: null
     });
     const onboardingUser = await upsertIdentityMapping({
       provider: "discord",
       oidcSubject: "discord_pending",
       email: "pending@example.test",
-      preferredUsername: null,
+      displayName: null,
       avatarUrl: null
     });
     await upsertIdentityMapping({
       provider: "twitch",
       oidcSubject: "twitch_pending",
       email: "pending@example.test",
-      preferredUsername: null,
+      displayName: null,
       avatarUrl: null,
       productUserId: onboardingUser.productUserId
     });
@@ -323,8 +323,8 @@ test("onboarding username assignment updates linked identities and enforces uniq
       provider: "twitch",
       oidcSubject: "twitch_pending"
     });
-    assert.equal(discordIdentity?.preferredUsername, "fresh_name");
-    assert.equal(twitchIdentity?.preferredUsername, "fresh_name");
+    assert.equal(discordIdentity?.displayName, "fresh_name");
+    assert.equal(twitchIdentity?.displayName, "fresh_name");
 
     const sessionResponse = await app.inject({
       method: "GET",

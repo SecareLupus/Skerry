@@ -101,7 +101,7 @@ export function ProfileModal() {
                                 <img src={avatarUrl} alt={displayName} className="profile-avatar" />
                             ) : (
                                 <div className="avatar-placeholder">
-                                    {(displayName || targetUser?.preferredUsername || viewer?.identity?.preferredUsername || "U").charAt(0).toUpperCase()}
+                                    {(displayName || targetUser?.displayName || viewer?.identity?.displayName || "U").charAt(0).toUpperCase()}
                                 </div>
                             )}
                         </div>
@@ -120,7 +120,7 @@ export function ProfileModal() {
                                 </span>
                             )}
                         </div>
-                        <p className="username">@{isOwnProfile ? viewer?.identity?.preferredUsername : targetUser?.preferredUsername}</p>
+                        <p className="username">@{isOwnProfile ? viewer?.identity?.displayName : targetUser?.displayName}</p>
                     </div>
 
                     {isEditing ? (

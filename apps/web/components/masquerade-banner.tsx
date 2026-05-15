@@ -44,7 +44,7 @@ export function MasqueradeBanner() {
                         </>
                     ) : (
                         <>
-                            {" "}viewing as <span className="masquerade-target"> {viewer.identity?.displayName || viewer.identity?.preferredUsername || viewer.productUserId}</span>
+                            {" "}viewing as <span className="masquerade-target"> {viewer.identity?.displayName || viewer.identity?.oidcDisplayName || viewer.productUserId}</span>
                         </>
                     )}
                     <span className="masquerade-note"> (Read-only mode)</span>

@@ -39,7 +39,7 @@ test("federation + discord bridge + video controls admin workflow", async (t) =>
       provider: "dev",
       oidcSubject: "phase79_admin",
       email: "phase79-admin@dev.local",
-      preferredUsername: "phase79-admin",
+      displayName: "phase79-admin",
       avatarUrl: null
     });
     const adminCookie = createAuthCookie({

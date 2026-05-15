@@ -30,14 +30,14 @@ test("identity service lifecycle", async (t) => {
     provider: "dev",
     oidcSubject: "sub1",
     email: "test@dev.local",
-    preferredUsername: "testuser",
+    displayName: "testuser",
     avatarUrl: null
   });
 
   assert.ok(identity1.productUserId);
   assert.equal(identity1.provider, "dev");
   assert.equal(identity1.oidcSubject, "sub1");
-  assert.equal(identity1.preferredUsername, "testuser");
+  assert.equal(identity1.displayName, "testuser");
 
   // 2. Fetch by product user id
   const fetched1 = await getIdentityByProductUserId(identity1.productUserId);
@@ -58,13 +58,13 @@ test("identity service lifecycle", async (t) => {
   // 5. Update username
   await setPreferredUsernameForProductUser({
     productUserId: identity1.productUserId,
-    preferredUsername: "newname"
+    displayName: "newname"
   });
 
   const updated1 = await getIdentityByProductUserId(identity1.productUserId);
-  assert.equal(updated1?.preferredUsername, "newname");
+  assert.equal(updated1?.displayName, "newname");
 
-  // 6. Onboarding is complete because preferredUsername is set
+  // 6. Onboarding is complete because displayName is set
   const onbComplete = await isOnboardingComplete(identity1.productUserId);
   assert.equal(onbComplete, true);
 
@@ -78,7 +78,7 @@ test("identity service lifecycle", async (t) => {
     provider: "dev",
     oidcSubject: "sub2",
     email: "something@example.com",
-    preferredUsername: "something",
+    displayName: "something",
     avatarUrl: null
   });
 

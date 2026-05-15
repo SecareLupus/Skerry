@@ -37,7 +37,7 @@ export function UserSelect({ value, onChange, placeholder = "Search users...", s
             <input
                 type="text"
                 placeholder={placeholder}
-                value={value ? value.displayName || value.preferredUsername || "" : searchQuery}
+                value={value ? value.displayName || value.oidcDisplayName || "" : searchQuery}
                 onChange={(e) => {
                     setSearchQuery(e.target.value);
                     onChange(null);
@@ -63,12 +63,12 @@ export function UserSelect({ value, onChange, placeholder = "Search users...", s
                                 <img src={user.avatarUrl} alt="" style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover' }} />
                             ) : (
                                 <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: 'white' }}>
-                                    {(user.displayName || user.preferredUsername || "?").charAt(0).toUpperCase()}
+                                    {(user.displayName || user.oidcDisplayName || "?").charAt(0).toUpperCase()}
                                 </div>
                             )}
                             <div>
-                                <div style={{ fontWeight: 600 }}>{user.displayName || user.preferredUsername}</div>
-                                {user.displayName && <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>@{user.preferredUsername}</div>}
+                                <div style={{ fontWeight: 600 }}>{user.displayName || user.oidcDisplayName}</div>
+                                {user.displayName && <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>@{user.displayName}</div>}
                             </div>
                         </div>
                     ))}

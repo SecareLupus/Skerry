@@ -35,7 +35,7 @@ export async function bootstrap(
     provider: "dev",
     oidcSubject: `${prefix}_admin`,
     email: `${prefix}-admin@dev.local`,
-    preferredUsername: `${prefix}-admin`,
+    displayName: `${prefix}-admin`,
     avatarUrl: null,
   });
   const adminCookie = createAuthCookie({
@@ -92,7 +92,7 @@ export async function bootstrapWithMember(
     provider: "dev",
     oidcSubject: `${prefix}_member`,
     email: `${prefix}-member@dev.local`,
-    preferredUsername: `${prefix}-member`,
+    displayName: `${prefix}-member`,
     avatarUrl: null,
   });
   const memberCookie = createAuthCookie({

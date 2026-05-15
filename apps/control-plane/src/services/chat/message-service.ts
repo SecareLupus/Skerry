@@ -70,10 +70,10 @@ export async function listMessages(input: {
       const reactionsResult = await db.query<ReactionRow>(
         `select mr.message_id, mr.emoji, mr.user_id, 
            coalesce(
-             (select coalesce(display_name, preferred_username) 
+             (select coalesce(display_name, oidc_display_name) 
               from identity_mappings 
               where product_user_id = mr.user_id 
-              order by (display_name is not null or preferred_username is not null) desc, updated_at desc, created_at asc 
+              order by (display_name is not null or oidc_display_name is not null) desc, updated_at desc, created_at asc 
               limit 1),
              'user-' || substr(mr.user_id, 1, 8)
            ) as display_name
@@ -115,10 +115,10 @@ export async function getMessageWithMetadata(messageId: string, viewerUserId?: s
     const reactionsResult = await db.query<ReactionRow>(
       `select mr.message_id, mr.emoji, mr.user_id, 
          coalesce(
-           (select coalesce(display_name, preferred_username) 
+           (select coalesce(display_name, oidc_display_name) 
             from identity_mappings 
             where product_user_id = mr.user_id 
-            order by (display_name is not null or preferred_username is not null) desc, updated_at desc, created_at asc 
+            order by (display_name is not null or oidc_display_name is not null) desc, updated_at desc, created_at asc 
             limit 1),
            'user-' || substr(mr.user_id, 1, 8)
          ) as display_name
@@ -236,10 +236,10 @@ export async function fetchMessage(channelId: string, messageId: string, viewerU
     const reactionsResult = await db.query<ReactionRow>(
       `select mr.message_id, mr.emoji, mr.user_id, 
          coalesce(
-           (select preferred_username 
+           (select display_name 
             from identity_mappings 
             where product_user_id = mr.user_id 
-            order by (preferred_username is not null) desc, updated_at desc, created_at asc 
+            order by (display_name is not null) desc, updated_at desc, created_at asc 
             limit 1),
            'user-' || substr(mr.user_id, 1, 8)
          ) as display_name
@@ -268,18 +268,18 @@ export async function createMessage(input: {
   externalMessageId?: string;
 }): Promise<ChatMessage> {
   return withDb(async (db) => {
-    const identityResult = await db.query<{ preferred_username: string | null; email: string | null; avatar_url: string | null }>(
-      `select preferred_username, email, avatar_url
+    const identityResult = await db.query<{ display_name: string | null; email: string | null; avatar_url: string | null }>(
+      `select display_name, email, avatar_url
        from identity_mappings
        where product_user_id = $1
-       order by (preferred_username is not null) desc, updated_at desc, created_at asc
+       order by (display_name is not null) desc, updated_at desc, created_at asc
        limit 1`,
       [input.actorUserId]
     );
 
     const profile = identityResult.rows[0];
     const fallbackName = profile?.email?.split("@")[0] ?? `user-${input.actorUserId.slice(0, 8)}`;
-    const authorDisplayName = profile?.preferred_username ?? fallbackName;
+    const authorDisplayName = profile?.display_name ?? fallbackName;
     const avatarUrl = profile?.avatar_url ?? undefined;
 
     // 1. Resolve Server ID for shortcode enrichment
@@ -378,7 +378,7 @@ export async function createMessage(input: {
     const mentionHandles = [...new Set((input.content.match(/@([a-zA-Z0-9._-]{3,40})/g) ?? []).map((token) => token.slice(1).toLowerCase()))];
     if (mentionHandles.length > 0) {
       const mentionRows = await db.query<{ product_user_id: string, email: string | null }>(
-        `select distinct product_user_id, email from identity_mappings where lower(preferred_username) = any($1::text[])`,
+        `select distinct product_user_id, email from identity_mappings where lower(display_name) = any($1::text[])`,
         [mentionHandles]
       );
       const mentionedUserIds = mentionRows.rows.map(r => r.product_user_id).filter(id => id && id !== input.actorUserId);

@@ -651,8 +651,8 @@ export interface FollowedAnnouncement {
 
 export interface ChannelMemberFull {
     productUserId: string;
-    displayName: string;
-    preferredUsername: string | null;
+    oidcDisplayName: string | null;
+    displayName: string | null;
     avatarUrl?: string;
     isOnline: boolean;
     lastSeenAt?: string;

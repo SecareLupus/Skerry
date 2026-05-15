@@ -12,9 +12,9 @@ export interface IdentityRow {
   provider: IdentityMapping["provider"];
   oidc_subject: string;
   email: string | null;
-  preferred_username: string | null;
-  avatar_url: string | null;
   display_name: string | null;
+  avatar_url: string | null;
+  oidc_display_name: string | null;
   bio: string | null;
   custom_status: string | null;
   matrix_user_id: string | null;
@@ -34,9 +34,9 @@ export function mapRow(result: IdentityRow): IdentityMapping {
     provider: result.provider,
     oidcSubject: result.oidc_subject,
     email: result.email,
-    preferredUsername: result.preferred_username,
-    avatarUrl: result.avatar_url,
     displayName: result.display_name,
+    avatarUrl: result.avatar_url,
+    oidcDisplayName: result.oidc_display_name,
     bio: result.bio,
     customStatus: result.custom_status,
     matrixUserId: result.matrix_user_id,
@@ -60,13 +60,13 @@ export async function syncMatrixUser(identity: IdentityMapping): Promise<void> {
   try {
     await registerUser({
       userId: identity.matrixUserId,
-      displayName: identity.preferredUsername || identity.displayName || undefined
+      displayName: identity.displayName || identity.oidcDisplayName || undefined
     });
 
-    if (identity.preferredUsername || identity.displayName) {
+    if (identity.displayName || identity.oidcDisplayName) {
       await setUserDisplayName(
         identity.matrixUserId,
-        identity.preferredUsername || identity.displayName || ""
+        identity.displayName || identity.oidcDisplayName || ""
       );
     }
   } catch (error) {
@@ -78,8 +78,8 @@ export async function upsertIdentityMapping(input: {
   provider: IdentityMapping["provider"];
   oidcSubject: string;
   email: string | null;
-  preferredUsername: string | null;
-  displayName?: string | null;
+  displayName: string | null;
+  oidcDisplayName?: string | null;
   avatarUrl: string | null;
   productUserId?: string;
   accessToken?: string | null;
@@ -90,26 +90,26 @@ export async function upsertIdentityMapping(input: {
   const matrixUserId = `@${productUserId}:${config.synapse.serverName}`;
 
   const identity = await withDb(async (db) => {
-    let finalPreferredUsername = input.preferredUsername;
-    let displayName: string | null = input.displayName ?? null;
+    let finalDisplayName = input.displayName;
+    let oidcDisplayName: string | null = input.oidcDisplayName ?? null;
     let bio = null;
     let customStatus = null;
     let theme = "dark"; // Default to dark if not found
 
     if (input.productUserId) {
       const existing = await db.query<IdentityRow>(
-        `select preferred_username, display_name, bio, custom_status, theme
+        `select display_name, oidc_display_name, bio, custom_status, theme
          from identity_mappings
          where product_user_id = $1
-         order by (preferred_username is not null) desc, updated_at desc
+         order by (display_name is not null) desc, updated_at desc
          limit 1`,
         [input.productUserId]
       );
       if (existing.rows[0]) {
         const row = existing.rows[0];
         // Inherit existing values if they are more "complete" than what the new provider gives
-        finalPreferredUsername = row.preferred_username || input.preferredUsername;
-        displayName = row.display_name ?? displayName;
+        finalDisplayName = row.display_name || input.displayName;
+        oidcDisplayName = row.oidc_display_name ?? oidcDisplayName;
         bio = row.bio;
         customStatus = row.custom_status;
         theme = row.theme || "dark";
@@ -118,17 +118,17 @@ export async function upsertIdentityMapping(input: {
 
     const row = await db.query<IdentityRow>(
       `insert into identity_mappings
-       (id, provider, oidc_subject, email, preferred_username, avatar_url, matrix_user_id, product_user_id, access_token, refresh_token, token_expires_at, display_name, bio, custom_status, theme)
+       (id, provider, oidc_subject, email, display_name, avatar_url, matrix_user_id, product_user_id, access_token, refresh_token, token_expires_at, oidc_display_name, bio, custom_status, theme)
        values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
        on conflict (provider, oidc_subject)
        do update set
          email = excluded.email,
-         preferred_username = coalesce(identity_mappings.preferred_username, excluded.preferred_username),
+         display_name = coalesce(identity_mappings.display_name, excluded.display_name),
          avatar_url = excluded.avatar_url,
          access_token = excluded.access_token,
          refresh_token = excluded.refresh_token,
          token_expires_at = excluded.token_expires_at,
-         display_name = coalesce(identity_mappings.display_name, excluded.display_name),
+         oidc_display_name = coalesce(identity_mappings.oidc_display_name, excluded.oidc_display_name),
          bio = coalesce(identity_mappings.bio, excluded.bio),
          custom_status = coalesce(identity_mappings.custom_status, excluded.custom_status),
          theme = coalesce(identity_mappings.theme, excluded.theme),
@@ -139,14 +139,14 @@ export async function upsertIdentityMapping(input: {
         input.provider,
         input.oidcSubject,
         input.email,
-        finalPreferredUsername,
+        finalDisplayName,
         input.avatarUrl,
         matrixUserId,
         productUserId,
         input.accessToken ?? null,
         input.refreshToken ?? null,
         input.tokenExpiresAt ?? null,
-        displayName,
+        oidcDisplayName,
         bio,
         customStatus,
         theme
@@ -171,7 +171,7 @@ export async function getIdentityByProductUserId(productUserId: string): Promise
       `select *
        from identity_mappings
        where product_user_id = $1
-       order by (preferred_username is not null) desc, updated_at desc, created_at asc
+       order by (display_name is not null) desc, updated_at desc, created_at asc
        limit 1`,
       [productUserId]
     );
@@ -210,14 +210,14 @@ export async function listIdentitiesByProductUserId(productUserId: string): Prom
 
 export async function setPreferredUsernameForProductUser(input: {
   productUserId: string;
-  preferredUsername: string;
+  displayName: string;
 }): Promise<void> {
   await withDb(async (db) => {
     const result = await db.query(
       `update identity_mappings
-       set preferred_username = $2, updated_at = now()
+       set display_name = $2, updated_at = now()
        where product_user_id = $1`,
-      [input.productUserId, input.preferredUsername]
+      [input.productUserId, input.displayName]
     );
     if ((result.rowCount ?? 0) < 1) {
       throw new Error("No identities found for user.");
@@ -232,8 +232,8 @@ export async function isOnboardingComplete(productUserId: string): Promise<boole
          select 1
          from identity_mappings
          where product_user_id = $1
-           and preferred_username is not null
-           and length(trim(preferred_username)) > 0
+           and display_name is not null
+           and length(trim(display_name)) > 0
        ) as complete`,
       [productUserId]
     );
@@ -261,7 +261,7 @@ export async function findUniqueProductUserIdByEmail(email: string): Promise<str
 }
 
 export async function isPreferredUsernameTaken(input: {
-  preferredUsername: string;
+  displayName: string;
   excludingProductUserId?: string;
 }): Promise<boolean> {
   return withDb(async (db) => {
@@ -269,11 +269,11 @@ export async function isPreferredUsernameTaken(input: {
       `select exists(
          select 1
          from identity_mappings
-         where preferred_username is not null
-           and lower(preferred_username) = lower($1)
+         where display_name is not null
+           and lower(display_name) = lower($1)
            and ($2::text is null or product_user_id <> $2)
        ) as taken`,
-      [input.preferredUsername, input.excludingProductUserId ?? null]
+      [input.displayName, input.excludingProductUserId ?? null]
     );
     return Boolean(row.rows[0]?.taken);
   });
@@ -288,9 +288,9 @@ export async function searchIdentities(
     const rows = await db.query<IdentityRow>(
       `select distinct on (product_user_id) *
        from identity_mappings
-       where (lower(preferred_username) like $1 or lower(email) like $1)
+       where (lower(display_name) like $1 or lower(email) like $1)
          and ($2::text is null or product_user_id <> $2)
-       order by product_user_id, (preferred_username is not null) desc, updated_at desc
+       order by product_user_id, (display_name is not null) desc, updated_at desc
        limit 10`,
       [normalizedQuery, options.excludingProductUserId ?? null]
     );
@@ -348,7 +348,7 @@ async function doEnsureIdentityTokenValid(productUserId: string): Promise<void> 
         provider: identity.provider,
         oidcSubject: identity.oidcSubject,
         email: identity.email,
-        preferredUsername: identity.preferredUsername,
+        displayName: identity.displayName,
         avatarUrl: identity.avatarUrl,
         productUserId: identity.productUserId,
         accessToken: refreshed.accessToken,
@@ -372,7 +372,7 @@ export async function updateUserProfile(productUserId: string, input: {
     await db.query(
       `update identity_mappings
        set 
-         display_name = case when $2::text is not null or $6::boolean then $2::text else display_name end,
+         oidc_display_name = case when $2::text is not null or $6::boolean then $2::text else oidc_display_name end,
          bio = case when $3::text is not null or $7::boolean then $3::text else bio end,
          custom_status = case when $4::text is not null or $8::boolean then $4::text else custom_status end,
          avatar_url = case when $5::text is not null or $9::boolean then $5::text else avatar_url end,
@@ -451,7 +451,7 @@ export async function listHubMembers(hubId: string): Promise<IdentityMapping[]> 
        left join hubs h on h.id = $1 and h.owner_user_id = im.product_user_id
        where (hm.hub_id is not null or s.id is not null or rb.hub_id is not null or h.id is not null or im.provider != 'discordbridge')
          and (im.matrix_user_id is null or im.matrix_user_id not like '@discord_%')
-       order by im.product_user_id, im.preferred_username is not null desc, im.updated_at desc`,
+       order by im.product_user_id, im.display_name is not null desc, im.updated_at desc`,
       [hubId]
     );
     return rows.rows.map(mapRow);
