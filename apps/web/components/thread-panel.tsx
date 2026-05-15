@@ -13,30 +13,11 @@ import type { EmojiClickData } from "emoji-picker-react";
 import { useToast } from "./toast-provider";
 import { ContextMenu, ContextMenuItem } from "./context-menu";
 import Icon from "./icon";
-import { CodeBlock } from "./code-block";
 
 export function ThreadPanel() {
     const { state, dispatch } = useChat();
     const { threadParentId, selectedChannelId, viewer, theme, selectedServerId } = state;
     const { showToast } = useToast();
-
-    const markdownComponents = useMemo(() => ({
-        pre: ({ children }: { children: React.ReactNode }) => {
-            const child = React.Children.only(children) as
-                | React.ReactElement<{ children?: React.ReactNode; className?: string }>
-                | undefined;
-            if (child && typeof child.type === "string" && child.type === "code") {
-                const codeText =
-                    typeof child.props.children === "string"
-                        ? child.props.children
-                        : "";
-                const langMatch = child.props.className?.match(/language-(\S+)/);
-                const language = langMatch ? langMatch[1] : undefined;
-                return <CodeBlock code={codeText} language={language} />;
-            }
-            return <pre>{children}</pre>;
-        },
-    } as any), []);
 
     const [parentMessage, setParentMessage] = useState<MessageItem | null>(null);
     const [replies, setReplies] = useState<MessageItem[]>([]);
@@ -48,7 +29,7 @@ export function ThreadPanel() {
     const scrollRef = useRef<HTMLDivElement>(null);
 
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, message: MessageItem } | null>(null);
-    const [userContextMenu, setUserContextMenu] = useState<{ x: number, y: number, userId: string, displayName: string | null } | null>(null);
+    const [userContextMenu, setUserContextMenu] = useState<{ x: number, y: number, userId: string, displayName: string } | null>(null);
 
     const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
     const [editContent, setEditContent] = useState("");
@@ -235,7 +216,7 @@ export function ThreadPanel() {
         setContextMenu({ x: event.clientX, y: event.clientY, message });
     };
 
-    const handleUserContextMenu = (event: React.MouseEvent, userId: string, displayName: string | null) => {
+    const handleUserContextMenu = (event: React.MouseEvent, userId: string, displayName: string) => {
         event.preventDefault();
         event.stopPropagation();
         setUserContextMenu({ x: event.clientX, y: event.clientY, userId, displayName });
@@ -556,7 +537,7 @@ export function ThreadPanel() {
                                 </div>
                             ) : (
                                 <p className="message-content">
-                                    <ReactMarkdown components={markdownComponents}>{parentMessage.content}</ReactMarkdown>
+                                    <ReactMarkdown>{parentMessage.content}</ReactMarkdown>
                                 </p>
                             )}
                             {parentMessage.isPinned && (
