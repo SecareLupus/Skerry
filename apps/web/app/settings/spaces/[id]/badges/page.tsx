@@ -202,7 +202,7 @@ function BadgeItem({ badge, members, onDelete }: { badge: any, members: any[], o
                                 borderRadius: '12px',
                                 fontSize: '0.8rem'
                             }}>
-                                <span>{user.displayName || user.preferredUsername}</span>
+                                <span>{user.displayName || user.oidcDisplayName}</span>
                                 <button 
                                     onClick={() => handleRevoke(user.productUserId)}
                                     style={{ 

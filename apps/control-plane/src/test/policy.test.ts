@@ -426,7 +426,7 @@ test("Issue #34: onboarding accepts display names with spaces", async (t) => {
       provider: "dev",
       oidcSubject: "issue34_newcomer",
       email: "issue34-newcomer@dev.local",
-      preferredUsername: null,
+      displayName: null,
       avatarUrl: null
     });
     const cookie = createAuthCookie({
@@ -443,11 +443,11 @@ test("Issue #34: onboarding accepts display names with spaces", async (t) => {
     });
     assert.equal(okRes.statusCode, 204, `Expected 204 but got ${okRes.statusCode}: ${okRes.body}`);
 
-    const stored = await pool.query<{ preferred_username: string | null }>(
-      "select preferred_username from identity_mappings where product_user_id = $1 limit 1",
+    const stored = await pool.query<{ display_name: string | null }>(
+      "select display_name from identity_mappings where product_user_id = $1 limit 1",
       [newUser.productUserId]
     );
-    assert.equal(stored.rows[0]?.preferred_username, "Alice Smith");
+    assert.equal(stored.rows[0]?.display_name, "Alice Smith");
   } finally {
     await app.close();
   }
@@ -471,7 +471,7 @@ test("Issue #34: onboarding rejects whitespace-only display names", async (t) =>
       provider: "dev",
       oidcSubject: "issue34b_newcomer",
       email: "issue34b-newcomer@dev.local",
-      preferredUsername: null,
+      displayName: null,
       avatarUrl: null
     });
     const cookie = createAuthCookie({

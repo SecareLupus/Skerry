@@ -291,7 +291,7 @@ export function ChatWindow({
     const presence = useUserPresence(authorIds);
 
     const [contextMenu, setContextMenu] = useState<{ x: number; y: number; message: MessageItem | null } | null>(null);
-    const [userContextMenu, setUserContextMenu] = useState<{ x: number; y: number; userId: string; displayName: string } | null>(null);
+    const [userContextMenu, setUserContextMenu] = useState<{ x: number; y: number; userId: string; displayName: string | null } | null>(null);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     const [composerCursor, setComposerCursor] = useState(0);
     const pendingCursorRef = useRef<number | null>(null);
@@ -831,7 +831,7 @@ export function ChatWindow({
     }, [userContextMenu, viewer, allowedActions, selectedServerId, dispatch, showToast]);
 
 
-    const handleUserContextMenu = (event: React.MouseEvent, userId: string, displayName: string) => {
+    const handleUserContextMenu = (event: React.MouseEvent, userId: string, displayName: string | null) => {
         event.preventDefault();
         event.stopPropagation();
         setUserContextMenu({ x: event.clientX, y: event.clientY, userId, displayName });
@@ -1705,7 +1705,7 @@ export function ChatWindow({
                                 {userSearchResults.length > 0 ? (
                                     userSearchResults.map((user) => (
                                         <div key={user.productUserId} style={{ padding: "0.5rem", borderBottom: "1px solid var(--border-color)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                                            <span>{user.preferredUsername}</span>
+                                            <span>{user.displayName}</span>
                                             <button className="inline-action" onClick={() => handleInviteUser(user.productUserId)}>Invite</button>
                                         </div>
                                     ))

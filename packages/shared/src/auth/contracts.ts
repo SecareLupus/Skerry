@@ -5,10 +5,10 @@ export interface IdentityMapping {
   provider: IdentityProvider;
   oidcSubject: string;
   email: string | null;
-  preferredUsername: string | null;
+  displayName: string | null;
   avatarUrl: string | null;
   matrixUserId: string | null;
-  displayName: string | null;
+  oidcDisplayName: string | null;
   bio: string | null;
   customStatus: string | null;
   productUserId: string;
@@ -34,7 +34,7 @@ export interface AuthenticatedViewer {
   productUserId: string;
   identity: Pick<
     IdentityMapping,
-    "provider" | "oidcSubject" | "email" | "preferredUsername" | "avatarUrl" | "matrixUserId" | "displayName" | "bio" | "customStatus" | "isBridged" | "bannerUrl"
+    "provider" | "oidcSubject" | "email" | "displayName" | "avatarUrl" | "matrixUserId" | "oidcDisplayName" | "bio" | "customStatus" | "isBridged" | "bannerUrl"
   >;
 }
 

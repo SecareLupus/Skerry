@@ -415,7 +415,7 @@ test("report rate limiting prevents spam", async (t) => {
     const reporterRes = await app.inject({
       method: "POST",
       url: "/auth/dev-login",
-      payload: { email: "spammer@dev.local", preferredUsername: "spammer" }
+      payload: { email: "spammer@dev.local", displayName: "spammer" }
     });
     const spammerCookie = reporterRes.headers["set-cookie"] as string;
 
@@ -456,7 +456,7 @@ test("bulk moderation performs multiple actions and returns mixed results", asyn
         provider: "dev",
         oidcSubject: `bulk_user_${i}_${Date.now()}`,
         email: `bulk${i}@dev.local`,
-        preferredUsername: `bulkuser${i}`,
+        displayName: `bulkuser${i}`,
         avatarUrl: null
       });
       users.push(identity.productUserId);

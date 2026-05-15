@@ -45,7 +45,7 @@ export async function registerUserRoutes(app: FastifyInstance): Promise<void> {
             productUserId: params.userId,
             provider: "discord",
             displayName: discordProfile.displayName,
-            preferredUsername: discordProfile.username,
+            oidcDisplayName: discordProfile.username,
             avatarUrl: discordProfile.avatarUrl,
             isBridged: true
           };

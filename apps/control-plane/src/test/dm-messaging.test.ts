@@ -26,7 +26,7 @@ test("DM channel is created and both participants can exchange messages", async 
       provider: "dev",
       oidcSubject: "dm_admin",
       email: "dm-admin@dev.local",
-      preferredUsername: "dm-admin",
+      displayName: "dm-admin",
       avatarUrl: null
     });
     const adminCookie = createAuthCookie({
@@ -56,7 +56,7 @@ test("DM channel is created and both participants can exchange messages", async 
       provider: "dev",
       oidcSubject: "dm_other",
       email: "dm-other@dev.local",
-      preferredUsername: "dm-other",
+      displayName: "dm-other",
       avatarUrl: null
     });
     const otherCookie = createAuthCookie({
@@ -134,7 +134,7 @@ test("opening a DM with yourself returns a valid channel", async (t) => {
       provider: "dev",
       oidcSubject: "dm_self_admin",
       email: "dm-self-admin@dev.local",
-      preferredUsername: "dm-self-admin",
+      displayName: "dm-self-admin",
       avatarUrl: null
     });
     const adminCookie = createAuthCookie({
@@ -183,7 +183,7 @@ test("DM creation fails with invalid payload (empty userIds)", async (t) => {
       provider: "dev",
       oidcSubject: "dm_val_admin",
       email: "dm-val-admin@dev.local",
-      preferredUsername: "dm-val-admin",
+      displayName: "dm-val-admin",
       avatarUrl: null
     });
     const adminCookie = createAuthCookie({
@@ -236,11 +236,11 @@ test("non-creator can leave a DM and creator's view persists", async (t) => {
   try {
     const adminIdentity = await upsertIdentityMapping({
       provider: "dev", oidcSubject: "dm_leave_admin",
-      email: "dm-leave-admin@dev.local", preferredUsername: "dm-leave-admin", avatarUrl: null
+      email: "dm-leave-admin@dev.local", displayName: "dm-leave-admin", avatarUrl: null
     });
     const otherIdentity = await upsertIdentityMapping({
       provider: "dev", oidcSubject: "dm_leave_other",
-      email: "dm-leave-other@dev.local", preferredUsername: "dm-leave-other", avatarUrl: null
+      email: "dm-leave-other@dev.local", displayName: "dm-leave-other", avatarUrl: null
     });
     const adminCookie = createAuthCookie({ productUserId: adminIdentity.productUserId, provider: "dev", oidcSubject: "dm_leave_admin" });
     const otherCookie = createAuthCookie({ productUserId: otherIdentity.productUserId, provider: "dev", oidcSubject: "dm_leave_other" });
@@ -315,7 +315,7 @@ test("leave-DM endpoint refuses non-DM channels", async (t) => {
   try {
     const adminIdentity = await upsertIdentityMapping({
       provider: "dev", oidcSubject: "dm_leave_guard",
-      email: "dm-leave-guard@dev.local", preferredUsername: "dm-leave-guard", avatarUrl: null
+      email: "dm-leave-guard@dev.local", displayName: "dm-leave-guard", avatarUrl: null
     });
     const adminCookie = createAuthCookie({ productUserId: adminIdentity.productUserId, provider: "dev", oidcSubject: "dm_leave_guard" });
 
@@ -354,7 +354,7 @@ test("DM channel listing reflects messages from both participants in order", asy
       provider: "dev",
       oidcSubject: "dm_order_admin",
       email: "dm-order-admin@dev.local",
-      preferredUsername: "dm-order-admin",
+      displayName: "dm-order-admin",
       avatarUrl: null
     });
     const adminCookie = createAuthCookie({
@@ -367,7 +367,7 @@ test("DM channel listing reflects messages from both participants in order", asy
       provider: "dev",
       oidcSubject: "dm_order_other",
       email: "dm-order-other@dev.local",
-      preferredUsername: "dm-order-other",
+      displayName: "dm-order-other",
       avatarUrl: null
     });
     const otherCookie = createAuthCookie({

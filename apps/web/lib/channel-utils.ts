@@ -2,7 +2,7 @@ import { Channel } from "@skerry/shared";
 
 interface MemberLike {
     productUserId: string;
-    displayName: string;
+    displayName: string | null;
 }
 
 /**

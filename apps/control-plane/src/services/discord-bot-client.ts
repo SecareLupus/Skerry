@@ -317,7 +317,7 @@ export async function startDiscordBot() {
                             provider: "discord",
                             oidcSubject: user.id,
                             email: null,
-                            preferredUsername: user.username,
+                            displayName: user.username,
                             avatarUrl: user.displayAvatarURL(),
                         });
 
@@ -375,7 +375,7 @@ export async function startDiscordBot() {
                             provider: "discord",
                             oidcSubject: user.id,
                             email: null,
-                            preferredUsername: user.username,
+                            displayName: user.username,
                             avatarUrl: user.displayAvatarURL(),
                         });
 

@@ -160,11 +160,11 @@ test.describe('UI regressions', () => {
     expect(providerError, providerError).toBeUndefined();
   });
 
-  test('#39: New DM modal renders preferred-username fallback and excludes self', async ({ page, browser }) => {
+  test('#39: New DM modal renders display-name fallback and excludes self', async ({ page, browser }) => {
     // Seed a second identity in the DB by completing onboarding in a separate
     // context. Alice never joins the hub — she just needs an `identity_mappings`
     // row so that admin's user-search hits her. Onboarding sets only
-    // preferred_username (display_name stays NULL), which is exactly the
+    // display_name (display_name stays NULL), which is exactly the
     // situation that produced "Unknown User" rows in the modal pre-fix.
     const aliceContext = await browser.newContext();
     try {
@@ -185,18 +185,18 @@ test.describe('UI regressions', () => {
       });
 
       // Type a query that matches BOTH alice and the admin (both have an "a"
-      // in their preferred_username). Pre-fix, the admin would appear in their
+      // in their display_name). Pre-fix, the admin would appear in their
       // own results and clicking would create a self-DM that errored downstream.
       await page.getByPlaceholder('Type a username...').fill('a');
 
       const aliceRow = page.locator('.user-result-item', { hasText: 'alice' });
       await expect(aliceRow).toBeVisible({ timeout: 5000 });
 
-      // Self-exclusion: admin's own preferred_username ('admin') must not appear.
+      // Self-exclusion: admin's own display_name ('admin') must not appear.
       await expect(page.locator('.user-result-item', { hasText: /^admin$/ })).toHaveCount(0);
 
       // Display-name fallback: alice has display_name=NULL, but the modal must
-      // render her preferred_username, never the literal string "Unknown User".
+      // render her display_name, never the literal string "Unknown User".
       await expect(page.locator('.user-result-item', { hasText: 'Unknown User' })).toHaveCount(0);
 
       await aliceRow.click();

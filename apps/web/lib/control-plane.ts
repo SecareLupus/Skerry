@@ -69,7 +69,7 @@ export interface ViewerSession {
   identity: {
     provider: string;
     oidcSubject: string;
-    preferredUsername: string | null;
+    oidcDisplayName: string | null;
     email: string | null;
     avatarUrl?: string | null;
     displayName?: string | null;
@@ -83,7 +83,7 @@ export interface ViewerSession {
   linkedIdentities: Array<{
     provider: string;
     oidcSubject: string;
-    preferredUsername: string | null;
+    displayName: string | null;
     email: string | null;
     avatarUrl: string | null;
     theme?: "light" | "dark" | null;
@@ -668,7 +668,7 @@ export async function listChannelMembers(
 ): Promise<{
   productUserId: string;
   displayName: string;
-  preferredUsername: string | null;
+  oidcDisplayName: string | null;
   avatarUrl?: string;
   isOnline: boolean;
   lastSeenAt?: string;
@@ -679,7 +679,7 @@ export async function listChannelMembers(
     items: {
       productUserId: string;
       displayName: string;
-      preferredUsername: string | null;
+      oidcDisplayName: string | null;
       avatarUrl?: string;
       isOnline: boolean;
       lastSeenAt?: string;
@@ -1462,7 +1462,7 @@ export async function listHubMembers(hubId: string): Promise<IdentityMapping[]> 
 export async function listServerMembers(serverId: string): Promise<{
   productUserId: string;
   displayName: string;
-  preferredUsername: string | null;
+  oidcDisplayName: string | null;
   avatarUrl?: string;
   isOnline: boolean;
   isBridged?: boolean;
@@ -1472,7 +1472,7 @@ export async function listServerMembers(serverId: string): Promise<{
     items: {
       productUserId: string;
       displayName: string;
-      preferredUsername: string | null;
+      oidcDisplayName: string | null;
       avatarUrl?: string;
       isOnline: boolean;
       isBridged?: boolean;

@@ -112,14 +112,14 @@ export function InviteModals({
               {userSearchResults.length > 0 ? (
                 userSearchResults.map((user) => (
                   <div key={user.productUserId} style={{ padding: "0.75rem", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <span>{user.preferredUsername}</span>
+                    <span>{user.displayName}</span>
                     <button
                       className="ghost"
                       onClick={async () => {
                         try {
                           if (!selectedChannelId) return;
                           await inviteToChannel(selectedChannelId, user.productUserId);
-                          showToast(`Invited ${user.preferredUsername}`, "success");
+                          showToast(`Invited ${user.displayName}`, "success");
                           setIsInviting(false);
                         } catch (err) {
                           showToast("Invite failed", "error");

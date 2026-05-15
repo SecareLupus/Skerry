@@ -37,8 +37,8 @@ export interface MessageItem extends ChatMessage {
 
 export interface ChatMember {
     productUserId: string;
-    displayName: string;
-    preferredUsername: string | null;
+    displayName: string | null;
+    oidcDisplayName: string | null;
     avatarUrl?: string;
     isOnline: boolean;
     lastSeenAt?: string;

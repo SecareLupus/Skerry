@@ -129,7 +129,7 @@ export interface PendingIdentityPayload {
   provider: string;
   oidcSubject: string;
   email: string | null;
-  displayName: string | null;
+  oidcDisplayName: string | null;
   avatarUrl: string | null;
   accessToken: string | null;
   refreshToken: string | null;

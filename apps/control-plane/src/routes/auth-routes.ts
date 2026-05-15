@@ -136,7 +136,7 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
       provider: "dev",
       oidcSubject: normalizedSubject,
       email: payload.email ?? `${normalizedSubject}@dev.local`,
-      preferredUsername: null,
+      displayName: null,
       avatarUrl: null
     });
 
@@ -149,7 +149,7 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
     return {
       productUserId: identity.productUserId,
       provider: identity.provider,
-      preferredUsername: identity.preferredUsername
+      displayName: identity.displayName
     };
   });
 
@@ -172,7 +172,7 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
       provider: "dev",
       oidcSubject: normalizedSubject,
       email: query.email ?? `${normalizedSubject}@dev.local`,
-      preferredUsername: null,
+      displayName: null,
       avatarUrl: null
     });
 
@@ -301,8 +301,8 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
           provider: profile.provider,
           oidcSubject: profile.oidcSubject,
           email: profile.email,
-          preferredUsername: null,
-          displayName: profile.displayName,
+          displayName: null,
+          oidcDisplayName: profile.displayName,
           avatarUrl: profile.avatarUrl,
           productUserId: exchanged.productUserId,
           accessToken: exchanged.accessToken,
@@ -320,8 +320,8 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
           provider: profile.provider,
           oidcSubject: profile.oidcSubject,
           email: profile.email,
-          preferredUsername: null,
-          displayName: profile.displayName,
+          displayName: null,
+          oidcDisplayName: profile.displayName,
           avatarUrl: profile.avatarUrl,
           productUserId: existingUserIdFromEmail,
           accessToken: exchanged.accessToken,
@@ -346,7 +346,7 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
             provider: profile.provider,
             oidcSubject: profile.oidcSubject,
             email: profile.email,
-            displayName: profile.displayName,
+            oidcDisplayName: profile.oidcDisplayName,
             avatarUrl: profile.avatarUrl,
             accessToken: exchanged.accessToken,
             refreshToken: exchanged.refreshToken ?? null,
@@ -363,8 +363,8 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
           provider: profile.provider,
           oidcSubject: profile.oidcSubject,
           email: profile.email,
-          preferredUsername: null,
-          displayName: profile.displayName,
+          displayName: null,
+          oidcDisplayName: profile.displayName,
           avatarUrl: profile.avatarUrl,
           productUserId: undefined,
           accessToken: exchanged.accessToken,
@@ -422,8 +422,8 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
         provider: pending.provider as IdentityProvider,
         oidcSubject: pending.oidcSubject,
         email: pending.email,
-        preferredUsername: null,
-        displayName: pending.displayName,
+        displayName: null,
+        oidcDisplayName: pending.oidcDisplayName,
         avatarUrl: pending.avatarUrl,
         productUserId: undefined, // mint new account
         accessToken: pending.accessToken ?? undefined,
@@ -457,7 +457,7 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
       isOnboardingComplete(auth.productUserId)
     ]);
 
-    // fallbackIdentity is ordered by (preferred_username is not null) desc in identity-service
+    // fallbackIdentity is ordered by (display_name is not null) desc in identity-service
     const fallbackIdentity = await getIdentityByProductUserId(auth.productUserId);
     
     // We prefer the fallback (best) identity for profile data, but keep the active active 
@@ -482,9 +482,9 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
         provider: resolvedIdentity.provider,
         oidcSubject: resolvedIdentity.oidcSubject,
         email: resolvedIdentity.email,
-        preferredUsername: resolvedIdentity.preferredUsername,
-        avatarUrl: resolvedIdentity.avatarUrl,
         displayName: resolvedIdentity.displayName,
+        avatarUrl: resolvedIdentity.avatarUrl,
+        oidcDisplayName: resolvedIdentity.oidcDisplayName,
         bio: resolvedIdentity.bio,
         customStatus: resolvedIdentity.customStatus,
         matrixUserId: resolvedIdentity.matrixUserId,
@@ -494,9 +494,9 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
         provider: identity.provider,
         oidcSubject: identity.oidcSubject,
         email: identity.email,
-        preferredUsername: identity.preferredUsername,
-        avatarUrl: identity.avatarUrl,
         displayName: identity.displayName,
+        avatarUrl: identity.avatarUrl,
+        oidcDisplayName: identity.oidcDisplayName,
         bio: identity.bio,
         customStatus: identity.customStatus,
         theme: identity.theme
@@ -549,7 +549,7 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
     // Issue #34: the UI labels this field "Display Name" — the API
     // payload key is still `username` for backwards compatibility but
     // the validation now matches display-name semantics. Spaces are
-    // allowed; the storage column (`identity_mappings.preferred_username`)
+    // allowed; the storage column (`identity_mappings.display_name`)
     // and the surrounding helpers retain their pre-#34 names.
     const payload = z
       .object({
@@ -570,7 +570,7 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
       return;
     }
     const taken = await isPreferredUsernameTaken({
-      preferredUsername: normalizedUsername,
+      displayName: normalizedUsername,
       excludingProductUserId: request.auth!.productUserId
     });
     if (taken) {
@@ -583,7 +583,7 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
 
     await setPreferredUsernameForProductUser({
       productUserId: request.auth!.productUserId,
-      preferredUsername: normalizedUsername
+      displayName: normalizedUsername
     });
     reply.code(204).send();
   });

@@ -31,7 +31,7 @@ test("space owner can rename their own space and manage categories", async (t) =
       provider: "dev",
       oidcSubject: "space_perm_admin",
       email: "space-perm-admin@dev.local",
-      preferredUsername: "space-perm-admin",
+      displayName: "space-perm-admin",
       avatarUrl: null
     });
     const adminCookie = createAuthCookie({
@@ -56,7 +56,7 @@ test("space owner can rename their own space and manage categories", async (t) =
       provider: "dev",
       oidcSubject: "space_perm_owner",
       email: "space-perm-owner@dev.local",
-      preferredUsername: "space-perm-owner",
+      displayName: "space-perm-owner",
       avatarUrl: null
     });
     const ownerCookie = createAuthCookie({
@@ -138,7 +138,7 @@ test("Discord bridge permissions respect Hub setting for Space Owners", async (t
       provider: "dev",
       oidcSubject: "bridge_adm",
       email: "bridge-admin@dev.local",
-      preferredUsername: "bridge-admin",
+      displayName: "bridge-admin",
       avatarUrl: null
     });
     const adminCookie = createAuthCookie({
@@ -163,7 +163,7 @@ test("Discord bridge permissions respect Hub setting for Space Owners", async (t
       provider: "dev",
       oidcSubject: "bridge_owner",
       email: "bridge-owner@dev.local",
-      preferredUsername: "bridge-owner",
+      displayName: "bridge-owner",
       avatarUrl: null
     });
     const ownerCookie = createAuthCookie({
@@ -225,7 +225,7 @@ test("hub admin can see all channels in a server even if they are not a server m
       provider: "dev",
       oidcSubject: "hub_admin_sub",
       email: "admin@dev.local",
-      preferredUsername: "admin",
+      displayName: "admin",
       avatarUrl: null
     });
     const adminCookie = createAuthCookie({
@@ -249,7 +249,7 @@ test("hub admin can see all channels in a server even if they are not a server m
       provider: "dev",
       oidcSubject: "other_sub",
       email: "other@dev.local",
-      preferredUsername: "other",
+      displayName: "other",
       avatarUrl: null
     });
     const otherCookie = createAuthCookie({

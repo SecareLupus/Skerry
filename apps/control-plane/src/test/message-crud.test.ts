@@ -101,7 +101,7 @@ test("non-author cannot edit another user's message", async (t) => {
       provider: "dev",
       oidcSubject: "msg_other",
       email: "msg-other@dev.local",
-      preferredUsername: "msg-other",
+      displayName: "msg-other",
       avatarUrl: null
     });
     const otherCookie = createAuthCookie({
@@ -275,7 +275,7 @@ test("moderator can delete another user's message", async (t) => {
       provider: "dev",
       oidcSubject: "del_regular",
       email: "del-regular@dev.local",
-      preferredUsername: "del-regular",
+      displayName: "del-regular",
       avatarUrl: null
     });
     const regularCookie = createAuthCookie({
@@ -341,14 +341,14 @@ test("non-moderator cannot delete another user's message", async (t) => {
       provider: "dev",
       oidcSubject: "del_user1",
       email: "del-u1@dev.local",
-      preferredUsername: "del-user1",
+      displayName: "del-user1",
       avatarUrl: null
     });
     const user2 = await upsertIdentityMapping({
       provider: "dev",
       oidcSubject: "del_user2",
       email: "del-u2@dev.local",
-      preferredUsername: "del-user2",
+      displayName: "del-user2",
       avatarUrl: null
     });
     const cookie1 = createAuthCookie({ productUserId: user1.productUserId, provider: "dev", oidcSubject: "del_user1" });

@@ -31,7 +31,7 @@ test("role grants are scope-gated and prevent escalation", async (t) => {
       provider: "dev",
       oidcSubject: "deleg_admin",
       email: "deleg-admin@dev.local",
-      preferredUsername: "deleg-admin",
+      displayName: "deleg-admin",
       avatarUrl: null
     });
     const adminCookie = createAuthCookie({
@@ -56,7 +56,7 @@ test("role grants are scope-gated and prevent escalation", async (t) => {
       provider: "dev",
       oidcSubject: "deleg_member",
       email: "deleg-user@dev.local",
-      preferredUsername: "deleg-user",
+      displayName: "deleg-user",
       avatarUrl: null
     });
     const memberCookie = createAuthCookie({
@@ -94,7 +94,7 @@ test("role grants are scope-gated and prevent escalation", async (t) => {
       provider: "dev",
       oidcSubject: "deleg_outsider",
       email: "deleg-outsider@dev.local",
-      preferredUsername: "deleg-outsider",
+      displayName: "deleg-outsider",
       avatarUrl: null
     });
 
@@ -132,7 +132,7 @@ test("space owner assignment lifecycle grants and revokes scoped management", as
       provider: "dev",
       oidcSubject: "space_owner",
       email: "space-owner@dev.local",
-      preferredUsername: "space-owner",
+      displayName: "space-owner",
       avatarUrl: null
     });
     const adminCookie = createAuthCookie({
@@ -157,7 +157,7 @@ test("space owner assignment lifecycle grants and revokes scoped management", as
       provider: "dev",
       oidcSubject: "space_delegate",
       email: "space-delegate@dev.local",
-      preferredUsername: "space-delegate",
+      displayName: "space-delegate",
       avatarUrl: null
     });
     const delegatedCookie = createAuthCookie({
@@ -255,7 +255,7 @@ test("expired space owner assignments no longer grant management scope", async (
       provider: "dev",
       oidcSubject: "exp_admin",
       email: "exp-admin@dev.local",
-      preferredUsername: "exp-admin",
+      displayName: "exp-admin",
       avatarUrl: null
     });
     const adminCookie = createAuthCookie({
@@ -280,7 +280,7 @@ test("expired space owner assignments no longer grant management scope", async (
       provider: "dev",
       oidcSubject: "exp_delegate",
       email: "exp-delegate@dev.local",
-      preferredUsername: "exp-delegate",
+      displayName: "exp-delegate",
       avatarUrl: null
     });
     const delegatedCookie = createAuthCookie({
@@ -334,7 +334,7 @@ test("space ownership transfer updates effective management owner", async (t) =>
       provider: "dev",
       oidcSubject: "owner_transfer_from",
       email: "owner-transfer-from@dev.local",
-      preferredUsername: "owner-transfer-from",
+      displayName: "owner-transfer-from",
       avatarUrl: null
     });
     const ownerCookie = createAuthCookie({
@@ -359,7 +359,7 @@ test("space ownership transfer updates effective management owner", async (t) =>
       provider: "dev",
       oidcSubject: "owner_transfer_to",
       email: "owner-transfer-to@dev.local",
-      preferredUsername: "owner-transfer-to",
+      displayName: "owner-transfer-to",
       avatarUrl: null
     });
     const targetOwnerCookie = createAuthCookie({
@@ -412,7 +412,7 @@ test("read-state mention markers and voice presence flows work for scoped users"
       provider: "dev",
       oidcSubject: "flow_admin",
       email: "flow-admin@dev.local",
-      preferredUsername: "flow-admin",
+      displayName: "flow-admin",
       avatarUrl: null
     });
     const adminCookie = createAuthCookie({
@@ -450,7 +450,7 @@ test("read-state mention markers and voice presence flows work for scoped users"
       provider: "dev",
       oidcSubject: "flow_member",
       email: "flow-user@dev.local",
-      preferredUsername: "flowmember",
+      displayName: "flowmember",
       avatarUrl: null
     });
     const memberCookie = createAuthCookie({

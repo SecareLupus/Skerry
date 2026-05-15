@@ -256,8 +256,8 @@ export async function deleteServer(serverId: string): Promise<void> {
 
 export async function listServerMembers(serverId: string): Promise<{
   productUserId: string;
-  displayName: string;
-  preferredUsername: string | null;
+  displayName: string | null;
+  oidcDisplayName: string | null;
   avatarUrl?: string;
   isOnline: boolean;
   isBridged?: boolean;
@@ -286,24 +286,25 @@ export async function listServerMembers(serverId: string): Promise<{
 
     const localUserRows = await db.query<{
       product_user_id: string;
-      preferred_username: string | null;
+      display_name: string | null;
+      oidc_display_name: string | null;
       email: string | null;
       avatar_url: string | null;
       last_seen_at: string | null;
     }>(
       `select distinct on(im.product_user_id)
-         im.product_user_id, im.preferred_username, im.email, im.avatar_url, up.last_seen_at
+         im.product_user_id, im.display_name, im.oidc_display_name, im.email, im.avatar_url, up.last_seen_at
        from identity_mappings im
        left join user_presence up on up.product_user_id = im.product_user_id
        where im.product_user_id = any($1)
-       order by im.product_user_id, (preferred_username is not null) desc, im.updated_at desc`,
+       order by im.product_user_id, (display_name is not null) desc, im.updated_at desc`,
       [localProductUserIds]
     );
 
     const localMembers = localUserRows.rows.map(r => ({
       productUserId: r.product_user_id,
-      displayName: r.preferred_username ?? r.email?.split('@')[0] ?? `user-${r.product_user_id.slice(0, 8)}`,
-      preferredUsername: r.preferred_username,
+      displayName: r.display_name ?? r.email?.split('@')[0] ?? `user-${r.product_user_id.slice(0, 8)}`,
+      oidcDisplayName: r.oidc_display_name,
       avatarUrl: r.avatar_url ?? undefined,
       isOnline: r.last_seen_at ? (now - new Date(r.last_seen_at).getTime() < ONLINE_THRESHOLD_MS) : false,
       isBridged: false
@@ -317,7 +318,7 @@ export async function listServerMembers(serverId: string): Promise<{
     let bridgedMembers: {
       productUserId: string;
       displayName: string;
-      preferredUsername: string | null;
+      oidcDisplayName: string | null;
       avatarUrl?: string;
       isOnline: boolean;
       isBridged: boolean;
@@ -343,7 +344,7 @@ export async function listServerMembers(serverId: string): Promise<{
             bridgedMembers.push({
               productUserId: `discord_${id}`,
               displayName: member.displayName,
-              preferredUsername: null,
+              oidcDisplayName: null,
               avatarUrl: member.user.displayAvatarURL() ?? undefined,
               isOnline: member.presence?.status ? member.presence.status !== "offline" : false,
               isBridged: true,

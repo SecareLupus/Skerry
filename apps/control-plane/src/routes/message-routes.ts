@@ -342,7 +342,7 @@ export async function registerMessageRoutes(app: FastifyInstance): Promise<void>
     await publishChannelMessage({
       channelId: params.channelId,
       userId: request.auth!.productUserId,
-      displayName: identity.displayName || identity.preferredUsername || `user-${request.auth!.productUserId.substring(0, 8)}`
+      displayName: identity.displayName || identity.displayName || `user-${request.auth!.productUserId.substring(0, 8)}`
     } as any, payload.isTyping ? "typing.start" : "typing.stop");
 
     // Mirror typing to Discord

@@ -26,8 +26,8 @@ export function mentionItems(query: string, members: ChatMember[], limit = 8): A
     if (seen.has(m.productUserId)) continue;
     seen.add(m.productUserId);
 
-    const handle = m.preferredUsername;
-    const name = m.displayName.toLowerCase();
+    const handle = m.displayName;
+    const name = m.oidcDisplayName?.toLowerCase() ?? "";
     const handleLc = handle?.toLowerCase() ?? "";
 
     const matchesEmpty = q.length === 0;
@@ -37,7 +37,7 @@ export function mentionItems(query: string, members: ChatMember[], limit = 8): A
     const item: AutocompleteItem = {
       key: m.productUserId,
       kind: "mention",
-      primary: m.displayName,
+      primary: m.displayName ?? "Unknown",
       secondary: handle ? `@${handle}` : "Bridged user — not yet mentionable",
       avatarUrl: m.avatarUrl,
       insertText: handle ? `@${handle} ` : "",
