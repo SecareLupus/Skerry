@@ -7,7 +7,7 @@ import { Category, Channel, ChatMessage, MentionMarker, ModerationAction, Modera
 import { getChannelName } from "../lib/channel-utils";
 import { ContextMenu, ContextMenuItem } from "./context-menu";
 import { useToast } from "./toast-provider";
-import { performModerationAction, createReport, uploadMedia, updateMessage, addReaction, deleteMessage, listChannelMembers, inviteToChannel, updateChannel, searchUsers, formatMessageTime, pinMessage, unpinMessage, sendTypingStatus, getFirstUnreadMessageId } from "../lib/control-plane";
+import { performModerationAction, createReport, uploadMedia, updateMessage, addReaction, deleteMessage, listChannelMembers, inviteToChannel, updateChannel, searchUsers, formatMessageTime, pinMessage, unpinMessage, sendTypingStatus, getFirstUnreadMessageId, bulkDeleteMessages, bulkRedactMessages } from "../lib/control-plane";
 import dynamic from "next/dynamic";
 
 // @ts-ignore - emoji-picker-react types mismatch with Next.js dynamic
@@ -27,6 +27,7 @@ import { firstUnreadMessageId, latestSeenOwnMessageId } from "../lib/read-state"
 import { useUserPresence, PresenceDot } from "../hooks/use-user-presence";
 import { EditHistoryPopover } from "./edit-history-popover";
 import Icon from "./icon";
+import { CodeBlock } from "./code-block";
 
 
 
@@ -153,7 +154,24 @@ function MessageContent({ message, hiddenUrls = [] }: { message: MessageItem; hi
                                 {...props}
                             />
                         );
-                    }
+                    },
+                    pre: ({ children }) => {
+                        // Extract code content and language from the code child
+                        const child = React.Children.only(children) as
+                            | React.ReactElement<{ children?: React.ReactNode; className?: string }>
+                            | undefined;
+                        if (child && typeof child.type === "string" && child.type === "code") {
+                            const codeText =
+                                typeof child.props.children === "string"
+                                    ? child.props.children
+                                    : "";
+                            const langMatch = child.props.className?.match(/language-(\S+)/);
+                            const language = langMatch ? langMatch[1] : undefined;
+                            return <CodeBlock code={codeText} language={language} />;
+                        }
+                        // Fallback: plain pre
+                        return <pre>{children}</pre>;
+                    },
                 }}
             >
                 {processedText}
@@ -339,6 +357,31 @@ export function ChatWindow({
     }, [dispatch, messageInputRef]);
     const [userSearchQuery, setUserSearchQuery] = useState("");
     const [userSearchResults, setUserSearchResults] = useState<any[]>([]);
+
+    // Bulk message selection state (#74)
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [lastClickedId, setLastClickedId] = useState<string | null>(null);
+    const [bulkDeleting, setBulkDeleting] = useState(false);
+    const [bulkRedacting, setBulkRedacting] = useState(false);
+
+    const orderedMessageIds = useMemo(() =>
+        [...messages].map(m => m.id).reverse(),
+    [messages]);
+
+    const toggleSelectMessage = useCallback((messageId: string, event: React.MouseEvent) => {
+        if (event.ctrlKey || event.metaKey) {
+            setSelectedIds(prev => {
+                const next = new Set(prev);
+                if (next.has(messageId)) next.delete(messageId);
+                else next.add(messageId);
+                return next;
+            });
+            setLastClickedId(messageId);
+        } else {
+            setSelectedIds(new Set([messageId]));
+            setLastClickedId(messageId);
+        }
+    }, []);
     const [editHistoryMessageId, setEditHistoryMessageId] = useState<string | null>(null);
     const [editHistoryPos, setEditHistoryPos] = useState<{ x: number; y: number } | null>(null);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -1081,6 +1124,43 @@ export function ChatWindow({
                     )}
 
 
+                    {selectedIds.size > 0 && (
+                      <div className="bulk-action-bar" style={{
+                        display: "flex", alignItems: "center", gap: "0.75rem",
+                        padding: "0.5rem 1rem", background: "var(--accent)",
+                        color: "#fff", borderRadius: "6px 6px 0 0", fontWeight: 500
+                      }}>
+                        <span>{selectedIds.size} selected</span>
+                        <button onClick={async () => {
+                          if (!selectedChannelId) return;
+                          setBulkDeleting(true);
+                          try {
+                            await bulkDeleteMessages(selectedChannelId, [...selectedIds]);
+                            showToast("Messages deleted", "success");
+                            setSelectedIds(new Set());
+                          } catch { showToast("Delete failed", "error"); }
+                          setBulkDeleting(false);
+                        }} disabled={bulkDeleting} style={{ padding: "0.25rem 0.75rem", borderRadius: "4px", border: "1px solid rgba(255,255,255,0.3)", background: "transparent", color: "#fff", cursor: "pointer" }}>
+                          {bulkDeleting ? "Deleting..." : "Delete"}
+                        </button>
+                        <button onClick={async () => {
+                          if (!selectedChannelId) return;
+                          setBulkRedacting(true);
+                          try {
+                            await bulkRedactMessages(selectedChannelId, [...selectedIds]);
+                            showToast("Messages redacted", "success");
+                            setSelectedIds(new Set());
+                          } catch { showToast("Redact failed", "error"); }
+                          setBulkRedacting(false);
+                        }} disabled={bulkRedacting} style={{ padding: "0.25rem 0.75rem", borderRadius: "4px", border: "1px solid rgba(255,255,255,0.3)", background: "transparent", color: "#fff", cursor: "pointer" }}>
+                          {bulkRedacting ? "Redacting..." : "Redact"}
+                        </button>
+                        <button onClick={() => setSelectedIds(new Set())} style={{ marginLeft: "auto", padding: "0.25rem 0.75rem", borderRadius: "4px", border: "1px solid rgba(255,255,255,0.3)", background: "transparent", color: "#fff", cursor: "pointer" }}>
+                          Clear
+                        </button>
+                      </div>
+                    )}
+
                     <ol className="messages" ref={messagesRef} onScroll={handleMessageListScroll}>
                         {[...renderedMessages].reverse().map(({ message, showHeader, showDateDivider, showFirstUnreadDivider, showSeenIndicator }, index) => {
                             const mediaUrls = extractMediaUrls(message.content);
@@ -1089,8 +1169,14 @@ export function ChatWindow({
                                 <li
                                   key={message.id}
                                   id={`message-${message.id}`}
-                                  className={state.highlightedMessageId === message.id ? "highlighted-message" : ""}
-                                  onClick={state.highlightedMessageId === message.id ? () => dispatch({ type: "SET_HIGHLIGHTED_MESSAGE_ID", payload: null }) : undefined}
+                                  className={`${state.highlightedMessageId === message.id ? "highlighted-message" : ""} ${selectedIds.has(message.id) ? "message-selected" : ""}`}
+                                  onClick={(e) => {
+                                    if (state.highlightedMessageId === message.id) {
+                                      dispatch({ type: "SET_HIGHLIGHTED_MESSAGE_ID", payload: null });
+                                    } else {
+                                      toggleSelectMessage(message.id, e);
+                                    }
+                                  }}
                                 >
                             {showFirstUnreadDivider ? (
                                 <div className="first-unread-divider" role="separator" aria-label="New messages below">

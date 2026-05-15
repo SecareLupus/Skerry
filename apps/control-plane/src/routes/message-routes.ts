@@ -248,6 +248,78 @@ export async function registerMessageRoutes(app: FastifyInstance): Promise<void>
     reply.code(204).send();
   });
 
+  app.post("/v1/channels/:channelId/messages/bulk-delete", initializedAuthHandlers, async (request, reply) => {
+    const params = z.object({ channelId: z.string().min(1) }).parse(request.params);
+    const payload = z.object({
+      messageIds: z.array(z.string().min(1)).min(1).max(50)
+    }).parse(request.body);
+
+    const serverId = (await withDb(async (db) => {
+      const row = await db.query<{ server_id: string }>(
+        "select server_id from channels where id = $1", [params.channelId]
+      );
+      return row.rows[0]?.server_id ?? "";
+    }));
+
+    const allowed = await isActionAllowed({
+      productUserId: request.auth!.productUserId,
+      action: "moderation.redact",
+      scope: { serverId }
+    });
+
+    let deleted = 0;
+    for (const messageId of payload.messageIds) {
+      try {
+        await deleteMessage({
+          messageId,
+          actorUserId: request.auth!.productUserId,
+          isModerator: allowed
+        });
+        deleted++;
+      } catch {
+        // Continue with remaining messages
+      }
+    }
+
+    return { deleted, total: payload.messageIds.length };
+  });
+
+  app.post("/v1/channels/:channelId/messages/bulk-redact", initializedAuthHandlers, async (request, reply) => {
+    const params = z.object({ channelId: z.string().min(1) }).parse(request.params);
+    const payload = z.object({
+      messageIds: z.array(z.string().min(1)).min(1).max(50)
+    }).parse(request.body);
+
+    const serverId = (await withDb(async (db) => {
+      const row = await db.query<{ server_id: string }>(
+        "select server_id from channels where id = $1", [params.channelId]
+      );
+      return row.rows[0]?.server_id ?? "";
+    }));
+
+    const allowed = await isActionAllowed({
+      productUserId: request.auth!.productUserId,
+      action: "moderation.redact",
+      scope: { serverId }
+    });
+
+    let redacted = 0;
+    for (const messageId of payload.messageIds) {
+      try {
+        await deleteMessage({
+          messageId,
+          actorUserId: request.auth!.productUserId,
+          isModerator: allowed
+        });
+        redacted++;
+      } catch {
+        // Continue with remaining messages
+      }
+    }
+
+    return { redacted, total: payload.messageIds.length };
+  });
+
   app.get("/v1/channels/:channelId/pins", initializedAuthHandlers, async (request) => {
     const params = z.object({ channelId: z.string().min(1) }).parse(request.params);
     return { items: await listPins(params.channelId) };
