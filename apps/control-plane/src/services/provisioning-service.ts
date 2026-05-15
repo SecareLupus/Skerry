@@ -101,6 +101,7 @@ export async function createServerWorkflow(input: {
       created_at: string;
       join_policy: string;
       icon_url: string | null;
+      allow_member_invites: boolean;
     }>(
       `insert into servers (id, hub_id, name, type, matrix_space_id, created_by_user_id, owner_user_id, auto_join_hub_members, join_policy)
        values ($1, $2, $3, 'default', $4, $5, $6, $7, 'open')
@@ -132,6 +133,7 @@ export async function createServerWorkflow(input: {
       hubMemberAccess: "chat" as const,
       visitorAccess: "hidden" as const,
       autoJoinHubMembers: value.auto_join_hub_members,
+      allowMemberInvites: value.allow_member_invites,
       createdByUserId: value.created_by_user_id,
       ownerUserId: value.owner_user_id,
       createdAt: value.created_at,

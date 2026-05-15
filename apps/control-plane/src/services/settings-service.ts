@@ -116,6 +116,7 @@ export async function updateServerSettings(serverId: string, settings: {
   spaceAdminAccess?: string;
   spaceModeratorAccess?: string;
   autoJoinHubMembers?: boolean;
+  allowMemberInvites?: boolean;
   joinPolicy?: string;
 }): Promise<void> {
   return withDb(async (db) => {
@@ -124,6 +125,7 @@ export async function updateServerSettings(serverId: string, settings: {
         starting_channel_id = case when $2::text is not null or $6::boolean then $2::text else starting_channel_id end,
         icon_url = case when $3::text is not null or $7::boolean then $3::text else icon_url end,
         auto_join_hub_members = coalesce($4, auto_join_hub_members),
+        allow_member_invites = coalesce($8, allow_member_invites),
         join_policy = coalesce($5, join_policy)
       where id = $1`,
       [
@@ -133,7 +135,8 @@ export async function updateServerSettings(serverId: string, settings: {
         settings.autoJoinHubMembers,
         settings.joinPolicy,
         settings.startingChannelId === null,
-        settings.iconUrl === null
+        settings.iconUrl === null,
+        settings.allowMemberInvites
       ]
     );
 

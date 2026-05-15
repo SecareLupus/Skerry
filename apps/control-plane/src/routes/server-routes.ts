@@ -251,7 +251,8 @@ export async function registerServerRoutes(app: FastifyInstance): Promise<void> 
       hubMemberAccess: accessLevelEnum.optional(),
       visitorAccess: accessLevelEnum.optional(),
       spaceAdminAccess: accessLevelEnum.optional(),
-      spaceModeratorAccess: accessLevelEnum.optional()
+      spaceModeratorAccess: accessLevelEnum.optional(),
+      allowMemberInvites: z.boolean().optional()
     }).parse(request.body);
 
     const allowed = await canEditServerSettings({

@@ -90,6 +90,7 @@ export interface ServerRow {
   matrix_space_id: string | null;
   icon_url: string | null;
   auto_join_hub_members: boolean;
+  allow_member_invites: boolean;
   created_by_user_id: string;
   owner_user_id: string;
   created_at: string;

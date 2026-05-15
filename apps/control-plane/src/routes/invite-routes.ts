@@ -83,9 +83,69 @@ export async function registerInviteRoutes(app: FastifyInstance): Promise<void> 
         }
       }
     } else if (!isHubManager) {
-      // Non-space-scoped roles (or bare invites) still require hub-manager authority.
-      reply.code(403).send({ message: "Forbidden: only hub managers can issue unscoped invites." });
-      return;
+      // Non-hub-manager issuing a non-space-scoped invite.
+      // Members may issue server-scoped invites if the space admin has
+      // enabled allow_member_invites on that server.
+      if (!payload.defaultServerId) {
+        reply.code(403).send({ message: "Forbidden: only hub managers can issue unscoped invites." });
+        return;
+      }
+
+      const serverAccess = await withDb(async (db) => {
+        const row = await db.query<{
+          allow_member_invites: boolean;
+          type: string;
+          is_member: boolean;
+        }>(
+          `select s.allow_member_invites, s.type,
+                  exists(select 1 from server_members
+                         where server_id = s.id and product_user_id = $1) as is_member
+           from servers s where s.id = $2`,
+          [productUserId, payload.defaultServerId]
+        );
+        return row.rows[0] ?? null;
+      });
+
+      if (!serverAccess) {
+        reply.code(400).send({
+          message: "defaultServerId does not exist.",
+          code: "invite_invalid_default_server"
+        });
+        return;
+      }
+      if (serverAccess.type === "dm") {
+        reply.code(400).send({
+          message: "Cannot issue invites for DM channels.",
+          code: "invite_invalid_default_server"
+        });
+        return;
+      }
+      if (!serverAccess.allow_member_invites) {
+        reply.code(403).send({
+          message: "Forbidden: member invites are not enabled on this server.",
+          code: "invite_member_invites_disabled"
+        });
+        return;
+      }
+      if (!serverAccess.is_member) {
+        reply.code(403).send({
+          message: "Forbidden: you must be a member of the server to issue invites.",
+        });
+        return;
+      }
+
+      // Members cannot attach badges to invites.
+      if (payload.defaultBadgeIds && payload.defaultBadgeIds.length > 0) {
+        reply.code(403).send({
+          message: "Forbidden: only space admins and hub managers can attach badges to invites.",
+        });
+        return;
+      }
+
+      // Members can only issue bare (member-role) invites.  Force the role
+      // to undefined so no elevated role sneaks through.
+      payload.defaultRole = undefined;
+      payload.defaultBadgeIds = undefined;
     }
 
     const badgeIds = payload.defaultBadgeIds ?? [];

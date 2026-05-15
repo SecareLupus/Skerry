@@ -209,6 +209,7 @@ export interface Server {
     spaceAdminAccess?: AccessLevel;
     spaceModeratorAccess?: AccessLevel;
     autoJoinHubMembers: boolean;
+    allowMemberInvites: boolean;
     joinPolicy: JoinPolicy;
     theme?: Record<string, any>;
     createdAt: string;
