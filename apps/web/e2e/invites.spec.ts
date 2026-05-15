@@ -102,8 +102,12 @@ test.describe('Invites', () => {
     // Revoke the invite
     const revokeBtn = page.getByTestId('revoke-invite-button').first();
     await expect(revokeBtn).toBeVisible({ timeout: 5000 });
+
+    // Handle the browser confirm() dialog
+    page.once('dialog', (dialog) => dialog.accept());
     await revokeBtn.click();
-    await expect(page.getByText(/No active invites/i)).toBeVisible({ timeout: 10000 });
+
+    await expect(page.getByText('No active invites.')).toBeVisible({ timeout: 10000 });
   });
 
   test('logged-out user can view invite and is prompted to sign in', async ({ page, browser }) => {
