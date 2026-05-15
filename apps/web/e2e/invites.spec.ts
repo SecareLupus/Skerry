@@ -97,7 +97,7 @@ test.describe('Invites', () => {
 
     // Navigate to invite management
     await page.goto('/settings/hub/invites');
-    await expect(page.getByTestId('invite-management-table')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByTestId('hub-invites-table')).toBeVisible({ timeout: 15000 });
 
     // Revoke the invite
     const revokeBtn = page.getByTestId('revoke-invite-button').first();
@@ -130,7 +130,7 @@ test.describe('Invites', () => {
     const guestPage = await guestContext.newPage();
     try {
       await guestPage.goto(inviteUrl);
-      await expect(guestPage.getByText(/invited|join/i)).toBeVisible({ timeout: 15000 });
+      await expect(guestPage.locator('.invite-card')).toBeVisible({ timeout: 15000 });
     } finally {
       await guestContext.close();
     }
