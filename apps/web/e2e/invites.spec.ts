@@ -109,21 +109,21 @@ test.describe('Invites', () => {
   test('logged-out user can view invite and is prompted to sign in', async ({ page, browser }) => {
     test.setTimeout(60000);
 
-    const { page: adminPage } = await bootstrapSpaceWithChannel(page, {
+    await bootstrapSpaceWithChannel(page, {
       spaceName: 'Public Space',
       channelName: 'welcome',
     });
 
     // Generate invite from admin
-    await openDetailsDrawer(adminPage!);
-    await adminPage!.getByTestId('create-hub-invite-button').click();
-    const modal = adminPage!.getByTestId('hub-invite-modal');
+    await openDetailsDrawer(page);
+    await page.getByTestId('create-hub-invite-button').click();
+    const modal = page.getByTestId('hub-invite-modal');
     await expect(modal).toBeVisible({ timeout: 10000 });
     await modal.getByRole('button', { name: 'Generate Invite Link' }).click();
-    const inviteUrlInput = adminPage!.getByTestId('invite-url-input');
+    const inviteUrlInput = page.getByTestId('invite-url-input');
     await expect(inviteUrlInput).toHaveValue(/invite\/[a-zA-Z0-9_-]+/, { timeout: 10000 });
     const inviteUrl = await inviteUrlInput.inputValue();
-    await adminPage!.getByTestId('done-invite-modal').click();
+    await page.getByTestId('done-invite-modal').click();
 
     // Logged-out context visits the invite
     const guestContext = await browser.newContext();
