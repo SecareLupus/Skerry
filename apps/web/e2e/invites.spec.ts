@@ -77,4 +77,66 @@ test.describe('Invites', () => {
       await contextB.close();
     }
   });
+
+  test('admin can view invite management table and revoke an invite', async ({ page }) => {
+    test.setTimeout(60000);
+
+    await bootstrapSpaceWithChannel(page, {
+      spaceName: 'InviteMgmt Space',
+      channelName: 'lobby',
+    });
+
+    // Generate an invite first
+    await openDetailsDrawer(page);
+    await page.getByTestId('create-hub-invite-button').click();
+    const modal = page.getByTestId('hub-invite-modal');
+    await expect(modal).toBeVisible({ timeout: 10000 });
+    await modal.getByRole('button', { name: 'Generate Invite Link' }).click();
+    await expect(page.getByTestId('invite-url-input')).toHaveValue(/invite\/[a-zA-Z0-9_-]+/, { timeout: 10000 });
+    await page.getByTestId('done-invite-modal').click();
+
+    // Navigate to invite management
+    await page.goto('/settings/hub/invites');
+    await expect(page.getByTestId('hub-invites-table')).toBeVisible({ timeout: 15000 });
+
+    // Revoke the invite
+    const revokeBtn = page.getByTestId('revoke-invite-button').first();
+    await expect(revokeBtn).toBeVisible({ timeout: 5000 });
+
+    // Handle the browser confirm() dialog
+    page.once('dialog', (dialog) => dialog.accept());
+    await revokeBtn.click();
+
+    await expect(page.getByText('No active invites.')).toBeVisible({ timeout: 10000 });
+  });
+
+  test('logged-out user can view invite and is prompted to sign in', async ({ page, browser }) => {
+    test.setTimeout(60000);
+
+    await bootstrapSpaceWithChannel(page, {
+      spaceName: 'Public Space',
+      channelName: 'welcome',
+    });
+
+    // Generate invite from admin
+    await openDetailsDrawer(page);
+    await page.getByTestId('create-hub-invite-button').click();
+    const modal = page.getByTestId('hub-invite-modal');
+    await expect(modal).toBeVisible({ timeout: 10000 });
+    await modal.getByRole('button', { name: 'Generate Invite Link' }).click();
+    const inviteUrlInput = page.getByTestId('invite-url-input');
+    await expect(inviteUrlInput).toHaveValue(/invite\/[a-zA-Z0-9_-]+/, { timeout: 10000 });
+    const inviteUrl = await inviteUrlInput.inputValue();
+    await page.getByTestId('done-invite-modal').click();
+
+    // Logged-out context visits the invite
+    const guestContext = await browser.newContext();
+    const guestPage = await guestContext.newPage();
+    try {
+      await guestPage.goto(inviteUrl);
+      await expect(guestPage.locator('.invite-card')).toBeVisible({ timeout: 15000 });
+    } finally {
+      await guestContext.close();
+    }
+  });
 });

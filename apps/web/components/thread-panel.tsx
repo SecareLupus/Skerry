@@ -29,7 +29,7 @@ export function ThreadPanel() {
     const scrollRef = useRef<HTMLDivElement>(null);
 
     const [contextMenu, setContextMenu] = useState<{ x: number, y: number, message: MessageItem } | null>(null);
-    const [userContextMenu, setUserContextMenu] = useState<{ x: number, y: number, userId: string, displayName: string | null } | null>(null);
+    const [userContextMenu, setUserContextMenu] = useState<{ x: number, y: number, userId: string, displayName: string } | null>(null);
 
     const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
     const [editContent, setEditContent] = useState("");
@@ -216,7 +216,7 @@ export function ThreadPanel() {
         setContextMenu({ x: event.clientX, y: event.clientY, message });
     };
 
-    const handleUserContextMenu = (event: React.MouseEvent, userId: string, displayName: string | null) => {
+    const handleUserContextMenu = (event: React.MouseEvent, userId: string, displayName: string) => {
         event.preventDefault();
         event.stopPropagation();
         setUserContextMenu({ x: event.clientX, y: event.clientY, userId, displayName });
