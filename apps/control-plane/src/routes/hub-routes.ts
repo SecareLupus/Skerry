@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireAuth, requireInitialized } from "../auth/middleware.js";
 import {
   canManageHub,
+  clearHubPermissionOverrideCache,
 } from "../services/policy-service.js";
 import {
   transferHubOwnership,
@@ -323,5 +324,66 @@ export async function registerHubRoutes(app: FastifyInstance): Promise<void> {
     return {
       items: await listDelegationAuditEvents({ hubId: params.hubId })
     };
+  });
+
+  // --- Per-Hub Permission Overrides (#101) ---
+
+  app.get("/v1/hubs/:hubId/permission-overrides", initializedAuthHandlers, async (request, reply) => {
+    const params = z.object({ hubId: z.string().min(1) }).parse(request.params);
+    const allowed = await canManageHub({
+      productUserId: request.auth!.productUserId,
+      hubId: params.hubId
+    });
+    if (!allowed) {
+      reply.code(403).send({ message: "Forbidden: insufficient hub management scope." });
+      return;
+    }
+
+    const { withDb } = await import("../db/client.js");
+    const rows = await withDb(async (db) => {
+      const result = await db.query<{ role: string; action: string; allowed: boolean }>(
+        "select role, action, allowed from hub_permission_overrides where hub_id = $1 order by role, action",
+        [params.hubId]
+      );
+      return result.rows;
+    });
+    return { items: rows };
+  });
+
+  app.put("/v1/hubs/:hubId/permission-overrides", initializedAuthHandlers, async (request, reply) => {
+    const params = z.object({ hubId: z.string().min(1) }).parse(request.params);
+    const payload = z.object({
+      overrides: z.array(z.object({
+        role: z.string().min(1),
+        action: z.string().min(1),
+        allowed: z.boolean(),
+      }))
+    }).parse(request.body);
+
+    const allowed = await canManageHub({
+      productUserId: request.auth!.productUserId,
+      hubId: params.hubId
+    });
+    if (!allowed) {
+      reply.code(403).send({ message: "Forbidden: insufficient hub management scope." });
+      return;
+    }
+
+    const { withDb } = await import("../db/client.js");
+    await withDb(async (db) => {
+      for (const ov of payload.overrides) {
+        await db.query(
+          `insert into hub_permission_overrides (hub_id, role, action, allowed)
+           values ($1, $2, $3, $4)
+           on conflict (hub_id, role, action) do update set allowed = excluded.allowed`,
+          [params.hubId, ov.role, ov.action, ov.allowed]
+        );
+      }
+    });
+
+    // Invalidate the cache so the next permission check picks up changes
+    clearHubPermissionOverrideCache();
+
+    reply.code(204).send();
   });
 }
