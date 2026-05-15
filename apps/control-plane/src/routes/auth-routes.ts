@@ -15,7 +15,8 @@ import {
   updateUserProfile,
   blockUser,
   unblockUser,
-  listBlocks
+  listBlocks,
+  mergeAccounts
 } from "../services/identity-service.js";
 import { requireAuth } from "../auth/middleware.js";
 import type { AccountLinkingRequirement, IdentityProvider } from "@skerry/shared";
@@ -493,6 +494,7 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
       linkedIdentities: identities.map((identity) => ({
         provider: identity.provider,
         oidcSubject: identity.oidcSubject,
+        productUserId: identity.productUserId,
         email: identity.email,
         displayName: identity.displayName,
         avatarUrl: identity.avatarUrl,
@@ -667,6 +669,50 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
       } else {
         reply.code(204).send();
       }
+    }
+  });
+
+  app.post("/auth/merge-accounts", { preHandler: requireAuth }, async (request, reply) => {
+    const { sourceProductUserId } = z
+      .object({ sourceProductUserId: z.string().min(1) })
+      .parse(request.body);
+
+    const targetProductUserId = request.auth!.productUserId;
+
+    if (sourceProductUserId === targetProductUserId) {
+      reply.code(400).send({
+        message: "Cannot merge an account into itself.",
+        code: "cannot_merge_self"
+      });
+      return;
+    }
+
+    // Verify the caller has an identity linked to the TARGET (current) account
+    const targetIdentities = await listIdentitiesByProductUserId(targetProductUserId);
+    if (targetIdentities.length === 0) {
+      reply.code(400).send({
+        message: "No identities found for the current account.",
+        code: "no_target_identities"
+      });
+      return;
+    }
+
+    // Verify the caller ALSO has an identity linked to the SOURCE account
+    const sourceIdentities = await listIdentitiesByProductUserId(sourceProductUserId);
+    if (sourceIdentities.length === 0) {
+      reply.code(400).send({
+        message: "No identities found for the source account. You must be linked to both accounts.",
+        code: "no_source_identities"
+      });
+      return;
+    }
+
+    try {
+      const result = await mergeAccounts(targetProductUserId, sourceProductUserId);
+      return result;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Account merge failed.";
+      reply.code(400).send({ message, code: "merge_failed" });
     }
   });
 

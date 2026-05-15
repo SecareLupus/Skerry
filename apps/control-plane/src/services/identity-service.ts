@@ -24,6 +24,7 @@ export interface IdentityRow {
   access_token: string | null;
   refresh_token: string | null;
   token_expires_at: string | null;
+  merged_into_product_user_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -455,5 +456,183 @@ export async function listHubMembers(hubId: string): Promise<IdentityMapping[]> 
       [hubId]
     );
     return rows.rows.map(mapRow);
+  });
+}
+
+export interface MergeAccountsResult {
+  targetProductUserId: string;
+  sourceProductUserId: string;
+  migratedMessages: number;
+  migratedServerMembers: number;
+  migratedHubMembers: number;
+  migratedRoleBindings: number;
+  migratedUserPresence: number;
+  migratedVoicePresence: number;
+  migratedUserBadges: number;
+  mergedIdentities: number;
+}
+
+export async function mergeAccounts(
+  targetProductUserId: string,
+  sourceProductUserId: string
+): Promise<MergeAccountsResult> {
+  return withDb(async (db) => {
+    // Verify both accounts exist and have identity mappings
+    const targetIdentities = await db.query<IdentityRow>(
+      "select * from identity_mappings where product_user_id = $1 and merged_into_product_user_id is null",
+      [targetProductUserId]
+    );
+    if (targetIdentities.rows.length === 0) {
+      throw new Error("Target account not found or has already been merged.");
+    }
+
+    const sourceIdentities = await db.query<IdentityRow>(
+      "select * from identity_mappings where product_user_id = $1 and merged_into_product_user_id is null",
+      [sourceProductUserId]
+    );
+    if (sourceIdentities.rows.length === 0) {
+      throw new Error("Source account not found or has already been merged.");
+    }
+
+    if (targetProductUserId === sourceProductUserId) {
+      throw new Error("Cannot merge an account into itself.");
+    }
+
+    // 1. Migrate messages
+    const msgResult = await db.query<{ rowCount: number }>(
+      "update chat_messages set author_user_id = $1 where author_user_id = $2",
+      [targetProductUserId, sourceProductUserId]
+    );
+    const migratedMessages = msgResult.rowCount ?? 0;
+
+    // 2. Migrate server_members (upsert: skip if target already a member)
+    const smResult = await db.query<{ rowCount: number }>(
+      `update server_members set product_user_id = $1
+       where product_user_id = $2
+         and not exists (
+           select 1 from server_members sm2
+           where sm2.server_id = server_members.server_id
+             and sm2.product_user_id = $1
+         )`,
+      [targetProductUserId, sourceProductUserId]
+    );
+    const migratedServerMembers = smResult.rowCount ?? 0;
+    // Delete any remaining source server_members that conflicted (target already had membership)
+    await db.query(
+      "delete from server_members where product_user_id = $1",
+      [sourceProductUserId]
+    );
+
+    // 3. Migrate hub_members (upsert: skip if target already a member)
+    const hmResult = await db.query<{ rowCount: number }>(
+      `update hub_members set product_user_id = $1
+       where product_user_id = $2
+         and not exists (
+           select 1 from hub_members hm2
+           where hm2.hub_id = hub_members.hub_id
+             and hm2.product_user_id = $1
+         )`,
+      [targetProductUserId, sourceProductUserId]
+    );
+    const migratedHubMembers = hmResult.rowCount ?? 0;
+    await db.query(
+      "delete from hub_members where product_user_id = $1",
+      [sourceProductUserId]
+    );
+
+    // 4. Migrate role_bindings (upsert: skip if target already has same role binding)
+    const rbResult = await db.query<{ rowCount: number }>(
+      `update role_bindings set product_user_id = $1
+       where product_user_id = $2
+         and not exists (
+           select 1 from role_bindings rb2
+           where rb2.role = role_bindings.role
+             and coalesce(rb2.hub_id, '') = coalesce(role_bindings.hub_id, '')
+             and coalesce(rb2.server_id, '') = coalesce(role_bindings.server_id, '')
+             and coalesce(rb2.channel_id, '') = coalesce(role_bindings.channel_id, '')
+             and rb2.product_user_id = $1
+         )`,
+      [targetProductUserId, sourceProductUserId]
+    );
+    const migratedRoleBindings = rbResult.rowCount ?? 0;
+    await db.query(
+      "delete from role_bindings where product_user_id = $1",
+      [sourceProductUserId]
+    );
+
+    // 5. Migrate user_presence
+    const upResult = await db.query<{ rowCount: number }>(
+      `update user_presence set product_user_id = $1
+       where product_user_id = $2
+         and not exists (
+           select 1 from user_presence up2 where up2.product_user_id = $1
+         )`,
+      [targetProductUserId, sourceProductUserId]
+    );
+    const migratedUserPresence = upResult.rowCount ?? 0;
+    await db.query(
+      "delete from user_presence where product_user_id = $1",
+      [sourceProductUserId]
+    );
+
+    // 6. Migrate voice_presence
+    const vpResult = await db.query<{ rowCount: number }>(
+      `update voice_presence set product_user_id = $1
+       where product_user_id = $2
+         and not exists (
+           select 1 from voice_presence vp2
+           where vp2.channel_id = voice_presence.channel_id
+             and vp2.product_user_id = $1
+         )`,
+      [targetProductUserId, sourceProductUserId]
+    );
+    const migratedVoicePresence = vpResult.rowCount ?? 0;
+    await db.query(
+      "delete from voice_presence where product_user_id = $1",
+      [sourceProductUserId]
+    );
+
+    // 7. Migrate user_badges
+    const ubResult = await db.query<{ rowCount: number }>(
+      `update user_badges set product_user_id = $1
+       where product_user_id = $2
+         and not exists (
+           select 1 from user_badges ub2
+           where ub2.badge_id = user_badges.badge_id
+             and ub2.product_user_id = $1
+         )`,
+      [targetProductUserId, sourceProductUserId]
+    );
+    const migratedUserBadges = ubResult.rowCount ?? 0;
+    await db.query(
+      "delete from user_badges where product_user_id = $1",
+      [sourceProductUserId]
+    );
+
+    // 8. Mark source identities as merged, then transfer product_user_id
+    const mergeMarkResult = await db.query<{ rowCount: number }>(
+      "update identity_mappings set merged_into_product_user_id = $1, updated_at = now() where product_user_id = $2 and merged_into_product_user_id is null",
+      [targetProductUserId, sourceProductUserId]
+    );
+    const mergedIdentities = mergeMarkResult.rowCount ?? 0;
+
+    // 9. Transfer product_user_id on source identities to target
+    await db.query(
+      "update identity_mappings set product_user_id = $1, updated_at = now() where product_user_id = $2",
+      [targetProductUserId, sourceProductUserId]
+    );
+
+    return {
+      targetProductUserId,
+      sourceProductUserId,
+      migratedMessages,
+      migratedServerMembers,
+      migratedHubMembers,
+      migratedRoleBindings,
+      migratedUserPresence,
+      migratedVoicePresence,
+      migratedUserBadges,
+      mergedIdentities,
+    };
   });
 }
