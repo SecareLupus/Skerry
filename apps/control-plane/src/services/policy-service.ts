@@ -386,8 +386,55 @@ async function resolveAccessLevel(
   return input.audienceTier === "visitor" ? "hidden" : "chat";
 }
 
-export function bindingAllowsAction(binding: RoleBinding, action: PrivilegedAction): boolean {
-  return (permissionMatrix[binding.role] || []).includes(action);
+export function bindingAllowsAction(binding: RoleBinding, action: PrivilegedAction, hubId?: string | null): boolean {
+  const globalAllowed = (permissionMatrix[binding.role] || []).includes(action);
+  if (!globalAllowed && hubId) {
+    // Sync check from cache (loaded by bindingAllowsActionHubAware or hub routes)
+    const cached = overrideCache.get(hubId);
+    return cached?.get(`${binding.role}:${action}`) ?? false;
+  }
+  return globalAllowed;
+}
+
+export async function bindingAllowsActionHubAware(
+  binding: RoleBinding,
+  action: PrivilegedAction,
+  hubId: string
+): Promise<boolean> {
+  const globalAllowed = (permissionMatrix[binding.role] || []).includes(action);
+  if (!globalAllowed) {
+    // Check for per-hub override granting this action
+    const overrides = await loadHubPermissionOverrides(hubId);
+    return overrides.get(`${binding.role}:${action}`) ?? false;
+  }
+  return true;
+}
+
+let overrideCache = new Map<string, Map<string, boolean>>(); // hubId → (role:action → allowed)
+
+export function clearHubPermissionOverrideCache(): void {
+  overrideCache = new Map();
+}
+
+async function loadHubPermissionOverrides(hubId: string): Promise<Map<string, boolean>> {
+  const cached = overrideCache.get(hubId);
+  if (cached) return cached;
+
+  const map = new Map<string, boolean>();
+  const rows = await withDb(async (db) => {
+    const result = await db.query<{ role: string; action: string; allowed: boolean }>(
+      "select role, action, allowed from hub_permission_overrides where hub_id = $1",
+      [hubId]
+    );
+    return result.rows;
+  });
+
+  for (const row of rows) {
+    map.set(`${row.role}:${row.action}`, row.allowed);
+  }
+
+  overrideCache.set(hubId, map);
+  return map;
 }
 
 export async function grantRole(input: {
@@ -628,6 +675,11 @@ export async function isActionAllowed(input: {
   authContext?: ScopedAuthContext;
 }): Promise<boolean> {
   return withDb(async (db) => {
+    // Warm the permission override cache for this hub
+    if (input.scope.hubId) {
+      await loadHubPermissionOverrides(input.scope.hubId);
+    }
+
     // 1. Get Effective Roles & Owner Suspension Status
     const roles = await getEffectiveRoleBindings(db, {
       productUserId: input.productUserId,
@@ -649,7 +701,7 @@ export async function isActionAllowed(input: {
 
     // 2. Check traditional permission matrix first (for management actions)
     const isRoleAllowedByMatrix = roles.some((binding) =>
-      bindingAllowsAction(binding, input.action) &&
+      bindingAllowsAction(binding, input.action, input.scope.hubId) &&
       bindingMatchesScope(binding, input.scope)
     );
 
