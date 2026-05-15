@@ -158,18 +158,33 @@ services:
       - sticker_cache:/app/cache/stickers
 
   db-backup:
-    image: postgres:16-alpine
+    image: postgres:16
     container_name: skerry-db-backup
     restart: unless-stopped
     volumes:
-      - ./scripts/backup-db.sh:/usr/local/bin/backup-db.sh:ro
+      - ./deploy/scripts/backup.sh:/usr/local/bin/backup.sh:ro
       - pg_backups:/backups
     environment:
-      - PGHOST=postgres
-      - PGUSER=${POSTGRES_USER}
-      - PGPASSWORD=${POSTGRES_PASSWORD}
-      - PGDATABASE=${POSTGRES_DB}
-    entrypoint: ["sh", "-c", "while true; do /usr/local/bin/backup-db.sh; sleep 86400; done"]
+      PGHOST: postgres
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB}
+    entrypoint:
+      - sh
+      - -c
+      - |
+        while true; do
+          now_secs=$(date +%s)
+          target=$(date -d "tomorrow 02:00" +%s 2>/dev/null || echo $((now_secs + 86400)))
+          sleep_secs=$((target - now_secs))
+          if [ "$sleep_secs" -lt 60 ]; then
+            sleep_secs=60
+          fi
+          echo "[$(date -Iseconds)] db-backup: sleeping ${sleep_secs}s until next 02:00 UTC run"
+          sleep "${sleep_secs}"
+          echo "[$(date -Iseconds)] db-backup: starting scheduled backup"
+          /usr/local/bin/backup.sh
+        done
     depends_on:
       - postgres
 
