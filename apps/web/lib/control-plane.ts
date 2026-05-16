@@ -1636,3 +1636,22 @@ export async function verifyTotpEnrollment(hubId: string, code: string): Promise
 export async function removeTotp(hubId: string): Promise<void> {
   await apiFetch(`/v1/hubs/${encodeURIComponent(hubId)}/totp`, { method: "DELETE" });
 }
+
+// --- Permission Overrides (#101) ---
+
+export async function fetchPermissionOverrides(hubId: string): Promise<{
+  items: { role: string; action: string; allowed: boolean; require_2fa?: boolean }[];
+}> {
+  return apiFetch(`/v1/hubs/${encodeURIComponent(hubId)}/permission-overrides`);
+}
+
+export async function updatePermissionOverrides(
+  hubId: string,
+  overrides: { role: string; action: string; allowed: boolean; require_2fa?: boolean }[]
+): Promise<void> {
+  await apiFetch(`/v1/hubs/${encodeURIComponent(hubId)}/permission-overrides`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ overrides }),
+  });
+}

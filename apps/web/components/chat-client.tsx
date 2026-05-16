@@ -528,11 +528,15 @@ export function ChatClient() {
 
   const handle2faVerified = useCallback((token: string) => {
     setPending2faToken(token);
+    sessionStorage.setItem("2fa_token", token);
     // Execute the pending action
     pending2faAction?.action();
     setPending2faAction(null);
     // Clear token after 5 minutes
-    setTimeout(() => setPending2faToken(null), 5 * 60 * 1000);
+    setTimeout(() => {
+      setPending2faToken(null);
+      sessionStorage.removeItem("2fa_token");
+    }, 5 * 60 * 1000);
   }, [pending2faAction]);
 
   const { toggleTheme } = useTheme();

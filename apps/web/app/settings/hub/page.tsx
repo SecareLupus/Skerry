@@ -193,6 +193,37 @@ export default function HubSettingsPage() {
             </div>
 
             <HubOwnershipTransfer hubId={hubId} />
+
+            <hr style={{ margin: '2rem 0', border: 'none', borderTop: '1px solid var(--border)' }} />
+
+            <section style={{ marginTop: '1rem' }}>
+                <h3>Authentication &amp; 2FA</h3>
+
+                {settings && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '0.75rem' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <input
+                                type="checkbox"
+                                checked={settings.allowPasskeyLogin ?? false}
+                                onChange={(e) => {
+                                    setSettings({ ...settings, allowPasskeyLogin: e.target.checked });
+                                }}
+                            />
+                            Allow passkey login
+                        </label>
+                        <p className="settings-description" style={{ marginLeft: '1.5rem' }}>
+                            Enables &ldquo;Sign in with passkey&rdquo; on the login page. Users must register a passkey in Security Settings first.
+                        </p>
+                    </div>
+                )}
+
+                <p className="settings-description" style={{ marginTop: '0.5rem' }}>
+                    Per-role 2FA requirements are configured via the{" "}
+                    <strong>Permission Overrides</strong> API.
+                    Set <code>require_2fa: true</code> for a role to enforce
+                    passkey or TOTP verification before privileged actions.
+                </p>
+            </section>
         </div>
     );
 }
