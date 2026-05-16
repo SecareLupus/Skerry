@@ -719,4 +719,216 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
       throw error;
     }
   });
+
+  // --- WebAuthn / Passkeys (#73) ---
+
+  const {
+    beginRegistration,
+    completeRegistration,
+    beginAuthentication,
+    completeAuthentication,
+    listCredentials,
+    removeCredential,
+  } = await import("../services/webauthn-service.js");
+
+  const {
+    beginTotpEnrollment,
+    verifyTotpEnrollment,
+    verifyTotp,
+    hasTotpEnabled,
+    removeTotp,
+  } = await import("../services/totp-service.js");
+
+  const {
+    generateRecoveryCodes,
+    redeemRecoveryCode,
+    countRecoveryCodes,
+  } = await import("../services/recovery-service.js");
+
+  const { setSessionCookie } = await import("../auth/session.js");
+
+  // Register a new passkey
+  app.post("/v1/hubs/:hubId/webauthn/register/begin", { preHandler: requireAuth }, async (request, reply) => {
+    const params = z.object({ hubId: z.string().min(1) }).parse(request.params);
+    const opts = await beginRegistration({
+      hubId: params.hubId,
+      productUserId: request.auth!.productUserId,
+    });
+    return opts;
+  });
+
+  app.post("/v1/hubs/:hubId/webauthn/register/complete", { preHandler: requireAuth }, async (request, reply) => {
+    const params = z.object({ hubId: z.string().min(1) }).parse(request.params);
+    const payload = z.object({
+      response: z.any(),
+      label: z.string().max(40).optional(),
+      pin: z.string().min(4).max(8).optional(),
+    }).parse(request.body);
+
+    const credential = await completeRegistration({
+      hubId: params.hubId,
+      productUserId: request.auth!.productUserId,
+      response: payload.response,
+      label: payload.label,
+      pin: payload.pin,
+    });
+
+    const remaining = await countRecoveryCodes(params.hubId, request.auth!.productUserId);
+    let recoveryCodes: string[] | undefined;
+    if (remaining === 0) {
+      recoveryCodes = await generateRecoveryCodes(params.hubId, request.auth!.productUserId);
+    }
+
+    return { credential, recoveryCodes };
+  });
+
+  // Passkey login
+  app.post("/v1/hubs/:hubId/webauthn/authenticate/begin", async (request, reply) => {
+    const params = z.object({ hubId: z.string().min(1) }).parse(request.params);
+    const query = z.object({ productUserId: z.string().optional() }).parse(request.query ?? {});
+
+    const opts = await beginAuthentication({
+      hubId: params.hubId,
+      productUserId: query.productUserId,
+    });
+    return opts;
+  });
+
+  app.post("/v1/hubs/:hubId/webauthn/authenticate/complete", async (request, reply) => {
+    const params = z.object({ hubId: z.string().min(1) }).parse(request.params);
+    const payload = z.object({ response: z.any() }).parse(request.body);
+
+    const { withDb } = await import("../db/client.js");
+    const hubRow = await withDb(async (db) => {
+      const result = await db.query<{ allow_passkey_login: boolean }>(
+        "select allow_passkey_login from hubs where id = $1", [params.hubId]
+      );
+      return result.rows[0] ?? null;
+    });
+
+    if (!hubRow?.allow_passkey_login) {
+      reply.code(403).send({ message: "Passkey login is not enabled on this hub.", code: "passkey_disabled" });
+      return;
+    }
+
+    try {
+      const result = await completeAuthentication({
+        hubId: params.hubId,
+        response: payload.response,
+      });
+
+      setSessionCookie(reply, {
+        productUserId: result.productUserId,
+        provider: "webauthn",
+        oidcSubject: result.credentialId,
+      });
+
+      return { productUserId: result.productUserId, authenticated: true };
+    } catch (err) {
+      reply.code(401).send({ message: "Authentication failed.", code: "webauthn_failed" });
+    }
+  });
+
+  // List credentials
+  app.get("/v1/hubs/:hubId/webauthn/credentials", { preHandler: requireAuth }, async (request) => {
+    const params = z.object({ hubId: z.string().min(1) }).parse(request.params);
+    return { items: await listCredentials(params.hubId, request.auth!.productUserId) };
+  });
+
+  // Remove a credential
+  app.delete("/v1/hubs/:hubId/webauthn/credentials/:id", { preHandler: requireAuth }, async (request, reply) => {
+    const params = z.object({ hubId: z.string().min(1), id: z.string().min(1) }).parse(request.params);
+    await removeCredential(params.id, request.auth!.productUserId);
+    reply.code(204).send();
+  });
+
+  // --- TOTP (#73) ---
+
+  app.post("/v1/hubs/:hubId/totp/enroll", { preHandler: requireAuth }, async (request) => {
+    const params = z.object({ hubId: z.string().min(1) }).parse(request.params);
+    return await beginTotpEnrollment({
+      hubId: params.hubId,
+      productUserId: request.auth!.productUserId,
+    });
+  });
+
+  app.post("/v1/hubs/:hubId/totp/verify-enrollment", { preHandler: requireAuth }, async (request, reply) => {
+    const params = z.object({ hubId: z.string().min(1) }).parse(request.params);
+    const payload = z.object({ code: z.string().length(6) }).parse(request.body);
+    const ok = await verifyTotpEnrollment({
+      hubId: params.hubId,
+      productUserId: request.auth!.productUserId,
+      code: payload.code,
+    });
+    if (!ok) {
+      reply.code(400).send({ message: "Invalid code.", code: "totp_invalid" });
+      return;
+    }
+    return { enrolled: true };
+  });
+
+  app.post("/v1/hubs/:hubId/totp/verify", { preHandler: requireAuth }, async (request, reply) => {
+    const params = z.object({ hubId: z.string().min(1) }).parse(request.params);
+    const payload = z.object({ code: z.string().length(6) }).parse(request.body);
+    const ok = await verifyTotp({
+      hubId: params.hubId,
+      productUserId: request.auth!.productUserId,
+      code: payload.code,
+    });
+    if (!ok) {
+      reply.code(400).send({ message: "Invalid code.", code: "totp_invalid" });
+      return;
+    }
+    return { verified: true };
+  });
+
+  app.delete("/v1/hubs/:hubId/totp", { preHandler: requireAuth }, async (request, reply) => {
+    const params = z.object({ hubId: z.string().min(1) }).parse(request.params);
+    await removeTotp(params.hubId, request.auth!.productUserId);
+    reply.code(204).send();
+  });
+
+  // --- Recovery codes (#73) ---
+
+  app.post("/v1/hubs/:hubId/recovery/redeem", async (request, reply) => {
+    const params = z.object({ hubId: z.string().min(1) }).parse(request.params);
+    const payload = z.object({ code: z.string().min(1) }).parse(request.body);
+
+    const { withDb } = await import("../db/client.js");
+    const rows = await withDb(async (db) => {
+      const result = await db.query<{ product_user_id: string; code_hash: string }>(
+        "select product_user_id, code_hash from recovery_codes where hub_id = $1 and used_at is null",
+        [params.hubId]
+      );
+      return result.rows;
+    });
+
+    let foundUserId: string | null = null;
+    const { bcryptVerify } = await import("../services/webauthn-service.js");
+    for (const row of rows) {
+      if (await bcryptVerify(payload.code, row.code_hash)) {
+        foundUserId = row.product_user_id;
+        await withDb(async (db) => {
+          await db.query(
+            "update recovery_codes set used_at = now() where product_user_id = $1 and hub_id = $2 and used_at is null",
+            [row.product_user_id, params.hubId]
+          );
+        });
+        break;
+      }
+    }
+
+    if (!foundUserId) {
+      reply.code(400).send({ message: "Invalid recovery code.", code: "recovery_invalid" });
+      return;
+    }
+
+    setSessionCookie(reply, {
+      productUserId: foundUserId,
+      provider: "recovery",
+      oidcSubject: foundUserId,
+    });
+
+    return { productUserId: foundUserId, authenticated: true };
+  });
 }
