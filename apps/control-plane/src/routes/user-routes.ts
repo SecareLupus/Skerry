@@ -133,4 +133,17 @@ export async function registerUserRoutes(app: FastifyInstance): Promise<void> {
       })
     };
   });
+
+  app.post("/v1/me/export", { preHandler: requireAuth }, async (request, reply) => {
+    const { buildExportZip } = await import("../services/export-service.js");
+
+    reply.header("Content-Type", "application/zip");
+    reply.header(
+      "Content-Disposition",
+      `attachment; filename="skerry-export-${request.auth!.productUserId.slice(0, 8)}.zip"`
+    );
+
+    await buildExportZip(request.auth!.productUserId, reply.raw);
+    reply.hijack();
+  });
 }

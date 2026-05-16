@@ -6,6 +6,7 @@ import {
     fetchViewerSession,
     providerLinkUrl,
     mergeAccounts,
+    controlPlaneBaseUrl,
     type AuthProvidersResponse,
     type ViewerSession,
     type MergeAccountsResult
@@ -183,6 +184,36 @@ export default function UserSettingsPage() {
                             )}
                         </div>
                     )}
+                </section>
+                <section style={{ marginTop: '2rem' }}>
+                    <h3>Export Data</h3>
+                    <p className="settings-description">
+                        Download all your data in a ZIP archive. Includes messages,
+                        DMs, memberships, reactions, and profile info.
+                    </p>
+                    <button
+                        style={{ marginTop: '0.75rem' }}
+                        onClick={async () => {
+                            try {
+                                const response = await fetch(`${controlPlaneBaseUrl}/v1/me/export`, {
+                                    method: "POST",
+                                    credentials: "include",
+                                });
+                                if (!response.ok) throw new Error("Export failed");
+                                const blob = await response.blob();
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement("a");
+                                a.href = url;
+                                a.download = "skerry-export.zip";
+                                a.click();
+                                URL.revokeObjectURL(url);
+                            } catch {
+                                alert("Export failed. Please try again.");
+                            }
+                        }}
+                    >
+                        Export My Data
+                    </button>
                 </section>
             </div>
         </div>
