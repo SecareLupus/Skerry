@@ -9,6 +9,7 @@ export interface ContextMenuItem {
   onClick?: () => void;
   danger?: boolean;
   type?: "item" | "header" | "separator";
+  requires2fa?: boolean;
 }
 
 interface ContextMenuProps {

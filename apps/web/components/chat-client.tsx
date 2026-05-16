@@ -1082,7 +1082,23 @@ export function ChatClient() {
         <ContextMenu
           x={userContextMenu.x}
           y={userContextMenu.y}
-          items={userContextMenuItems}
+          items={userContextMenuItems.map(item => {
+            if (!item.requires2fa || !item.onClick) return item;
+            return {
+              ...item,
+              onClick: () => {
+                const hubId = state.hubs[0]?.id;
+                if (hubId && !pending2faToken) {
+                  setPending2faAction({
+                    action: item.onClick!,
+                    hubId,
+                  });
+                  return;
+                }
+                item.onClick!();
+              }
+            };
+          })}
           onClose={() => setUserContextMenu(null)}
         />
       )}
