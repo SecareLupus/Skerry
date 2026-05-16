@@ -1655,3 +1655,33 @@ export async function updatePermissionOverrides(
     body: JSON.stringify({ overrides }),
   });
 }
+
+// --- Server Emoji ---
+
+export async function listServerEmojis(serverId: string): Promise<{ items: import("@skerry/shared").ServerEmoji[] }> {
+  return apiFetch(`/v1/servers/${encodeURIComponent(serverId)}/emojis`);
+}
+
+export async function createServerEmoji(serverId: string, name: string, url: string): Promise<import("@skerry/shared").ServerEmoji> {
+  return apiFetch(`/v1/servers/${encodeURIComponent(serverId)}/emojis`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, url }),
+  });
+}
+
+export async function deleteServerEmoji(serverId: string, emojiId: string): Promise<void> {
+  await apiFetch(`/v1/servers/${encodeURIComponent(serverId)}/emojis/${encodeURIComponent(emojiId)}`, {
+    method: "DELETE",
+  });
+}
+
+export async function listDiscordEmojis(serverId: string): Promise<{ items: import("@skerry/shared").DiscordGuildEmoji[]; message?: string }> {
+  return apiFetch(`/v1/servers/${encodeURIComponent(serverId)}/discord-emojis`);
+}
+
+export async function pullAllDiscordEmojis(serverId: string): Promise<{ pulled: number; skipped: number }> {
+  return apiFetch(`/v1/servers/${encodeURIComponent(serverId)}/discord-emojis/pull-all`, {
+    method: "POST",
+  });
+}

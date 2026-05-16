@@ -32,6 +32,9 @@ export function AutocompletePopover({ items, selectedIdx, onSelect, onHover }: P
           disabled={item.disabled}
         >
           {item.glyph && <span className="autocomplete-glyph" aria-hidden="true">{item.glyph}</span>}
+          {item.imageUrl && (
+            <img className="autocomplete-avatar" src={item.imageUrl} alt="" aria-hidden="true" style={{ width: '20px', height: '20px', objectFit: 'contain' }} />
+          )}
           {item.avatarUrl && (
             <img className="autocomplete-avatar" src={item.avatarUrl} alt="" aria-hidden="true" />
           )}

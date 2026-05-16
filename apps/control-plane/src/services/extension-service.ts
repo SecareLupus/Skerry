@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { withDb } from "../db/client.js";
-import type { ServerEmoji, ServerSticker, Webhook, FollowedAnnouncement } from "@skerry/shared";
+import type { ServerEmoji, ServerSticker, Webhook, FollowedAnnouncement, DiscordGuildEmoji } from "@skerry/shared";
 
 function randomId(prefix: string): string {
   return `${prefix}_${crypto.randomUUID().replaceAll("-", "")}`;
@@ -100,6 +100,92 @@ export async function deleteServerEmoji(serverId: string, emojiId: string): Prom
   await withDb(async (db) => {
     await db.query("delete from server_emojis where id = $1 and server_id = $2", [emojiId, serverId]);
   });
+}
+
+export async function listDiscordGuildEmojis(serverId: string, guildId: string): Promise<DiscordGuildEmoji[]> {
+  const { getDiscordBotClient } = await import("./discord-bot-client.js");
+  const client = getDiscordBotClient();
+  if (!client || !client.isReady()) {
+    throw new Error("Discord bot is not ready; cannot fetch guild emojis.");
+  }
+
+  const guild = await client.guilds.fetch(guildId);
+  if (!guild) {
+    throw new Error(`Guild ${guildId} not found by bot.`);
+  }
+
+  const discordEmojis = await guild.emojis.fetch();
+
+  // Check which Discord emojis are already pulled into server_emojis
+  const pulled = await withDb(async (db) => {
+    const rows = await db.query<{ name: string }>(
+      "select name from server_emojis where server_id = $1",
+      [serverId]
+    );
+    return new Set(rows.rows.map(r => r.name));
+  });
+
+  const result: DiscordGuildEmoji[] = [];
+  for (const [, emoji] of discordEmojis) {
+    const ext = emoji.animated ? "gif" : "webp";
+    result.push({
+      id: emoji.id,
+      name: emoji.name ?? emoji.id,
+      isAnimated: emoji.animated ?? false,
+      isMirrored: pulled.has(emoji.name ?? ""),
+      url: `https://cdn.discordapp.com/emojis/${emoji.id}.${ext}?size=96&quality=lossless`
+    });
+  }
+  return result;
+}
+
+export async function pullAllDiscordEmojis(serverId: string, guildId: string): Promise<{ pulled: number; skipped: number }> {
+  const { getDiscordBotClient } = await import("./discord-bot-client.js");
+  const client = getDiscordBotClient();
+  if (!client || !client.isReady()) {
+    throw new Error("Discord bot is not ready; cannot pull guild emojis.");
+  }
+
+  const guild = await client.guilds.fetch(guildId);
+  if (!guild) {
+    throw new Error(`Guild ${guildId} not found by bot.`);
+  }
+
+  const discordEmojis = await guild.emojis.fetch();
+
+  // Get existing emoji names for this server
+  const existingNames = await withDb(async (db) => {
+    const rows = await db.query<{ name: string }>(
+      "select name from server_emojis where server_id = $1",
+      [serverId]
+    );
+    return new Set(rows.rows.map(r => r.name));
+  });
+
+  let pulled = 0;
+  let skipped = 0;
+
+  for (const [, emoji] of discordEmojis) {
+    const name = emoji.name ?? emoji.id;
+    if (existingNames.has(name)) {
+      skipped++;
+      continue;
+    }
+
+    const ext = emoji.animated ? "gif" : "webp";
+    const url = `https://cdn.discordapp.com/emojis/${emoji.id}.${ext}?size=96&quality=lossless`;
+
+    try {
+      await createServerEmoji({ serverId, name, url });
+      existingNames.add(name);
+      pulled++;
+    } catch (err) {
+      // Name collision — skip
+      skipped++;
+    }
+  }
+
+  return { pulled, skipped };
 }
 
 export async function createServerSticker(input: {

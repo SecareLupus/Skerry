@@ -3,6 +3,7 @@ import { registerSystemRoutes } from "./system-routes.js";
 import { registerUserRoutes } from "./user-routes.js";
 import { registerHubRoutes } from "./hub-routes.js";
 import { registerServerRoutes } from "./server-routes.js";
+import { registerEmojiRoutes } from "./emoji-routes.js";
 import { registerChannelRoutes } from "./channel-routes.js";
 import { registerChannelInitRoutes } from "./channel-init-routes.js";
 import { registerMessageRoutes } from "./message-routes.js";
@@ -28,6 +29,7 @@ export async function registerDomainRoutes(app: FastifyInstance): Promise<void> 
   await registerUserRoutes(app);
   await registerHubRoutes(app);
   await registerServerRoutes(app);
+  await registerEmojiRoutes(app);
   await registerChannelRoutes(app);
   await registerChannelInitRoutes(app);
   await registerMessageRoutes(app);
