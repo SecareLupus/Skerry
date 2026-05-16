@@ -2459,6 +2459,139 @@ textarea:focus-visible,
   transform: scale(1.1);
 }
 
+/* #76 — Code block syntax highlighting + copy button */
+.code-block-wrapper {
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  overflow: hidden;
+  margin: 0.5rem 0;
+  background: var(--surface-alt);
+}
+
+.code-block-wrapper .code-block-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.code-block-wrapper .code-block-lang {
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+.code-block-wrapper .code-block-copy-btn {
+  padding: 0.15rem 0.5rem;
+  font-size: 0.7rem;
+  font-family: var(--sk-font-main);
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 0.25rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.code-block-wrapper .code-block-copy-btn:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.code-block-wrapper .code-block-pre {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  overflow-x: auto;
+  font-family: "Fira Code", "JetBrains Mono", "Cascadia Code", "Fira Mono", Consolas, monospace;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  background: var(--surface-alt);
+  color: var(--text);
+}
+
+.code-block-wrapper .code-block-pre code {
+  font-family: inherit;
+  font-size: inherit;
+  background: none;
+  padding: 0;
+  white-space: pre;
+}
+
+/* Prism token color overrides — driven by CSS vars for light/dark */
+.code-block-wrapper .token.comment,
+.code-block-wrapper .token.prolog,
+.code-block-wrapper .token.doctype,
+.code-block-wrapper .token.cdata {
+  color: var(--text-muted);
+  opacity: 0.75;
+}
+
+.code-block-wrapper .token.punctuation {
+  color: var(--text);
+  opacity: 0.75;
+}
+
+.code-block-wrapper .token.property,
+.code-block-wrapper .token.tag,
+.code-block-wrapper .token.boolean,
+.code-block-wrapper .token.number,
+.code-block-wrapper .token.constant,
+.code-block-wrapper .token.symbol,
+.code-block-wrapper .token.deleted {
+  color: var(--accent);
+}
+
+.code-block-wrapper .token.selector,
+.code-block-wrapper .token.attr-name,
+.code-block-wrapper .token.string,
+.code-block-wrapper .token.char,
+.code-block-wrapper .token.builtin,
+.code-block-wrapper .token.inserted {
+  color: var(--accent-strong);
+}
+
+.code-block-wrapper .token.operator,
+.code-block-wrapper .token.entity,
+.code-block-wrapper .token.url {
+  color: var(--text);
+}
+
+.code-block-wrapper .token.atrule,
+.code-block-wrapper .token.attr-value,
+.code-block-wrapper .token.keyword {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.code-block-wrapper .token.function,
+.code-block-wrapper .token.class-name {
+  color: var(--accent-strong);
+}
+
+.code-block-wrapper .token.regex,
+.code-block-wrapper .token.important,
+.code-block-wrapper .token.variable {
+  color: var(--warning);
+}
+
+/* Syntax highlighting: dark-theme adjustments */
+[data-theme="dark"] .code-block-wrapper .token.comment,
+[data-theme="dark"] .code-block-wrapper .token.prolog,
+[data-theme="dark"] .code-block-wrapper .token.doctype,
+[data-theme="dark"] .code-block-wrapper .token.cdata {
+  opacity: 0.6;
+}
+
+[data-theme="dark"] .code-block-wrapper .token.punctuation {
+  opacity: 0.6;
+}
+
 .embed-video-container iframe {
   position: absolute;
   top: 0;

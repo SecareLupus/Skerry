@@ -105,6 +105,7 @@ export function useModeration(setUrlSelection: (serverId: string | null, channel
         label: "Timeout (Shadow Mute)",
         icon: "⏳",
         danger: true,
+        requires2fa: true,
         onClick: () => {
           void performModerationAction({
             action: "timeout",
@@ -120,6 +121,7 @@ export function useModeration(setUrlSelection: (serverId: string | null, channel
         label: "Kick",
         icon: "👢",
         danger: true,
+        requires2fa: true,
         onClick: () => {
           void performModerationAction({
             action: "kick",
