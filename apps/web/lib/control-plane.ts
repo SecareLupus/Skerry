@@ -437,6 +437,34 @@ export async function deleteMessage(channelId: string, messageId: string): Promi
   });
 }
 
+export async function bulkDeleteMessages(
+  channelId: string,
+  messageIds: string[]
+): Promise<{ deleted: number; total: number }> {
+  return apiFetch(
+    `/v1/channels/${encodeURIComponent(channelId)}/messages/bulk-delete`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messageIds }),
+    }
+  );
+}
+
+export async function bulkRedactMessages(
+  channelId: string,
+  messageIds: string[]
+): Promise<{ redacted: number; total: number }> {
+  return apiFetch(
+    `/v1/channels/${encodeURIComponent(channelId)}/messages/bulk-redact`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messageIds }),
+    }
+  );
+}
+
 export async function addReaction(channelId: string, messageId: string, emoji: string): Promise<void> {
   await apiFetch(`/v1/channels/${encodeURIComponent(channelId)}/messages/${encodeURIComponent(messageId)}/reactions`, {
     method: "POST",
