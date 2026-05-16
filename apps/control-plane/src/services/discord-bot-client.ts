@@ -290,6 +290,22 @@ export async function startDiscordBot() {
             const emoji = encodeDiscordReactionEmoji(reaction.emoji);
             if (!emoji) return;
 
+            // Seed custom emoji into seen registry so name-based lookups
+            // (findEmojiByName, getOrMirrorExternalEmoji) work for emojis
+            // encountered only via reactions — issue #70.
+            if (reaction.emoji.id) {
+                withDb(async (db) => {
+                    await db.query(
+                        `insert into discord_seen_emojis (id, name, is_animated, source_guild_id, last_seen_at)
+                         values ($1, $2, $3, $4, now())
+                         on conflict (id) do update set name = $2, is_animated = $3, last_seen_at = now()`,
+                        [reaction.emoji.id, reaction.emoji.name, reaction.emoji.animated ?? false, guildId]
+                    );
+                }).catch(err => {
+                    console.error("[Discord Bridge] Failed to seed reaction emoji into seen registry:", err);
+                });
+            }
+
             const discordChannelIdForMapping = parentIdOf(message.channel) ?? channelId;
             const serverIds = await withDb(async (db) => {
                 const rows = await db.query<{ server_id: string }>(
