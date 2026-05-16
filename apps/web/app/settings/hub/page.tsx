@@ -212,7 +212,7 @@ export default function HubSettingsPage() {
                             Allow passkey login
                         </label>
                         <p className="settings-description" style={{ marginLeft: '1.5rem' }}>
-                            Enables "Sign in with passkey" on the login page. Users must register a passkey in Security Settings first.
+                            Enables &ldquo;Sign in with passkey&rdquo; on the login page. Users must register a passkey in Security Settings first.
                         </p>
                     </div>
                 )}
