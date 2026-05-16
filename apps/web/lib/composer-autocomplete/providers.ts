@@ -9,9 +9,15 @@ export interface AutocompleteItem {
   secondary?: string;
   glyph?: string;
   avatarUrl?: string;
+  imageUrl?: string;
   insertText: string;
   disabled?: boolean;
   disabledReason?: string;
+}
+
+export interface CustomEmojiEntry {
+  name: string;
+  url: string;
 }
 
 export function mentionItems(query: string, members: ChatMember[], limit = 8): AutocompleteItem[] {
@@ -55,13 +61,35 @@ export function mentionItems(query: string, members: ChatMember[], limit = 8): A
   return out.slice(0, limit);
 }
 
-export function emojiItems(query: string, limit = 8): AutocompleteItem[] {
-  const results: EmojiEntry[] = searchEmojis(query, limit);
-  return results.map((e) => ({
-    key: e.shortcode,
-    kind: "emoji" as const,
-    primary: `:${e.shortcode}:`,
-    glyph: e.glyph,
-    insertText: `:${e.shortcode}:`
-  }));
+export function emojiItems(query: string, limit = 8, customEmojis?: CustomEmojiEntry[]): AutocompleteItem[] {
+  const results: AutocompleteItem[] = [];
+
+  // Custom server emojis first
+  if (customEmojis && customEmojis.length > 0) {
+    const q = query.toLowerCase();
+    const matching = customEmojis.filter(e => e.name.toLowerCase().startsWith(q));
+    for (const ce of matching) {
+      results.push({
+        key: `custom:${ce.name}`,
+        kind: "emoji" as const,
+        primary: `:${ce.name}:`,
+        imageUrl: ce.url,
+        insertText: `:${ce.name}:`
+      });
+    }
+  }
+
+  // Unicode emojis
+  const unicode: EmojiEntry[] = searchEmojis(query, limit - results.length);
+  for (const e of unicode) {
+    results.push({
+      key: e.shortcode,
+      kind: "emoji" as const,
+      primary: `:${e.shortcode}:`,
+      glyph: e.glyph,
+      insertText: `:${e.shortcode}:`
+    });
+  }
+
+  return results.slice(0, limit);
 }

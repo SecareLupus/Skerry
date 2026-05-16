@@ -7,7 +7,7 @@ import { Category, Channel, ChatMessage, MentionMarker, ModerationAction, Modera
 import { getChannelName } from "../lib/channel-utils";
 import { ContextMenu, ContextMenuItem } from "./context-menu";
 import { useToast } from "./toast-provider";
-import { performModerationAction, createReport, uploadMedia, updateMessage, addReaction, deleteMessage, listChannelMembers, inviteToChannel, updateChannel, searchUsers, formatMessageTime, pinMessage, unpinMessage, sendTypingStatus, getFirstUnreadMessageId, bulkDeleteMessages, bulkRedactMessages } from "../lib/control-plane";
+import { performModerationAction, createReport, uploadMedia, updateMessage, addReaction, deleteMessage, listChannelMembers, inviteToChannel, updateChannel, searchUsers, formatMessageTime, pinMessage, unpinMessage, sendTypingStatus, getFirstUnreadMessageId, bulkDeleteMessages, bulkRedactMessages, listServerEmojis as fetchServerEmojis } from "../lib/control-plane";
 import dynamic from "next/dynamic";
 
 // @ts-ignore - emoji-picker-react types mismatch with Next.js dynamic
@@ -313,10 +313,20 @@ export function ChatWindow({
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     const [composerCursor, setComposerCursor] = useState(0);
     const pendingCursorRef = useRef<number | null>(null);
+
+    const [customEmojis, setCustomEmojis] = useState<Array<{ name: string; url: string }>>([]);
+    useEffect(() => {
+      if (!selectedServerId) { setCustomEmojis([]); return; }
+      fetchServerEmojis(selectedServerId)
+        .then(({ items }) => setCustomEmojis(items.map(e => ({ name: e.name, url: e.url }))))
+        .catch(() => setCustomEmojis([]));
+    }, [selectedServerId]);
+
     const autocomplete = useComposerAutocomplete({
         value: draftMessage,
         cursorPos: composerCursor,
         members,
+        customEmojis,
         setValue: (next) => setDraftMessage(next),
         setCursorPos: (pos) => {
             pendingCursorRef.current = pos;

@@ -569,6 +569,14 @@ export interface ServerEmoji {
     updatedAt: string;
 }
 
+export interface DiscordGuildEmoji {
+    id: string;
+    name: string;
+    isAnimated: boolean;
+    isMirrored: boolean; // Already mirrored into this space
+    url: string;
+}
+
 export interface ServerSticker {
     id: string;
     serverId: string;

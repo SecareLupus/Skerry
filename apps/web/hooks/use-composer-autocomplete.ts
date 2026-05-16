@@ -3,12 +3,13 @@
 import { useCallback, useMemo, useState, useEffect } from "react";
 import type { ChatMember } from "../context/chat-context";
 import { detectActiveTrigger, applyCompletion, type ActiveTrigger } from "../lib/composer-autocomplete/triggers";
-import { mentionItems, emojiItems, type AutocompleteItem } from "../lib/composer-autocomplete/providers";
+import { mentionItems, emojiItems, type AutocompleteItem, type CustomEmojiEntry } from "../lib/composer-autocomplete/providers";
 
 interface UseComposerAutocompleteParams {
   value: string;
   cursorPos: number;
   members: ChatMember[];
+  customEmojis?: CustomEmojiEntry[];
   setValue: (next: string) => void;
   setCursorPos: (pos: number) => void;
 }
@@ -28,6 +29,7 @@ export function useComposerAutocomplete({
   value,
   cursorPos,
   members,
+  customEmojis,
   setValue,
   setCursorPos
 }: UseComposerAutocompleteParams): ComposerAutocompleteState {
@@ -42,9 +44,9 @@ export function useComposerAutocomplete({
   const items = useMemo<AutocompleteItem[]>(() => {
     if (!active || isDismissed) return [];
     if (active.kind === "mention") return mentionItems(active.query, members);
-    if (active.kind === "emoji") return emojiItems(active.query);
+    if (active.kind === "emoji") return emojiItems(active.query, 8, customEmojis);
     return [];
-  }, [active, members, isDismissed]);
+  }, [active, members, isDismissed, customEmojis]);
 
   useEffect(() => {
     setSelectedIdx(0);

@@ -45,6 +45,12 @@ export default function SettingsLayout({
       hidden: !canManageCurrentSpace || !selectedServerId 
     },
     { 
+      label: "Space Emojis", 
+      href: `/settings/spaces/${selectedServerId}/emojis`, 
+      icon: "smile-plus", 
+      hidden: !canManageCurrentSpace || !selectedServerId 
+    },
+    { 
       label: "Space Badges", 
       href: `/settings/spaces/${selectedServerId}/badges`, 
       icon: "award", 
