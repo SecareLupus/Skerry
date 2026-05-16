@@ -162,6 +162,9 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
       ...init?.headers,
       ...(typeof window !== "undefined" && window.sessionStorage.getItem("masquerade_token")
         ? { "X-Masquerade-Token": window.sessionStorage.getItem("masquerade_token")! }
+        : {}),
+      ...(typeof window !== "undefined" && window.sessionStorage.getItem("2fa_token")
+        ? { "X-2FA-Token": window.sessionStorage.getItem("2fa_token")! }
         : {})
     }
   });

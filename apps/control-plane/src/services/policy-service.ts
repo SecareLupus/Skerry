@@ -437,6 +437,24 @@ async function loadHubPermissionOverrides(hubId: string): Promise<Map<string, bo
   return map;
 }
 
+/**
+ * Check if any of the user's roles require 2FA for the current hub.
+ * Queries hub_permission_overrides for require_2fa flag.
+ */
+async function check2faRequired(
+  db: any,
+  hubId: string,
+  roles: { role: string }[],
+): Promise<boolean> {
+  const result = await db.query(
+    `select bool_or(require_2fa) as require_2fa
+     from hub_permission_overrides
+     where hub_id = $1 and role = any($2)`,
+    [hubId, roles.map(r => r.role)]
+  );
+  return (result as any).rows[0]?.require_2fa ?? false;
+}
+
 export async function grantRole(input: {
   actorUserId: string;
   productUserId: string;
@@ -673,6 +691,7 @@ export async function isActionAllowed(input: {
   action: PrivilegedAction;
   scope: Scope;
   authContext?: ScopedAuthContext;
+  twoFactorToken?: string;
 }): Promise<boolean> {
   return withDb(async (db) => {
     // Warm the permission override cache for this hub
@@ -708,7 +727,20 @@ export async function isActionAllowed(input: {
     // For management actions, the traditional matrix wins.
     const ACCESS_ACTIONS = ["channel.message.read", "channel.message.send", "channel.voice.join", "voice.token.issue"];
     if (!ACCESS_ACTIONS.includes(input.action)) {
-      return isRoleAllowedByMatrix;
+      if (!isRoleAllowedByMatrix) return false;
+
+      // 2FA enforcement: if token is provided, validate it against requirements
+      if (input.scope.hubId && input.twoFactorToken) {
+        const needs2fa = await check2faRequired(db, input.scope.hubId, roles);
+        if (needs2fa) {
+          const { verify2faToken } = await import("../auth/2fa-token.js");
+          if (!verify2faToken(input.twoFactorToken, input.productUserId, input.scope.hubId)) {
+            return false;
+          }
+        }
+      }
+
+      return true;
     }
 
     // 3. Resolve user's audience tier (highest applicable).
