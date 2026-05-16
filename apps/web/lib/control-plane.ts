@@ -1556,3 +1556,58 @@ export async function unmasquerade(): Promise<void> {
     method: "POST"
   });
 }
+
+// --- Passkeys / TOTP (#73) ---
+
+export async function beginPasskeyRegistration(hubId: string): Promise<any> {
+  return apiFetch(`/v1/hubs/${encodeURIComponent(hubId)}/webauthn/register/begin`, { method: "POST" });
+}
+
+export async function completePasskeyRegistration(hubId: string, response: any, label?: string, pin?: string): Promise<{
+  credential: any;
+  recoveryCodes?: string[];
+}> {
+  return apiFetch(`/v1/hubs/${encodeURIComponent(hubId)}/webauthn/register/complete`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ response, label, pin }),
+  });
+}
+
+export async function beginPasskeyAuthentication(hubId: string): Promise<any> {
+  return apiFetch(`/v1/hubs/${encodeURIComponent(hubId)}/webauthn/authenticate/begin`, { method: "POST" });
+}
+
+export async function completePasskeyAuthentication(hubId: string, response: any): Promise<any> {
+  return apiFetch(`/v1/hubs/${encodeURIComponent(hubId)}/webauthn/authenticate/complete`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ response }),
+  });
+}
+
+export async function listPasskeyCredentials(hubId: string): Promise<{ items: any[] }> {
+  return apiFetch(`/v1/hubs/${encodeURIComponent(hubId)}/webauthn/credentials`);
+}
+
+export async function removePasskeyCredential(hubId: string, credentialId: string): Promise<void> {
+  await apiFetch(`/v1/hubs/${encodeURIComponent(hubId)}/webauthn/credentials/${encodeURIComponent(credentialId)}`, {
+    method: "DELETE",
+  });
+}
+
+export async function beginTotpEnrollment(hubId: string): Promise<{ secret: string; uri: string }> {
+  return apiFetch(`/v1/hubs/${encodeURIComponent(hubId)}/totp/enroll`, { method: "POST" });
+}
+
+export async function verifyTotpEnrollment(hubId: string, code: string): Promise<{ enrolled: boolean }> {
+  return apiFetch(`/v1/hubs/${encodeURIComponent(hubId)}/totp/verify-enrollment`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code }),
+  });
+}
+
+export async function removeTotp(hubId: string): Promise<void> {
+  await apiFetch(`/v1/hubs/${encodeURIComponent(hubId)}/totp`, { method: "DELETE" });
+}
