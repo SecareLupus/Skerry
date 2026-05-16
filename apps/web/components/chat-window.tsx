@@ -380,6 +380,7 @@ export function ChatWindow({
 
     const toggleSelectMessage = useCallback((messageId: string, event: React.MouseEvent) => {
         if (event.ctrlKey || event.metaKey) {
+            // Ctrl+click: enter select mode, toggle this message
             setSelectedIds(prev => {
                 const next = new Set(prev);
                 if (next.has(messageId)) next.delete(messageId);
@@ -387,11 +388,18 @@ export function ChatWindow({
                 return next;
             });
             setLastClickedId(messageId);
-        } else {
-            setSelectedIds(new Set([messageId]));
+        } else if (selectedIds.size > 0) {
+            // Plain click while selection is active: toggle this message
+            setSelectedIds(prev => {
+                const next = new Set(prev);
+                if (next.has(messageId)) next.delete(messageId);
+                else next.add(messageId);
+                return next;
+            });
             setLastClickedId(messageId);
         }
-    }, []);
+        // Plain click with no active selection: do nothing (normal message interaction)
+    }, [selectedIds]);
     const [editHistoryMessageId, setEditHistoryMessageId] = useState<string | null>(null);
     const [editHistoryPos, setEditHistoryPos] = useState<{ x: number; y: number } | null>(null);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -420,15 +428,33 @@ export function ChatWindow({
                 setReactionTargetMessageId(null);
                 setReactionPickerPos(null);
             }
+            // Clear message selection when clicking outside messages and the bulk-action bar
+            if (selectedIds.size > 0 && !target.closest(".messages") && !target.closest(".bulk-action-bar")) {
+                setSelectedIds(new Set());
+                setLastClickedId(null);
+            }
         };
 
-        if (showEmojiPicker || reactionTargetMessageId) {
+        if (showEmojiPicker || reactionTargetMessageId || selectedIds.size > 0) {
             document.addEventListener("mousedown", handleClickOutside);
         }
         return () => {
             document.removeEventListener("mousedown", handleClickOutside);
         };
-    }, [showEmojiPicker, reactionTargetMessageId]);
+    }, [showEmojiPicker, reactionTargetMessageId, selectedIds]);
+
+    // Escape key clears message selection
+    useEffect(() => {
+        if (selectedIds.size === 0) return;
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === "Escape") {
+                setSelectedIds(new Set());
+                setLastClickedId(null);
+            }
+        };
+        document.addEventListener("keydown", handleKeyDown);
+        return () => document.removeEventListener("keydown", handleKeyDown);
+    }, [selectedIds]);
 
     useEffect(() => {
         const messagesList = messagesRef.current;
@@ -1831,6 +1857,10 @@ export function ChatWindow({
                 background: rgba(255, 255, 0, 0.15);
                 transition: background 1.5s ease-out;
                 cursor: pointer;
+            }
+            .message-selected {
+                background: color-mix(in srgb, var(--accent) 12%, transparent);
+                border-left: 3px solid var(--accent);
             }
             .unread-banner {
                 background: #5865f2;
