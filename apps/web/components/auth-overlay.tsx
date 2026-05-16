@@ -2,17 +2,21 @@
 
 import React, { useState, useEffect } from "react";
 import { useChat } from "../context/chat-context";
+import { useToast } from "./toast-provider";
 import {
     providerLoginUrl,
     completeUsernameOnboarding,
     bootstrapAdmin,
     fetchViewerSession,
-    fetchBootstrapStatus
+    fetchBootstrapStatus,
+    beginPasskeyAuthentication,
+    completePasskeyAuthentication,
 } from "../lib/control-plane";
 
 export function AuthOverlay() {
     const { state, dispatch } = useChat();
-    const { viewer, providers, bootstrapStatus, error } = state;
+    const { viewer, providers, bootstrapStatus, error, hubs } = state;
+    const { showToast } = useToast();
 
     const [devUsername, setDevUsername] = useState("local-admin");
     const [onboardingUsername, setOnboardingUsername] = useState("");
@@ -131,6 +135,28 @@ export function AuthOverlay() {
                             Configure providers in .env
                         </p>
                     ) : null}
+                    <div style={{ marginTop: "1rem", borderTop: "1px solid var(--border)", paddingTop: "1rem" }}>
+                      <button
+                        onClick={async () => {
+                          const hubId = hubs[0]?.id;
+                          if (!hubId) return;
+                          try {
+                            const opts = await beginPasskeyAuthentication(hubId);
+                            const assertion = await navigator.credentials.get({ publicKey: opts });
+                            if (!assertion) throw new Error("No credential");
+                            const result = await completePasskeyAuthentication(hubId, assertion);
+                            if (result.authenticated) {
+                              window.location.href = "/";
+                            }
+                          } catch (err) {
+                            showToast?.("Passkey login failed", "error");
+                          }
+                        }}
+                        style={{ width: "100%", padding: "0.6rem", borderRadius: "6px", border: "1px solid var(--border)", cursor: "pointer" }}
+                      >
+                        Sign in with passkey
+                      </button>
+                    </div>
                 </div>
             </div>
         );
