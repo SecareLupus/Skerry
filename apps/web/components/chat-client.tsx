@@ -102,6 +102,7 @@ import { useMembers } from "../hooks/use-members";
 import { useChatRealtime } from "../hooks/use-chat-realtime";
 import { useChatNavigation } from "../hooks/use-chat-navigation";
 import { useTheme } from "../hooks/use-theme";
+import { TwoFactorModal } from "./two-factor-modal";
 import { useChatInitialization } from "../hooks/use-chat-initialization";
 import { useChatMutations } from "../hooks/use-chat-mutations";
 import { useChatSettings } from "../hooks/use-chat-settings";
@@ -506,6 +507,33 @@ export function ChatClient() {
     handleUserContextMenu,
     userContextMenuItems
   } = useModeration(setUrlSelection, refreshChatState);
+
+  // 2FA enforcement (#73)
+  const [pending2faToken, setPending2faToken] = useState<string | null>(null);
+  const [pending2faAction, setPending2faAction] = useState<{
+    action: () => void;
+    hubId: string;
+  } | null>(null);
+
+  const wrapWith2fa = useCallback(
+    (action: () => void, hubId: string) => {
+      if (pending2faToken) {
+        action();
+        return;
+      }
+      setPending2faAction({ action, hubId });
+    },
+    [pending2faToken]
+  );
+
+  const handle2faVerified = useCallback((token: string) => {
+    setPending2faToken(token);
+    // Execute the pending action
+    pending2faAction?.action();
+    setPending2faAction(null);
+    // Clear token after 5 minutes
+    setTimeout(() => setPending2faToken(null), 5 * 60 * 1000);
+  }, [pending2faAction]);
 
   const { toggleTheme } = useTheme();
 
@@ -1052,6 +1080,14 @@ export function ChatClient() {
           y={userContextMenu.y}
           items={userContextMenuItems}
           onClose={() => setUserContextMenu(null)}
+        />
+      )}
+
+      {pending2faAction && (
+        <TwoFactorModal
+          hubId={pending2faAction.hubId}
+          onVerify={handle2faVerified}
+          onCancel={() => setPending2faAction(null)}
         />
       )}
 

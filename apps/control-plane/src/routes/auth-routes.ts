@@ -934,6 +934,46 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
     reply.code(204).send();
   });
 
+  // --- 2FA Verification (unified endpoint) ---
+
+  app.post("/v1/hubs/:hubId/2fa/verify", { preHandler: requireAuth }, async (request, reply) => {
+    const params = z.object({ hubId: z.string().min(1) }).parse(request.params);
+    const payload = z.object({
+      method: z.enum(["webauthn", "totp"]),
+      code: z.string().optional(),          // TOTP code
+      response: z.any().optional(),         // WebAuthn assertion
+    }).parse(request.body);
+
+    let verified = false;
+
+    if (payload.method === "totp" && payload.code) {
+      verified = await verifyTotp({
+        hubId: params.hubId,
+        productUserId: request.auth!.productUserId,
+        code: payload.code,
+      });
+    } else if (payload.method === "webauthn" && payload.response) {
+      try {
+        const result = await completeAuthentication({
+          hubId: params.hubId,
+          response: payload.response,
+        });
+        verified = result.productUserId === request.auth!.productUserId;
+      } catch {
+        verified = false;
+      }
+    }
+
+    if (!verified) {
+      reply.code(400).send({ message: "2FA verification failed.", code: "2fa_failed" });
+      return;
+    }
+
+    const { issue2faToken } = await import("../auth/2fa-token.js");
+    const token = issue2faToken(request.auth!.productUserId, params.hubId);
+    return { token, expiresIn: 300 };
+  });
+
   // --- Recovery codes (#73) ---
 
   app.post("/v1/hubs/:hubId/recovery/redeem", async (request, reply) => {
