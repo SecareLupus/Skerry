@@ -13,6 +13,7 @@ services:
     #   - "127.0.0.1:5432:5432"
     volumes:
       - pg_data:/var/lib/postgresql/data
+      - ./docker/postgres-init:/docker-entrypoint-initdb.d
     deploy:
       resources:
         limits:
@@ -28,7 +29,8 @@ services:
     env_file:
       - .env
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     environment:
       SYNAPSE_SERVER_NAME: hub-localhost
       SYNAPSE_REPORT_STATS: "no"

@@ -11,9 +11,14 @@ listeners:
     type: http
     x_forwarded: false
 database:
-  name: sqlite3
+  name: psycopg2
   args:
-    database: /data/homeserver.db
+    user: skerry
+    password: __POSTGRES_PASSWORD__
+    database: synapse
+    host: postgres
+    cp_min: 5
+    cp_max: 10
 log_config: "/data/hub-localhost.log.config"
 media_store_path: /data/media_store
 registration_shared_secret: "JcOYCz8LxB_f+,N1e~Y#W^r.CKDb@:udYg3RZkCqc;Nl5Dn&jx"

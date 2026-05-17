@@ -137,6 +137,12 @@ if [ ! -f "$SYNAPSE_SIGNING_KEY" ]; then
   chmod 644 "$SYNAPSE_SIGNING_KEY"
 fi
 
+# ---------- substitute Synapse PostgreSQL password ----------
+SYNAPSE_HOMESERVER="${SYNAPSE_CONFIG_DIR}/homeserver.yaml"
+if [ -f "$SYNAPSE_HOMESERVER" ]; then
+  sed -i "s/__POSTGRES_PASSWORD__/${POSTGRES_PASSWORD}/g" "$SYNAPSE_HOMESERVER"
+fi
+
 echo "skerry-init: .env.ops is ready"
 if [ "$OPS_EXISTED" = false ]; then
   echo ""
