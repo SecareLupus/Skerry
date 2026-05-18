@@ -49,10 +49,6 @@ jobs:
       - name: Bring up test stack (Docker)
         run: pnpm test:env:up
 
-      - name: Capture Synapse logs (debug)
-        if: always()
-        run: docker compose -f docker-compose-test.yml logs synapse || true
-
       - name: Install Playwright browsers
         run: pnpm --filter @skerry/web exec playwright install --with-deps chromium
 
