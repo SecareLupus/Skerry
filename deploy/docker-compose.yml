@@ -19,6 +19,7 @@ services:
         condition: service_completed_successfully
     volumes:
       - pg_data:/var/lib/postgresql/data
+      - ./docker/postgres-init:/docker-entrypoint-initdb.d
     deploy:
       resources:
         limits:
@@ -38,7 +39,6 @@ services:
         condition: service_healthy
     volumes:
       - ./docker/synapse:/data
-      - synapse_data:/var/lib/synapse
     deploy:
       resources:
         limits:
@@ -191,7 +191,6 @@ networks:
 volumes:
   pg_data:
   pg_backups:
-  synapse_data:
   livekit_data:
   caddy_data:
   caddy_config:

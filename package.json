@@ -12,7 +12,7 @@
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
-    "test:env:up": "docker compose -f docker-compose-test.yml up -d --build",
+    "test:env:up": "mkdir -p docker/synapse-test/media_store && chmod -R 777 docker/synapse-test/media_store && docker compose -f docker-compose-test.yml up -d --build",
     "test:env:down": "docker compose -f docker-compose-test.yml down",
     "test:e2e": "pnpm --filter @skerry/web test:e2e",
     "test:e2e:reset": "bash scripts/reset-test-env.sh",

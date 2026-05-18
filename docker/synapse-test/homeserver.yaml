@@ -1,7 +1,7 @@
 # Configuration file for Synapse.
 server_name: "hub-localhost"
 cors_allow_origins: ["*"]
-pid_file: /var/lib/synapse/homeserver.pid
+pid_file: /data/homeserver.pid
 listeners:
   - port: 8008
     resources:
@@ -11,11 +11,16 @@ listeners:
     type: http
     x_forwarded: false
 database:
-  name: sqlite3
+  name: psycopg2
   args:
-    database: /var/lib/synapse/homeserver.db
+    user: postgres
+    password: test_password
+    database: synapse
+    host: postgres
+    cp_min: 5
+    cp_max: 10
 log_config: "/data/hub-localhost.log.config"
-media_store_path: /var/lib/synapse/media_store
+media_store_path: /data/media_store
 registration_shared_secret: "JcOYCz8LxB_f+,N1e~Y#W^r.CKDb@:udYg3RZkCqc;Nl5Dn&jx"
 report_stats: false
 macaroon_secret_key: "l,gRdq;ARsYoaF~dBj9D0&s-BHlHv;m__RnPbhxwr=9VfpaC2D"

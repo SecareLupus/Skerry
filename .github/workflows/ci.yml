@@ -76,4 +76,4 @@ jobs:
 
       - name: Tear down test stack
         if: always()
-        run: pnpm test:env:down
+        run: pnpm test:env:down && docker compose -f docker-compose-test.yml down -v || true
