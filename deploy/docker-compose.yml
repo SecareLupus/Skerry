@@ -31,7 +31,7 @@ services:
       retries: 5
 
   synapse:
-    image: matrixdotorg/synapse:latest
+    image: matrixdotorg/synapse:v1.152.1
     env_file:
       - .env.ops
     depends_on:
