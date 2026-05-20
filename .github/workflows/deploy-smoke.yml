@@ -38,6 +38,7 @@ jobs:
           grep -q 'POSTGRES_PASSWORD=' deploy/.env.ops || { echo "FAIL: POSTGRES_PASSWORD missing"; exit 1; }
           grep -q 'SESSION_SECRET=' deploy/.env.ops || { echo "FAIL: SESSION_SECRET missing"; exit 1; }
           grep -q 'SETUP_BOOTSTRAP_TOKEN=' deploy/.env.ops || { echo "FAIL: SETUP_BOOTSTRAP_TOKEN missing"; exit 1; }
+          grep -q 'CLOUDFLARE_TUNNEL_TOKEN=' deploy/.env.ops || { echo "FAIL: CLOUDFLARE_TUNNEL_TOKEN missing"; exit 1; }
           echo "OK: .env.ops generated with required secrets"
 
       - name: Wait for services healthy
