@@ -112,9 +112,8 @@ services:
     networks:
       - default
       - backend
-    ports:
-      - "80:80"
-      - "443:443"
+    # No host ports — all traffic arrives via cloudflared (--profile tunnel)
+    # or through the internal Docker network for service-to-service communication.
     volumes:
       - ./docker/Caddyfile:/etc/caddy/Caddyfile
       - caddy_data:/data
@@ -181,6 +180,27 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: skerry-cloudflared
+    restart: unless-stopped
+    profiles:
+      - tunnel
+    env_file:
+      - .env.ops
+    command:
+      - tunnel
+      - --no-autoupdate
+      - run
+      - --token
+      - ${CLOUDFLARE_TUNNEL_TOKEN}
+    networks:
+      - default
+      - backend
+    depends_on:
+      caddy:
+        condition: service_started
 
 networks:
   default:
