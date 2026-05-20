@@ -3,6 +3,7 @@ node_modules
 .next
 dist
 .env
+deploy/.env.ops
 .DS_Store
 
 # Synapse Data
