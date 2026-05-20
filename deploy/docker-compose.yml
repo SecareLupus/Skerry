@@ -67,9 +67,9 @@ services:
     networks:
       - default
       - backend
+    env_file:
+      - .env.ops
     environment:
-      DATABASE_URL: ${DATABASE_URL}
-      SESSION_SECRET: ${SESSION_SECRET}
       SYNAPSE_AS_REGISTRATION_PATH: /app/docker/synapse/skerry-appservice.yaml
     depends_on:
       postgres:
