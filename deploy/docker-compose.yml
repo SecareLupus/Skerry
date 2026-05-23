@@ -10,10 +10,6 @@ services:
     image: postgres:16
     env_file:
       - .env.ops
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-skerry}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB:-skerry}
     depends_on:
       init:
         condition: service_completed_successfully
@@ -152,11 +148,6 @@ services:
     volumes:
       - ./scripts/backup.sh:/usr/local/bin/backup.sh:ro
       - pg_backups:/backups
-    environment:
-      PGHOST: postgres
-      PGUSER: ${POSTGRES_USER:-skerry}
-      PGPASSWORD: ${POSTGRES_PASSWORD}
-      PGDATABASE: ${POSTGRES_DB:-skerry}
     env_file:
       - .env.ops
     entrypoint:
@@ -164,12 +155,15 @@ services:
       - -c
       - |
         while true; do
-          # Calculate seconds until next 02:00 UTC
           now_secs=$(date +%s)
-          target=$(date -d "tomorrow 02:00" +%s 2>/dev/null || echo $((now_secs + 86400)))
+          # Calculate seconds until next 02:00 UTC.
+          # Falls back to 24h if date -d not available (busybox).
+          target=$(date -d "tomorrow 02:00" +%s 2>/dev/null || true)
+          if [ -z "$target" ] || [ "$target" -le "$now_secs" ]; then
+            target=$((now_secs + 86400))
+          fi
           sleep_secs=$((target - now_secs))
           if [ "$sleep_secs" -lt 60 ]; then
-            # Already past 2am or close — run after a short delay
             sleep_secs=60
           fi
           echo "[$(date -Iseconds)] db-backup: sleeping ${sleep_secs}s until next 02:00 UTC run"
