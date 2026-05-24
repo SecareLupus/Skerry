@@ -79,8 +79,7 @@ jobs:
 
       - name: Package deploy kit
         run: |
-          cp -r docker/postgres-init deploy/docker/
-          tar -czf skerry-deploy-${{ github.event.inputs.version }}.tar.gz deploy/
+          tar -chzf skerry-deploy-${{ github.event.inputs.version }}.tar.gz deploy/
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
