@@ -1,0 +1,211 @@
+services:
+  init:
+    image: alpine:latest
+    entrypoint: ["sh", "/repo/deploy/scripts/init.sh"]
+    working_dir: /repo/deploy
+    volumes:
+      - ..:/repo
+
+  postgres:
+    image: postgres:16
+    env_file:
+      - .env.ops
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./docker/postgres-init:/docker-entrypoint-initdb.d
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U skerry -d skerry"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  synapse:
+    image: matrixdotorg/synapse:v1.152.1
+    env_file:
+      - .env.ops
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./docker/synapse:/data
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+  livekit:
+    image: livekit/livekit-server:v1.9.11
+    env_file:
+      - .env.ops
+    command: [ "--dev", "--bind", "0.0.0.0" ]
+    ports:
+      - "7881:7881"
+      - "7882:7882/udp"
+
+  coturn:
+    image: coturn/coturn:4.6
+    env_file:
+      - .env.ops
+    command: [ "-n", "--log-file=stdout", "--realm=localhost", "--fingerprint" ]
+    ports:
+      - "3478:3478"
+      - "3478:3478/udp"
+
+  control-plane:
+    image: ghcr.io/secarelupus/skerry-control-plane:${SKERRY_VERSION:-v0.1.0-alpha}
+    networks:
+      - default
+      - backend
+    env_file:
+      - .env.ops
+    environment:
+      SYNAPSE_AS_REGISTRATION_PATH: /app/docker/synapse/skerry-appservice.yaml
+    depends_on:
+      postgres:
+        condition: service_healthy
+      synapse:
+        condition: service_started
+      livekit:
+        condition: service_started
+    volumes:
+      - ./docker/synapse:/app/docker/synapse
+      - sticker_cache:/app/cache/stickers
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "node", "-e", "const http = require('http'); const req = http.get('http://localhost:4000/health', (res) => { if (res.statusCode === 200) { process.exit(0); } else { process.exit(1); } }); req.on('error', (err) => { process.exit(1); });"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  web:
+    image: ghcr.io/secarelupus/skerry-web:${SKERRY_VERSION:-v0.1.0-alpha}
+    networks:
+      - default
+      - backend
+    env_file:
+      - .env.ops
+    depends_on:
+      control-plane:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  caddy:
+    image: caddy:latest
+    restart: unless-stopped
+    networks:
+      - default
+      - backend
+    # No host ports — all traffic arrives via cloudflared (--profile tunnel)
+    # or through the internal Docker network for service-to-service communication.
+    volumes:
+      - ./docker/Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    env_file:
+      - .env.ops
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+  sticker-renderer:
+    image: ghcr.io/secarelupus/skerry-sticker-renderer:${SKERRY_VERSION:-v0.1.0-alpha}
+    networks:
+      - default
+      - backend
+    env_file:
+      - .env.ops
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 1G
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    volumes:
+      - sticker_cache:/app/cache/stickers
+
+  db-backup:
+    image: postgres:16
+    container_name: skerry-db-backup
+    restart: unless-stopped
+    volumes:
+      - ./scripts/backup.sh:/usr/local/bin/backup.sh:ro
+      - pg_backups:/backups
+    env_file:
+      - .env.ops
+    entrypoint:
+      - sh
+      - -c
+      - |
+        while true; do
+          now_secs=$(date +%s)
+          # Calculate seconds until next 02:00 UTC.
+          # Falls back to 24h if date -d not available (busybox).
+          target=$(date -d "tomorrow 02:00" +%s 2>/dev/null || true)
+          if [ -z "$target" ] || [ "$target" -le "$now_secs" ]; then
+            target=$((now_secs + 86400))
+          fi
+          sleep_secs=$((target - now_secs))
+          if [ "$sleep_secs" -lt 60 ]; then
+            sleep_secs=60
+          fi
+          echo "[$(date -Iseconds)] db-backup: sleeping ${sleep_secs}s until next 02:00 UTC run"
+          sleep "${sleep_secs}"
+          echo "[$(date -Iseconds)] db-backup: starting scheduled backup"
+          /usr/local/bin/backup.sh
+        done
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: skerry-cloudflared
+    restart: unless-stopped
+    profiles:
+      - tunnel
+    env_file:
+      - .env.ops
+    command:
+      - tunnel
+      - --no-autoupdate
+      - run
+      - --token
+      - ${CLOUDFLARE_TUNNEL_TOKEN}
+    networks:
+      - default
+      - backend
+    depends_on:
+      caddy:
+        condition: service_started
+
+networks:
+  default:
+    name: skerry_default
+  backend:
+    name: skerry_backend
+
+volumes:
+  pg_data:
+  pg_backups:
+  livekit_data:
+  caddy_data:
+  caddy_config:
+  sticker_cache:
