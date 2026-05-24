@@ -128,5 +128,6 @@ docker compose exec db-backup /usr/local/bin/backup.sh
 ## Requirements
 
 - Docker Engine 24+ with Compose v2.20+
+- `docker.io` and `curl` (`apt install -y docker.io curl` on Debian/Ubuntu)
 - A domain name (for OAuth redirects)
 - Discord application credentials (for login)

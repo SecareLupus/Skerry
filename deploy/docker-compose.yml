@@ -1,10 +1,10 @@
 services:
   init:
     image: alpine:latest
-    entrypoint: ["sh", "/deploy/scripts/init.sh"]
-    working_dir: /deploy
+    entrypoint: ["sh", "/repo/deploy/scripts/init.sh"]
+    working_dir: /repo/deploy
     volumes:
-      - .:/deploy
+      - ..:/repo
 
   postgres:
     image: postgres:16
