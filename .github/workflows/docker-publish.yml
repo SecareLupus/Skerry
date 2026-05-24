@@ -79,7 +79,7 @@ jobs:
 
       - name: Package deploy kit
         run: |
-          tar -chzf skerry-deploy-${{ github.event.inputs.version }}.tar.gz deploy/
+          tar -chzf skerry-deploy-${{ github.event.inputs.version }}.tar.gz --transform 's|^deploy/|skerry/|' deploy/
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
