@@ -2,4 +2,4 @@
 docker/Caddyfile -> docker/Caddyfile
 docker/synapse -> docker/synapse
 docker/postgres-init -> docker/postgres-init
-deploy/scripts -> scripts
+deploy/scripts -> deploy/scripts
