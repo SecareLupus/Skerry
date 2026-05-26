@@ -94,7 +94,7 @@ jobs:
       - name: Wait for services healthy
         run: |
           for i in $(seq 1 60); do
-            if curl -fsS http://localhost:8080/health 2>/dev/null; then
+            if docker compose exec caddy wget -qO- http://localhost/health 2>/dev/null; then
               echo "OK: services healthy"; exit 0
             fi
             sleep 5
@@ -103,7 +103,7 @@ jobs:
 
       - name: Verify web UI
         run: |
-          curl -fsS http://localhost:8080/ | grep -q 'Skerry' || { echo "FAIL"; exit 1; }
+          docker compose exec caddy wget -qO- http://localhost/ | grep -q 'Skerry' || { echo "FAIL"; exit 1; }
           echo "OK: web UI serves Skerry"
 
       - name: Tear down
