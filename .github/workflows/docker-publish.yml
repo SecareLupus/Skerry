@@ -62,8 +62,56 @@ jobs:
             ${{ env.REGISTRY }}/${{ steps.repo.outputs.owner }}/skerry-${{ matrix.target.name }}:${{ github.event.inputs.version }}
             ${{ env.REGISTRY }}/${{ steps.repo.outputs.owner }}/skerry-${{ matrix.target.name }}:latest
 
-  release:
+  smoke:
     needs: build-and-push
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      packages: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tag images locally
+        run: |
+          docker pull ghcr.io/secarelupus/skerry-control-plane:${{ github.event.inputs.version }}
+          docker pull ghcr.io/secarelupus/skerry-web:${{ github.event.inputs.version }}
+          docker pull ghcr.io/secarelupus/skerry-sticker-renderer:${{ github.event.inputs.version }}
+
+      - name: Assemble and deploy
+        run: |
+          bash .github/release/assemble.sh
+          cd skerry
+          docker compose run --rm init
+          SKERRY_VERSION=${{ github.event.inputs.version }} docker compose --env-file .env.ops up -d
+
+      - name: Verify .env.ops
+        run: |
+          grep -q 'POSTGRES_PASSWORD=' skerry/.env.ops || { echo "FAIL"; exit 1; }
+          grep -q 'SESSION_SECRET=' skerry/.env.ops || { echo "FAIL"; exit 1; }
+          echo "OK: .env.ops generated"
+
+      - name: Wait for services healthy
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS http://localhost:8080/health 2>/dev/null; then
+              echo "OK: services healthy"; exit 0
+            fi
+            sleep 5
+          done
+          echo "FAIL"; exit 1
+
+      - name: Verify web UI
+        run: |
+          curl -fsS http://localhost:8080/ | grep -q 'Skerry' || { echo "FAIL"; exit 1; }
+          echo "OK: web UI serves Skerry"
+
+      - name: Tear down
+        if: always()
+        run: cd skerry && docker compose down -v 2>/dev/null || true
+
+  release:
+    needs: smoke
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
