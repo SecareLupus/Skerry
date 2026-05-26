@@ -91,15 +91,42 @@ jobs:
           grep -q 'SESSION_SECRET=' skerry/.env.ops || { echo "FAIL"; exit 1; }
           echo "OK: .env.ops generated"
 
+      - name: "Debug: service status"
+        if: always()
+        run: |
+          cd skerry
+          echo "=== docker compose ps ==="
+          docker compose ps
+          echo ""
+          echo "=== logs (any exited/dead services) ==="
+          for svc in $(docker compose ps --status exited --status dead -q 2>/dev/null); do
+            echo "--- $svc ---"
+            docker compose logs "$svc" 2>&1 | tail -50
+          done
+          echo ""
+          echo "=== control-plane logs ==="
+          docker compose logs control-plane 2>&1 | tail -30
+          echo ""
+          echo "=== postgres logs ==="
+          docker compose logs postgres 2>&1 | tail -20
+          echo ""
+          echo "=== synapse logs ==="
+          docker compose logs synapse 2>&1 | tail -20
+
       - name: Wait for services healthy
         run: |
+          cd skerry
           for i in $(seq 1 60); do
-            if docker compose exec caddy wget -qO- http://localhost/health 2>/dev/null; then
+            echo "[$i/60] checking health..."
+            if docker compose exec caddy wget -nv -O- http://localhost/health 2>&1; then
               echo "OK: services healthy"; exit 0
             fi
             sleep 5
           done
-          echo "FAIL"; exit 1
+          echo "FAIL: health check never succeeded"
+          echo "=== final caddy logs ==="
+          docker compose logs caddy 2>&1 | tail -30
+          exit 1
 
       - name: Verify web UI
         run: |
