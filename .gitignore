@@ -3,6 +3,7 @@ node_modules
 .next
 dist
 .env
+!.github/release/.env
 .DS_Store
 
 # Synapse Data
