@@ -1,0 +1,5 @@
+# Manifest for release tarball assembly: source -> skerry/
+docker/Caddyfile -> docker/Caddyfile
+docker/synapse -> docker/synapse
+docker/postgres-init -> docker/postgres-init
+deploy/scripts -> scripts
