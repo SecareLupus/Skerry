@@ -17,7 +17,6 @@ done < .github/release/manifest
 cp .github/release/.env "$STAGING/"
 cp .github/release/README.md "$STAGING/"
 cp .github/release/docker-compose.yml "$STAGING/"
-cp .github/release/docker-compose.ci.yml "$STAGING/"
 
 echo "Release tarball assembled in $STAGING/"
 ls -laR "$STAGING/"
