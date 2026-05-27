@@ -130,6 +130,7 @@ jobs:
 
       - name: Verify web UI
         run: |
+          cd skerry
           docker compose exec caddy wget -qO- http://localhost/ | grep -q 'Skerry' || { echo "FAIL"; exit 1; }
           echo "OK: web UI serves Skerry"
 
