@@ -186,9 +186,9 @@ echo "Starting services..."
 if ! docker compose up -d; then
   echo ""
   echo "ERROR: docker compose up failed. Capturing logs from exited containers..."
-  for svc in $(docker compose ps --status exited -q 2>/dev/null); do
-    echo "=== $svc logs ==="
-    docker compose logs "$svc" 2>&1 | tail -80
+  for cid in $(docker compose ps --status exited -q 2>/dev/null); do
+    echo "=== $cid logs ==="
+    docker logs "$cid" 2>&1 | tail -80
   done
   exit 1
 fi
