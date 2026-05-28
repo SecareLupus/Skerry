@@ -183,7 +183,15 @@ echo "Pulling images..."
 docker compose pull 2>&1 | grep -v "^$" || true
 
 echo "Starting services..."
-docker compose up -d
+if ! docker compose up -d; then
+  echo ""
+  echo "ERROR: docker compose up failed. Capturing logs from exited containers..."
+  for svc in $(docker compose ps --status exited -q 2>/dev/null); do
+    echo "=== $svc logs ==="
+    docker compose logs "$svc" 2>&1 | tail -80
+  done
+  exit 1
+fi
 
 echo ""
 echo "Skerry is starting. Check status with: docker compose ps"
