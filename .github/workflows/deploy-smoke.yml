@@ -20,10 +20,10 @@ jobs:
       - name: Assemble release
         run: bash .github/release/assemble.sh
 
-      - name: Init (generates secrets)
+      - name: Init and start
         run: |
           cd skerry
-          touch .env.ops && docker compose run --rm init
+          ./scripts/start.sh
 
       - name: Verify .env.ops
         run: |
