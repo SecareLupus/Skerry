@@ -97,10 +97,10 @@ jobs:
           echo "=== docker compose ps ==="
           docker compose ps
           echo ""
-          echo "=== logs (any exited/dead services) ==="
-          for svc in $(docker compose ps --status exited --status dead -q 2>/dev/null); do
-            echo "--- $svc ---"
-            docker compose logs "$svc" 2>&1 | tail -50
+          echo "=== logs (any exited/dead containers) ==="
+          for cid in $(docker compose ps --status exited --status dead -q 2>/dev/null); do
+            echo "--- $cid ---"
+            docker logs "$cid" 2>&1 | tail -50
           done
           echo ""
           echo "=== control-plane logs ==="
