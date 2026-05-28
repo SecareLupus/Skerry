@@ -9,7 +9,7 @@ Everything needed to run a Skerry Hub from pre-built Docker images.
 #    Uncomment OAuth providers to enable login.
 
 # 2. Initialize (first run only — generates secrets and .env.ops)
-docker compose run --rm init
+touch .env.ops && docker compose run --rm init
 
 # 3. Start
 docker compose --env-file .env.ops up -d
