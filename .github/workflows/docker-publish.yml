@@ -82,7 +82,7 @@ jobs:
         run: |
           bash .github/release/assemble.sh
           cd skerry
-          ./scripts/start.sh
+          SKERRY_VERSION=${{ github.event.inputs.version }} ./scripts/start.sh
 
       - name: Verify .env.ops
         run: |
