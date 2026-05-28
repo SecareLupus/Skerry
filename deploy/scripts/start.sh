@@ -20,7 +20,7 @@ if [ ! -f "$ENV_USER" ]; then
 fi
 
 # shellcheck disable=SC1090
-. "$ENV_USER"
+. "./$ENV_USER"
 
 if [ -z "$BASE_DOMAIN" ] || [ "$BASE_DOMAIN" = "localhost" ]; then
   echo "NOTE: BASE_DOMAIN is not set or is 'localhost'."
@@ -46,7 +46,7 @@ if [ ! -f "$ENV_OPS" ]; then
   # load existing .env.ops values (for re-init after wipe)
   if [ -f "$ENV_OPS" ]; then
     # shellcheck disable=SC1090
-    . "$ENV_OPS"
+    . "./$ENV_OPS"
   fi
 
   # --- secrets ---
@@ -171,7 +171,7 @@ fi
 # ---------- export and start ----------
 set -a
 # shellcheck disable=SC1090
-. "$ENV_OPS"
+. "./$ENV_OPS"
 set +a
 
 echo "Pulling images..."
