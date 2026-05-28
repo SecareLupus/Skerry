@@ -169,8 +169,8 @@ services:
           if [ "$sleep_secs" -lt 60 ]; then
             sleep_secs=60
           fi
-          echo "[$(date -Iseconds)] db-backup: sleeping ${sleep_secs}s until next 02:00 UTC run"
-          sleep "${sleep_secs}"
+          echo "[$(date -Iseconds)] db-backup: sleeping $${sleep_secs}s until next 02:00 UTC run"
+          sleep "$${sleep_secs}"
           echo "[$(date -Iseconds)] db-backup: starting scheduled backup"
           /usr/local/bin/backup.sh
         done

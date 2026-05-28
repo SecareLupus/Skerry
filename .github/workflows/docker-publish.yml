@@ -82,7 +82,7 @@ jobs:
         run: |
           bash .github/release/assemble.sh
           cd skerry
-          docker compose run --rm init
+          touch .env.ops && docker compose run --rm init
           SKERRY_VERSION=${{ github.event.inputs.version }} docker compose --env-file .env.ops up -d
 
       - name: Verify .env.ops
