@@ -23,7 +23,7 @@ jobs:
       - name: Init (generates secrets)
         run: |
           cd skerry
-          touch .env.ops && docker compose run --rm init
+          ./scripts/start.sh --init-only
 
       - name: Verify .env.ops
         run: |

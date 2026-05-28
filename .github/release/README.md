@@ -5,17 +5,15 @@ Everything needed to run a Skerry Hub from pre-built Docker images.
 ## Quick Start
 
 ```bash
-# 1. (Optional) Edit .env — BASE_DOMAIN defaults to localhost
+# 1. Edit .env — set BASE_DOMAIN to your domain
 #    Uncomment OAuth providers to enable login.
 
-# 2. Initialize (first run only — generates secrets and .env.ops)
-touch .env.ops && docker compose run --rm init
-
-# 3. Start
-docker compose --env-file .env.ops up -d
+# 2. Start (first run generates secrets automatically)
+./scripts/start.sh
 ```
 
-First run requires `docker compose run --rm init` to generate secrets. Subsequent starts just need `docker compose --env-file .env.ops up -d` — init runs as a dependency but exits immediately since `.env.ops` already exists.
+That's it. `start.sh` handles secret generation on first run, pulls the latest images,
+and starts all services. On subsequent runs it pulls updates and restarts only what changed.
 
 ## Access
 
@@ -45,9 +43,10 @@ Secrets (`POSTGRES_PASSWORD`, `SESSION_SECRET`, etc.) are auto-generated on firs
 ## Upgrading
 
 ```bash
-docker compose pull
-docker compose --env-file .env.ops up -d
+./scripts/start.sh
 ```
+
+`start.sh` always pulls the latest images before starting, so upgrading is the same command as starting.
 
 ## Backup & Restore
 
@@ -121,7 +120,7 @@ docker compose exec db-backup /usr/local/bin/backup.sh
 │   ├── Caddyfile
 │   └── synapse/            # Synapse config
 └── scripts/
-    ├── init.sh             # First-run initialization
+    ├── start.sh             # Single entry point
     └── backup-db.sh        # Daily PostgreSQL backup
 ```
 
