@@ -169,6 +169,11 @@ else
 fi
 
 # ---------- export and start ----------
+if [ "${1:-}" = "--init-only" ]; then
+  echo "Init complete — .env.ops is ready. Skipping service start (--init-only)."
+  exit 0
+fi
+
 set -a
 # shellcheck disable=SC1090
 . "./$ENV_OPS"
