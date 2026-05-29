@@ -13,8 +13,8 @@ listeners:
 database:
   name: psycopg2
   args:
-    user: postgres
-    password: temporary_battery_horse_staple_password
+    user: __POSTGRES_USER__
+    password: __POSTGRES_PASSWORD__
     database: synapse
     host: postgres
     cp_min: 5

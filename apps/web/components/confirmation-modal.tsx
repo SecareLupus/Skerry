@@ -42,7 +42,7 @@ export function ConfirmationModal() {
     };
 
     return (
-        <div className="modal-overlay" onClick={handleCancel}>
+        <div className="modal-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) handleCancel(); }}>
             <div className="modal-card glass-modal" onClick={(e) => e.stopPropagation()}>
                 <div className="modal-header">
                     <h2 className={danger ? 'danger' : ''}>{title}</h2>

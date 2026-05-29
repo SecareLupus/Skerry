@@ -63,7 +63,7 @@ export function MasqueradeModal() {
   const isHubRole = role === "hub_owner" || role === "hub_admin";
 
   return (
-    <div className="modal-overlay" onClick={() => dispatch({ type: "SET_ACTIVE_MODAL", payload: null })}>
+    <div className="modal-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) dispatch({ type: "SET_ACTIVE_MODAL", payload: null }); }}>
       <div className="modal-card" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>🎭 Masquerade as Role</h2>

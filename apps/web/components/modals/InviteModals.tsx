@@ -93,7 +93,7 @@ export function InviteModals({
 
   if (isInviting) {
     return (
-      <div className="modal-backdrop" data-testid="modal-backdrop" onClick={() => setIsInviting(false)}>
+      <div className="modal-backdrop" data-testid="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) setIsInviting(false); }}>
         <div className="modal-panel" onClick={(e) => e.stopPropagation()} style={{ width: "400px" }}>
           <header className="modal-header">
             <h2>Invite to DM</h2>
@@ -142,7 +142,7 @@ export function InviteModals({
 
   if (isCreatingHubInvite) {
     return (
-      <div className="modal-backdrop" data-testid="hub-invite-modal" onClick={() => { setIsCreatingHubInvite(false); setLastInviteUrl(null); }}>
+      <div className="modal-backdrop" data-testid="hub-invite-modal" onMouseDown={(e) => { if (e.target === e.currentTarget) { setIsCreatingHubInvite(false); setLastInviteUrl(null); } }}>
         <div className="modal-panel" onClick={(e) => e.stopPropagation()} style={{ width: "400px" }}>
           <header className="modal-header">
             <h2>Create Hub Invite Link</h2>

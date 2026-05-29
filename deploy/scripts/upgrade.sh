@@ -9,7 +9,14 @@ SCRIPTS_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 cd "$(cd "$SCRIPTS_DIR/.." && pwd)"
 
-echo "Pulling latest images..."
+# Source .env.ops so compose gets SKERRY_VERSION for image tag resolution.
+# (start.sh --init-only ran in a subprocess — its exports don't propagate.)
+# shellcheck disable=SC1090
+. "./.env.ops"
+export SKERRY_VERSION
+export COMPOSE_PROFILES
+
+echo "Pulling images (${SKERRY_VERSION:-latest})..."
 docker compose pull
 
 echo "Restarting changed services..."

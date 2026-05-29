@@ -155,7 +155,7 @@ if [ ! -f "$SYNAPSE_SIGNING_KEY" ]; then
 fi
 
 if [ -f "$SYNAPSE_HOMESERVER" ]; then
-  sed -i "s/__POSTGRES_PASSWORD__/${POSTGRES_PASSWORD}/g" "$SYNAPSE_HOMESERVER"
+  sed -i "s/__POSTGRES_USER__/${POSTGRES_USER}/g; s/__POSTGRES_PASSWORD__/${POSTGRES_PASSWORD}/g" "$SYNAPSE_HOMESERVER"
 fi
 
 if [ "$OPS_EXISTED" = false ]; then

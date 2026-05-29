@@ -65,7 +65,7 @@ export function DMPickerModal() {
     if (state.activeModal !== "dm-picker") return null;
 
     return (
-        <div className="modal-overlay" onClick={() => dispatch({ type: "SET_ACTIVE_MODAL", payload: null })}>
+        <div className="modal-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) dispatch({ type: "SET_ACTIVE_MODAL", payload: null }); }}>
             <div className="modal-content dm-picker-modal" onClick={(e) => e.stopPropagation()}>
                 <header className="modal-header">
                     <h2>New Direct Message</h2>
