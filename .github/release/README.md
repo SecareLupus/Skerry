@@ -12,8 +12,17 @@ Everything needed to run a Skerry Hub from pre-built Docker images.
 ./scripts/start.sh
 ```
 
-That's it. `start.sh` handles secret generation on first run, pulls the latest images,
-and starts all services. On subsequent runs it pulls updates and restarts only what changed.
+That's it. `start.sh` handles secret generation on first run and starts all services.
+On subsequent runs it starts services without pulling images — use `./scripts/upgrade.sh`
+when you want to update.
+
+## Managing Services
+
+```bash
+./scripts/start.sh      # start services (first run initializes)
+./scripts/stop.sh       # stop all services
+./scripts/upgrade.sh    # pull latest images and restart
+```
 
 ## Access
 
@@ -38,15 +47,15 @@ BASE_DOMAIN=skerry.chat    # Change from localhost for production
 #EMAIL=
 ```
 
-Secrets (`POSTGRES_PASSWORD`, `SESSION_SECRET`, etc.) are auto-generated on first run and stored in `.env.ops`. Edit `.env` to change settings; changes are merged on next `docker compose --env-file .env.ops up -d`.
+Secrets (`POSTGRES_PASSWORD`, `SESSION_SECRET`, etc.) are auto-generated on first run and stored in `.env.ops`. Edit `.env` to change settings; run `./scripts/start.sh` to apply them.
 
 ## Upgrading
 
 ```bash
-./scripts/start.sh
+./scripts/upgrade.sh
 ```
 
-`start.sh` always pulls the latest images before starting, so upgrading is the same command as starting.
+Pulls the latest images and restarts changed services.
 
 ## Backup & Restore
 
@@ -120,8 +129,10 @@ docker compose exec db-backup /usr/local/bin/backup.sh
 │   ├── Caddyfile
 │   └── synapse/            # Synapse config
 └── scripts/
-    ├── start.sh             # Single entry point
-    └── backup-db.sh        # Daily PostgreSQL backup
+    ├── start.sh             # Start services
+    ├── stop.sh              # Stop services
+    ├── upgrade.sh           # Pull latest and restart
+    └── backup.sh            # Daily PostgreSQL backup
 ```
 
 ## Requirements

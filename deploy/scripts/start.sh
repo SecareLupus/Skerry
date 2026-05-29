@@ -1,7 +1,10 @@
 #!/bin/sh
-# start.sh — single entry point for Skerry Hub
-#   ./start.sh          first run: init secrets, start everything
-#   ./start.sh          subsequent runs: pull latest, restart changed
+# start.sh — start Skerry services
+#   ./scripts/start.sh          first run: init secrets, start everything
+#   ./scripts/start.sh          subsequent runs: start services (no pull)
+#
+#   For upgrades:  ./scripts/upgrade.sh
+#   To stop:       ./scripts/stop.sh
 set -e
 
 SCRIPTS_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -165,7 +168,7 @@ EOF
   echo "============================================"
   echo ""
 else
-  echo "Configuration exists — pulling latest images..."
+  echo "Configuration exists — starting services..."
 fi
 
 # ---------- export and start ----------
@@ -195,9 +198,6 @@ namespaces:
   rooms: []
   aliases: []
 EOF
-
-echo "Pulling images..."
-docker compose pull 2>&1 | grep -v "^$" || true
 
 echo "Starting services..."
 if ! docker compose up -d; then
