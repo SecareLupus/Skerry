@@ -134,7 +134,7 @@ export async function registerMessageRoutes(app: FastifyInstance): Promise<void>
     });
     const payload = z
       .object({
-        content: z.string().trim().min(1).max(2000),
+        content: z.string().trim().max(2000).optional().default(""),
         externalTransactionId: z.string().optional(),
         // Legacy: array of plain URLs (content type is inferred from extension)
         mediaUrls: z.array(z.string().url()).max(8).optional(),
@@ -144,6 +144,10 @@ export async function registerMessageRoutes(app: FastifyInstance): Promise<void>
         parentId: z.string().optional(),
         replyToId: z.string().optional()
       })
+      .refine(
+        (data) => data.content.length > 0 || (data.mediaAttachments?.length ?? 0) > 0 || (data.mediaUrls?.length ?? 0) > 0,
+        { message: "Message must have content or attachments" }
+      )
       .parse(request.body);
 
     const timedOut = await isUserTimedOut(request.auth!.productUserId, { channelId: params.channelId });
