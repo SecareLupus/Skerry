@@ -156,23 +156,6 @@ EOF
     sed -i "s/__POSTGRES_PASSWORD__/${POSTGRES_PASSWORD}/g" "$SYNAPSE_HOMESERVER"
   fi
 
-  # --- generate appservice registration with real tokens ---
-  # Must happen before docker compose up so Synapse reads correct tokens at boot.
-  # ensureAppserviceRegistration() in the control-plane will no-op since tokens match.
-  cat > "${SYNAPSE_CONFIG_DIR}/skerry-appservice.yaml" << EOF
-id: Skerry
-url: http://control-plane:4000
-as_token: ${SYNAPSE_AS_TOKEN}
-hs_token: ${SYNAPSE_HS_TOKEN}
-sender_localpart: skerry-bot
-namespaces:
-  users:
-    - exclusive: false
-      regex: "@.*"
-  rooms: []
-  aliases: []
-EOF
-
   echo ""
   echo "============================================"
   echo "  Bootstrap token: $SETUP_BOOTSTRAP_TOKEN"
@@ -195,6 +178,23 @@ set -a
 # shellcheck disable=SC1090
 . "./$ENV_OPS"
 set +a
+
+# --- generate appservice registration with real tokens ---
+# Runs every start (not just first run) so upgrades pick up token changes.
+# Must happen before docker compose up so Synapse reads correct tokens at boot.
+cat > "${SYNAPSE_CONFIG_DIR}/skerry-appservice.yaml" << EOF
+id: Skerry
+url: http://control-plane:4000
+as_token: ${SYNAPSE_AS_TOKEN}
+hs_token: ${SYNAPSE_HS_TOKEN}
+sender_localpart: skerry-bot
+namespaces:
+  users:
+    - exclusive: false
+      regex: "@.*"
+  rooms: []
+  aliases: []
+EOF
 
 echo "Pulling images..."
 docker compose pull 2>&1 | grep -v "^$" || true
