@@ -52,7 +52,7 @@ export function VoiceSettingsModal({ activeModal, onClose }: VoiceSettingsModalP
     const audioOutDevices = devices.filter(d => d.kind === "audiooutput");
 
     return (
-        <div className="modal-backdrop" onClick={onClose}>
+        <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
             <div className="modal-panel" onClick={e => e.stopPropagation()}>
                 <header className="modal-header">
                     <h2>Voice & Video Settings</h2>

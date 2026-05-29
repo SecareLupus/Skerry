@@ -51,10 +51,7 @@ export function RoleModal() {
   if (!targetUserId) return null;
 
   return (
-    <div className="modal-overlay" onClick={() => {
-      dispatch({ type: "SET_ACTIVE_MODAL", payload: null });
-      dispatch({ type: "SET_ROLE_CONTEXT", payload: null });
-    }}>
+    <div className="modal-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) { dispatch({ type: "SET_ACTIVE_MODAL", payload: null }); dispatch({ type: "SET_ROLE_CONTEXT", payload: null }); } }}>
       <div className="modal-card" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>Grant Role to {targetDisplayName}</h2>

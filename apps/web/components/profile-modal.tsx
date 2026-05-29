@@ -82,7 +82,7 @@ export function ProfileModal() {
     };
 
     return (
-        <div className="modal-overlay" onClick={() => dispatch({ type: "SET_ACTIVE_MODAL", payload: null })}>
+        <div className="modal-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) dispatch({ type: "SET_ACTIVE_MODAL", payload: null }); }}>
             <div className="modal-card" onClick={(e) => e.stopPropagation()}>
                 <div className="profile-header">
                     <div className="banner" style={{
