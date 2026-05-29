@@ -156,6 +156,23 @@ EOF
     sed -i "s/__POSTGRES_PASSWORD__/${POSTGRES_PASSWORD}/g" "$SYNAPSE_HOMESERVER"
   fi
 
+  # --- generate appservice registration with real tokens ---
+  # Must happen before docker compose up so Synapse reads correct tokens at boot.
+  # ensureAppserviceRegistration() in the control-plane will no-op since tokens match.
+  cat > "${SYNAPSE_CONFIG_DIR}/skerry-appservice.yaml" << EOF
+id: Skerry
+url: http://control-plane:4000
+as_token: ${SYNAPSE_AS_TOKEN}
+hs_token: ${SYNAPSE_HS_TOKEN}
+sender_localpart: skerry-bot
+namespaces:
+  users:
+    - exclusive: false
+      regex: "@.*"
+  rooms: []
+  aliases: []
+EOF
+
   echo ""
   echo "============================================"
   echo "  Bootstrap token: $SETUP_BOOTSTRAP_TOKEN"
