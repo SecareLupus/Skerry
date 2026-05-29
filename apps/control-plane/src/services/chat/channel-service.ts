@@ -144,11 +144,17 @@ export async function createCategory(input: {
   name: string;
 }): Promise<Category> {
   return withDb(async (db) => {
+    const maxPos = await db.query<{ max_pos: number }>(
+      "select coalesce(max(position), 0) + 1 as max_pos from categories where server_id = $1",
+      [input.serverId]
+    );
+    const nextPosition = maxPos.rows[0]?.max_pos ?? 1;
+
     const row = await db.query<CategoryRow>(
-      `insert into categories(id, server_id, name, matrix_subspace_id)
-       values($1, $2, $3, null)
+      `insert into categories(id, server_id, name, position, matrix_subspace_id)
+       values($1, $2, $3, $4, null)
        returning *`,
-      [`cat_${crypto.randomUUID().replaceAll("-", "")}`, input.serverId, input.name]
+      [`cat_${crypto.randomUUID().replaceAll("-", "")}`, input.serverId, input.name, nextPosition]
     );
 
     const value = row.rows[0];
