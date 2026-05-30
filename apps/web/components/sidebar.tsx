@@ -523,7 +523,7 @@ export function Sidebar({
                                                                     aria-label="Edit room"
                                                                     onClick={(e) => {
                                                                         e.stopPropagation();
-                                                                        dispatch({ type: "SET_RENAME_ROOM", payload: { id: channel.id, name: channel.name, type: channel.type, categoryId: channel.categoryId, topic: channel.topic, styleContent: channel.styleContent } });
+                                                                        dispatch({ type: "SET_RENAME_ROOM", payload: { id: channel.id, name: channel.name, type: channel.type, categoryId: channel.categoryId, topic: channel.topic, iconUrl: (channel as any).iconUrl, styleContent: channel.styleContent } });
                                                                         dispatch({ type: "SET_ACTIVE_MODAL", payload: "rename-room" });
                                                                     }}
                                                                 >

@@ -810,6 +810,22 @@ textarea:focus-visible,
   }
 }
 
+.unified-sidebar {
+  overflow-y: auto;
+  min-height: 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.unified-sidebar::-webkit-scrollbar {
+  width: 5px;
+}
+
+.unified-sidebar::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 10px;
+}
+
 .unified-sidebar ul {
   list-style: none;
   margin: 0;
