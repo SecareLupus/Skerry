@@ -13,6 +13,7 @@ interface ClientTopbarProps {
   toggleTheme: () => void;
   handleLogout: () => Promise<void>;
   error: string | null;
+  hubName?: string;
 }
 
 function formatRole(role?: string): string {
@@ -31,7 +32,8 @@ export function ClientTopbar({
   theme,
   toggleTheme,
   handleLogout,
-  error
+  error,
+  hubName
 }: ClientTopbarProps) {
   const isMasquerading = viewer?.isMasquerading;
   const masqRole = formatRole(viewer?.masqueradeRole);
@@ -42,7 +44,7 @@ export function ClientTopbar({
       <header className="topbar">
         <div className="topbar-branding">
           <img src="/logo.png" alt="Skerry Logo" className="topbar-logo" />
-          <h1>Skerry Local Chat</h1>
+          <h1>{hubName || "Skerry Community Chat"}</h1>
         </div>
         <div className="topbar-meta">
           <button
