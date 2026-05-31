@@ -5,20 +5,14 @@ This is the single source of truth for environment context, testing discipline, 
 ## Environment Context
 
 ### Machine Roles
-- **localhost / development machine**: Where source edits happen. Used for unit tests and local integration.
-- **testing machine**: Runs `git pull && docker compose down && docker compose up -d --build`.
-- **production machine**: Final target. (Currently, `pangolin` acts as a production-like test server).
-
-### Public-Facing Test Server (`pangolin`)
-- **URL**: https://hatch.pangolin.showgroundslive.com
-- **SSH**: `ssh root@10.0.20.121` (Use LAN IP from within the network).
-- **Behavior**: Default assumption for user reports unless specified otherwise.
+- **localhost / development machine**: Where source edits happen. Unit tests and local integration.
+- **production machine**: root@192.168.1.190, domain app.skerry.chat, CG-NAT, Cloudflare Tunnel → Caddy:80.
 
 ### Issue Triage Protocol
 1. Infer machine from context; don't assume localhost.
-2. Gather logs from the reporter's host (e.g. `pangolin`) before local reproduction.
+2. Gather logs from the relevant host before local reproduction.
 3. Reproduce locally when feasible.
-4. Verify using the bar defined in `TESTING` below.
+4. Verify using the testing bar below.
 
 ## Testing Discipline
 

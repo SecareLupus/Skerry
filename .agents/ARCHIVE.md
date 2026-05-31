@@ -1,12 +1,8 @@
-# Skerry Agent Archive: Historical Notes & Logs
+# Agent Archive: Historical Notes & Logs
 
-This file contains historical context, handoff notes, and chat logs moved out of the active context to reduce token bloat.
+This file contains historical context, handoff notes, and completed task logs moved out of active context to reduce token bloat.
 
-## Historical Chat Logs (from chat-log.md)
-
-(Historical logs from 2026-05-02 to 2026-05-07)
-
-## Historical Plan Notes (from current-plan.md)
+## Historical Plan Notes
 
 ### 2026-05-09 — Sprint 2 closeout
 Sprint 2 fully closed. PR #100 (`fix/sprint-2-tail`) merged 2026-05-09,
