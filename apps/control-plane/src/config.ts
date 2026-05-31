@@ -22,8 +22,8 @@ export const config = {
     keycloakIssuer: process.env.OIDC_KEYCLOAK_ISSUER ?? (baseDomain ? `https://keycloak.${baseDomain}/realms/skerry` : "http://keycloak:8080/realms/skerry"),
     keycloakClientId: process.env.OIDC_KEYCLOAK_CLIENT_ID,
     keycloakClientSecret: process.env.OIDC_KEYCLOAK_CLIENT_SECRET,
-    discordClientId: process.env.OIDC_DISCORD_CLIENT_ID,
-    discordClientSecret: process.env.OIDC_DISCORD_CLIENT_SECRET,
+    discordClientId: process.env.OIDC_DISCORD_CLIENT_ID || process.env.DISCORD_CLIENT_ID,
+    discordClientSecret: process.env.OIDC_DISCORD_CLIENT_SECRET || process.env.DISCORD_CLIENT_SECRET,
     discordAuthorizeUrl: "https://discord.com/api/oauth2/authorize",
     discordTokenUrl: "https://discord.com/api/oauth2/token",
     discordUserInfoUrl: "https://discord.com/api/users/@me",
@@ -40,8 +40,8 @@ export const config = {
   },
   discordBridge: {
     mockMode: process.env.DISCORD_BRIDGE_MOCK === "true",
-    clientId: process.env.DISCORD_BRIDGE_CLIENT_ID,
-    clientSecret: process.env.DISCORD_BRIDGE_CLIENT_SECRET,
+    clientId: process.env.DISCORD_BRIDGE_CLIENT_ID || process.env.DISCORD_CLIENT_ID,
+    clientSecret: process.env.DISCORD_BRIDGE_CLIENT_SECRET || process.env.DISCORD_CLIENT_SECRET,
     callbackUrl:
       process.env.DISCORD_BRIDGE_CALLBACK_URL ??
       `${appBaseUrl}/auth/callback/discord`,
