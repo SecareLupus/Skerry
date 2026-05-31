@@ -194,6 +194,7 @@ export async function registerHubRoutes(app: FastifyInstance): Promise<void> {
   app.patch("/v1/hubs/:hubId/settings", initializedAuthHandlers, async (request, reply) => {
     const params = z.object({ hubId: z.string().min(1) }).parse(request.params);
     const payload = z.object({
+      name: z.string().min(1).max(100).optional(),
       theme: z.any().optional(),
       spaceCustomizationLimits: z.any().optional(),
       oidcConfig: z.any().optional(),

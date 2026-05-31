@@ -750,6 +750,7 @@ export function ChatClient() {
         toggleTheme={toggleTheme}
         handleLogout={handleLogout}
         error={error}
+        hubName={hubs[0]?.name}
       />
 
       {error && <p className="error" role="alert">{error}</p>}

@@ -55,6 +55,19 @@ export default function HubSettingsPage() {
 
             <div className="settings-grid" style={{ marginTop: '2rem' }}>
                 <section className="settings-row">
+                    <label htmlFor="hub-name">Hub Name</label>
+                    <input
+                        id="hub-name"
+                        className="filter-input"
+                        type="text"
+                        maxLength={100}
+                        defaultValue={settings.name || ''}
+                        onBlur={(e) => setSettings({ ...settings, name: e.target.value })}
+                    />
+                    <p className="settings-description">Displayed in the top bar and login screens.</p>
+                </section>
+
+                <section className="settings-row">
                     <label>Hub Theme (JSON)</label>
                     <textarea
                         className="filter-input"

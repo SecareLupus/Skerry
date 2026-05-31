@@ -4,7 +4,7 @@ import type { Hub, Server, Channel } from "@skerry/shared";
 export async function getHubSettings(hubId: string): Promise<Partial<Hub>> {
   return withDb(async (db) => {
     const res = await db.query(
-      `select theme, space_customization_limits, oidc_config, allow_space_discord_bridge,
+      `select name, theme, space_customization_limits, oidc_config, allow_space_discord_bridge,
               default_auto_join_hub_members,
               is_suspended, suspended_at, suspension_expires_at, unlock_code_hash
        from hubs where id = $1`,
@@ -13,6 +13,7 @@ export async function getHubSettings(hubId: string): Promise<Partial<Hub>> {
     const row = res.rows[0];
     if (!row) throw new Error("Hub not found");
     return {
+      name: row.name,
       theme: row.theme,
       spaceCustomizationLimits: row.space_customization_limits,
       oidcConfig: row.oidc_config,
@@ -29,6 +30,7 @@ export async function getHubSettings(hubId: string): Promise<Partial<Hub>> {
 }
 
 export async function updateHubSettings(hubId: string, settings: {
+  name?: string;
   theme?: any;
   spaceCustomizationLimits?: any;
   oidcConfig?: any;
@@ -52,7 +54,8 @@ export async function updateHubSettings(hubId: string, settings: {
         is_suspended = coalesce($7, is_suspended),
         suspended_at = case when $8::text is not null or $11::boolean then $8::timestamptz else suspended_at end,
         suspension_expires_at = case when $9::text is not null or $12::boolean then $9::timestamptz else suspension_expires_at end,
-        unlock_code_hash = case when $10::text is not null or $13::boolean then $10::text else unlock_code_hash end
+        unlock_code_hash = case when $10::text is not null or $13::boolean then $10::text else unlock_code_hash end,
+        name = coalesce($14, name)
       where id = $1`,
       [
         hubId,
@@ -67,7 +70,8 @@ export async function updateHubSettings(hubId: string, settings: {
         settings.suspension?.unlockCodeHash,
         settings.suspension?.suspendedAt === null,
         settings.suspension?.expiresAt === null,
-        settings.suspension?.unlockCodeHash === null
+        settings.suspension?.unlockCodeHash === null,
+        settings.name
       ]
     );
   });
