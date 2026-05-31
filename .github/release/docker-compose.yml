@@ -34,6 +34,8 @@ services:
     image: livekit/livekit-server:v1.9.11
     env_file:
       - .env.ops
+    environment:
+      - LIVEKIT_KEYS=${LIVEKIT_KEYS}
     command: [ "--dev", "--bind", "0.0.0.0" ]
     ports:
       - "7881:7881"
