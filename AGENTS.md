@@ -4,11 +4,11 @@
 
 To minimize token costs, only read the active task list at the start of every session:
 
-1. `.agent-shared/TODO.md` — active tasks and open questions.
+1. `.agents/TODO.md` — active tasks and open questions.
 
 **Consult only as needed:**
-- `.agent-shared/GUIDE.md` — environment, testing, and hygiene rules.
-- `.agent-shared/ARCHIVE.md` — historical notes and logs.
+- `.agents/GUIDE.md` — environment, testing, and hygiene rules.
+- `.agents/ARCHIVE.md` — historical notes and logs.
 
 When ending a session, update `TODO.md` and move any completed task notes to `ARCHIVE.md`.
 
