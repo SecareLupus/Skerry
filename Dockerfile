@@ -43,7 +43,7 @@ COPY --from=builder /app/apps/web/.next/standalone ./
 COPY --from=builder /app/apps/web/.next/static ./apps/web/.next/static
 COPY --from=builder /app/apps/web/public ./apps/web/public
 EXPOSE 3000
-CMD ["node", "apps/web/server.js"]
+CMD ["node", "server.js"]
 
 
 # ── Control Plane Runtime (~80-100 MB) ──
@@ -53,8 +53,7 @@ RUN pnpm --filter @skerry/control-plane --prod deploy /app/out
 FROM node:20-slim AS control-plane
 COPY --from=cp-deploy /app/out /app
 EXPOSE 4000
-CMD ["node", "apps/control-plane/dist/index.js"]
-
+CMD ["node", "dist/index.js"]
 
 # ── Sticker Renderer Runtime ──
 FROM builder AS sr-deploy
@@ -71,4 +70,4 @@ RUN /opt/venv/bin/pip install --upgrade pip wheel setuptools && \
 
 COPY --from=sr-deploy /app/out /app
 EXPOSE 3000
-CMD ["node", "apps/sticker-renderer/dist/index.js"]
+CMD ["node", "dist/index.js"]
