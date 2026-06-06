@@ -18,6 +18,7 @@ RUN pnpm install --frozen-lockfile
 # Copy source
 COPY packages/shared/src packages/shared/src
 COPY apps/control-plane/src apps/control-plane/src
+COPY apps/control-plane/migrations apps/control-plane/migrations
 COPY apps/web/app apps/web/app
 COPY apps/web/components apps/web/components
 COPY apps/web/context apps/web/context
