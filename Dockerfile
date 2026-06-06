@@ -51,6 +51,7 @@ FROM builder AS cp-deploy
 RUN pnpm --filter @skerry/control-plane --prod deploy /app/out
 
 FROM node:20-slim AS control-plane
+WORKDIR /app
 COPY --from=cp-deploy /app/out /app
 EXPOSE 4000
 CMD ["node", "dist/index.js"]
@@ -60,6 +61,7 @@ FROM builder AS sr-deploy
 RUN pnpm --filter @skerry/sticker-renderer --prod deploy /app/out
 
 FROM node:20-bookworm-slim AS sticker-renderer
+WORKDIR /app
 RUN apt-get update && apt-get install -y ffmpeg python3 python3-pip python3-venv build-essential cmake python3-dev && rm -rf /var/lib/apt/lists/*
 
 RUN python3 -m venv /opt/venv
