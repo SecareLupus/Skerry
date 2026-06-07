@@ -34,7 +34,8 @@ RUN echo "NEXT_PUBLIC_BASE_DOMAIN=${NEXT_PUBLIC_BASE_DOMAIN:-localhost}" > apps/
     echo "NEXT_PUBLIC_BASE_DOMAIN=${NEXT_PUBLIC_BASE_DOMAIN:-localhost}" > .env && \
     pnpm --filter @skerry/shared build && \
     pnpm --filter @skerry/control-plane build && \
-    pnpm --filter @skerry/web build
+    pnpm --filter @skerry/web build && \
+    pnpm --filter @skerry/sticker-renderer build
 
 
 # ── Web Runtime (~60-80 MB) ──

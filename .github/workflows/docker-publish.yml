@@ -130,8 +130,15 @@ jobs:
       - name: Verify web UI
         run: |
           cd skerry
-          docker compose exec caddy wget -qO- http://localhost/ | grep -q 'Skerry' || { echo "FAIL"; exit 1; }
-          echo "OK: web UI serves Skerry"
+          for i in $(seq 1 12); do
+            echo "[$i/12] checking web UI..."
+            if docker compose exec caddy wget -qO- http://localhost/ 2>/dev/null | grep -q 'Skerry'; then
+              echo "OK: web UI serves Skerry"; exit 0
+            fi
+            sleep 5
+          done
+          echo "FAIL: web UI never became ready"
+          exit 1
 
       - name: Tear down
         if: always()
