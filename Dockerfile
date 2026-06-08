@@ -58,19 +58,25 @@ COPY --from=cp-deploy /app/out /app
 EXPOSE 4000
 CMD ["node", "dist/index.js"]
 
+# ── Sticker Renderer: Python build stage (build-essential only needed here) ──
+FROM node:20-bookworm-slim AS sr-python-build
+RUN apt-get update && apt-get install -y python3 python3-pip python3-venv build-essential cmake python3-dev && rm -rf /var/lib/apt/lists/*
+RUN python3 -m venv --copies /opt/venv
+ENV VIRTUAL_ENV=/opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+RUN /opt/venv/bin/pip install --upgrade pip wheel setuptools && \
+    /opt/venv/bin/pip install "rlottie-python[full]"
+
 # ── Sticker Renderer Runtime ──
 FROM builder AS sr-deploy
 RUN pnpm --filter @skerry/sticker-renderer --prod deploy /app/out
 
 FROM node:20-bookworm-slim AS sticker-renderer
 WORKDIR /app
-RUN apt-get update && apt-get install -y ffmpeg python3 python3-pip python3-venv build-essential cmake python3-dev && rm -rf /var/lib/apt/lists/*
-
-RUN python3 -m venv /opt/venv
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg python3 && apt-get clean && rm -rf /var/lib/apt/lists/*
+COPY --from=sr-python-build /opt/venv /opt/venv
 ENV VIRTUAL_ENV=/opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
-RUN /opt/venv/bin/pip install --upgrade pip wheel setuptools && \
-    /opt/venv/bin/pip install "rlottie-python[full]"
 
 COPY --from=sr-deploy /app/out /app
 EXPOSE 3000
