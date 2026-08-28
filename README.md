@@ -9,50 +9,57 @@ Skerry (or **Skerry Chat**) is the monorepo for the **Skerry Collective Hub Chat
 Skerry provides a complete community chat experience with high-level abstractions over Matrix and Discord:
 
 - **Single-Domain Routing**: Unified entry via Caddy reverse proxy with path-based routing (`/auth`, `/v1`, `/_matrix`, etc.).
-- **Identity & Auth**: Multi-provider OIDC (Discord, Google, Twitch, Keycloak) plus developer quick-login. Account linking with split-detection interstitial.
-- **Hub Architecture**: Multi-server (space) organization with categories, channels (text, voice, announcement, forum), and role-based permissions (5-tier audience model).
-- **Rich Messaging**: Real-time chat via SSE with polling fallback. Markdown rendering (bold, italic, code blocks, block quotes, lists). Message editing with revision history. File uploads, stickers (PNG/GIF/Lottie), and link embeds (Open Graph + oEmbed).
+- **Identity & Auth**: Multi-provider OIDC (Discord, Google, Twitch, Keycloak) plus developer quick-login. Account linking with split-detection interstitial. WebAuthn passkeys and TOTP-based 2FA with per-hub enforcement.
+- **Hub Architecture**: Multi-server (space) organization with categories, channels (text, voice, announcement, forum), and role-based permissions (5-tier audience model). Configurable hub name in topbar.
+- **Rich Messaging**: Real-time chat via SSE with polling fallback. Markdown rendering (bold, italic, code blocks, block quotes, lists). Message editing with revision history. File uploads, stickers (PNG/GIF/Lottie via sticker-renderer service), and link embeds (Open Graph + oEmbed). Image-only message support.
 - **Reactions & Threads**: Emoji reaction picker with multi-user badges. Quote-replies with Discord snowflake resolution. Threaded conversations with reply counts and thread panel.
-- **Voice & Video (scaffolded)**: LiveKit token issuance, pre-join UI, device settings modal, and voice room management. End-to-end audio/video requires further integration testing.
+- **Voice & Video**: LiveKit-powered real-time voice/video with pre-join UI, device settings modal, voice channel management, and TURN/STUN via coturn.
 - **Direct Messages**: DM picker, DM server creation, persistent DM channels in sidebar.
 - **Discord Bridge**: Bi-directional message relay with emoji mirroring, block quote preservation, edit/pin/delete mirroring, and @mention escaping.
 - **Moderation & Audit**: Kick, ban, timeout (via Synapse admin API), warn, strike escalation (3→timeout, 5→kick, 7→ban). Report triage dashboard. Full audit log with role-based snapshots.
 - **PWA & Notifications**: Dynamic per-server manifest. Service worker with push notifications via VAPID auto-generated keypair. @mention push delivery.
 - **Server Discovery**: Server invites with configurable role assignment and join policies (open, approval, invite-only). Search modal for messages.
 - **Theming**: Light/dark theme per user, with theme-aware overlay components (drawers, popovers). SVG icon system via lucide-react.
-- **Full Dockerization**: Docker Compose stack (Caddy, Synapse, LiveKit, PostgreSQL, control plane) with one-command deployment.
+- **Full Dockerization**: Docker Compose stack (Caddy, Synapse, LiveKit, coturn, PostgreSQL, control plane, web, sticker-renderer, db-backup) with one-command deployment. Optional Cloudflare Tunnel profile.
 - **Landing Page**: Deployed at `secarelupus.github.io/Skerry/` via GitHub Actions Pages.
 
 ## Repository Layout
 
 ```text
 .
-├── apps/                 # Monorepo applications
-│   ├── control-plane/      # Fastify policy gate, auth, and provisioning API
-│   └── web/                # Next.js web client
-├── packages/             # Shared logic
-│   └── shared/             # Shared types, constants, and domain contracts
-├── docs/                 # Documentation (reports, landing page assets)
-├── scripts/              # Utility scripts (bootstrap, backup, cleanup)
-├── assets/               # Static brand assets and media
-├── docker/               # Service-specific configs (Caddy, Synapse)
-├── docker-compose.yml    # Full stack orchestration
+├── apps/                  # Monorepo applications
+│   ├── control-plane/       # Fastify policy gate, auth, and provisioning API
+│   └── web/                 # Next.js web client
+├── packages/              # Shared logic
+│   └── shared/              # Shared types, constants, and domain contracts
+├── docs/                  # Documentation (reports, landing page assets)
+├── scripts/               # Utility scripts (bootstrap, backup, cleanup)
+├── assets/                # Static brand assets and media
+├── docker/                # Service-specific configs (Caddy, Synapse)
+├── deploy/                # Deploy kit files included in release tarballs
+├── .github/               # CI workflows and release assembly
+├── docker-compose.yml     # Full stack orchestration
 ├── docker-compose-test.yml # Isolated E2E test environment
-└── AGENTS.md             # AI collaborator instructions and project scope
+└── AGENTS.md              # AI collaborator instructions and project scope
 ```
 
 ## Internal Network Architecture
 
 When running via Docker Compose, services communicate using service names as hostnames:
 
-| Service           | Internal URL         | Purpose                                 |
-| :---------------- | :------------------- | :-------------------------------------- |
-| **Caddy**         | Port 80/443          | Public entry point & path-based routing |
-| **Web UI**        | `web:3000`           | Frontend Next.js application            |
-| **Control Plane** | `control-plane:4000` | Fastify API & provisioning gateway      |
-| **Matrix**        | `synapse:8008`       | Matrix homeserver (Synapse)             |
-| **LiveKit**       | `livekit:7880`       | Real-time voice/video signaling         |
-| **Database**      | `postgres:5432`      | Persistence layer (41 migrations)       |
+| Service              | Internal URL              | Host Ports       | Purpose                                   |
+| :------------------- | :------------------------ | :--------------- | :---------------------------------------- |
+| **Caddy**            | Port 80/443               | `80`, `443`      | Public entry point & path-based routing   |
+| **Web UI**           | `web:3000`                | —                | Frontend Next.js application              |
+| **Control Plane**    | `control-plane:4000`      | —                | Fastify API & provisioning gateway        |
+| **Matrix**           | `synapse:8008`            | —                | Matrix homeserver (Synapse)               |
+| **LiveKit**          | `livekit:7880`            | `7881`, `7882/udp` | Real-time voice/video signaling         |
+| **coturn**           | `coturn:3478`             | `3478` (TCP+UDP)  | TURN/STUN for WebRTC NAT traversal        |
+| **sticker-renderer** | `sticker-renderer:3000`   | —                | Python Lottie/PNG/GIF sticker rendering   |
+| **Database**         | `postgres:5432`           | —                | Persistence layer (46 migrations)         |
+| **db-backup**        | (no network port)         | —                | Scheduled daily PostgreSQL backups        |
+
+> **Note**: `postgres:5432` is not exposed to the host. For local `psql` access, use `docker compose exec postgres psql`.
 
 ## Quick Start (Docker)
 
@@ -61,13 +68,18 @@ When running via Docker Compose, services communicate using service names as hos
 Download the latest deploy kit from the [releases page](https://github.com/SecareLupus/Skerry/releases):
 
 ```bash
-tar -xzf skerry-deploy-v0.1.0-alpha.tar.gz
-cd deploy
+tar -xzf skerry-deploy-v0.5.7-alpha.tar.gz
+cd skerry
 cp .env.example .env
 # Edit .env with your domain and OAuth credentials
-chmod +x scripts/bootstrap-hub.sh
-./scripts/bootstrap-hub.sh
+chmod +x scripts/start.sh
+./scripts/start.sh
 ```
+
+- **First run** generates secrets and initializes the entire stack.
+- **Subsequent runs** merge any `.env` changes and restart services (no pull).
+- **Upgrade**: `./scripts/upgrade.sh`
+- **Stop**: `./scripts/stop.sh`
 
 ### From Source (development)
 
@@ -81,30 +93,29 @@ docker compose up -d
 - **Web UI**: `http://localhost` (or your configured `BASE_DOMAIN`)
 - **API Health**: `http://localhost/health`
 
-### One-Click Bootstrap
+### Cloudflare Tunnel (optional)
 
-For a production-ready deployment on a fresh Linux instance:
+To expose Skerry through Cloudflare Tunnel without opening ports directly:
 
 ```bash
-chmod +x scripts/bootstrap-hub.sh
-./scripts/bootstrap-hub.sh
+docker compose --profile tunnel up -d
 ```
 
-This generates unique secrets, pulls images, runs migrations, and starts the entire stack.
+Requires `CLOUDFLARE_TUNNEL_TOKEN` in `.env`.
 
-### Release Process
+## Release Process
 
 Docker images are published to GitHub Container Registry (GHCR) on manual release, not on push to main.
 
-1. **Publish**: Run the **Publish Docker Images** workflow via GitHub Actions → `workflow_dispatch` with a version tag (e.g. `v0.1.0-alpha`). This:
+1. **Publish**: Run the **Publish Docker Images** workflow via GitHub Actions → `workflow_dispatch` with a version tag (e.g. `v0.5.7-alpha`). This:
    - Creates the git tag on main
-   - Builds and pushes three images to `ghcr.io/secarelupus/`:
+   - Builds and pushes four images to `ghcr.io/secarelupus/`:
      - `skerry-control-plane:{version}`
      - `skerry-web:{version}`
      - `skerry-sticker-renderer:{version}`
-   - Uploads the deploy kit as a workflow artifact
+   - Assembles and uploads the deploy kit (`skerry-deploy-{version}.tar.gz`) as a release asset
 
-2. **Deploy**: Download the deploy kit from the workflow artifacts, update `SKERRY_VERSION` in `.env`, then:
+2. **Deploy**: Download the deploy kit from the release, update `SKERRY_VERSION` in `.env`, then:
    ```bash
    docker compose pull
    docker compose up -d
@@ -114,7 +125,7 @@ Docker images are published to GitHub Container Registry (GHCR) on manual releas
 
 For local development running services individually:
 
-1. **Start Infrastructure**: `docker compose up -d postgres synapse livekit coturn caddy`
+1. **Start Infrastructure**: `docker compose up -d postgres synapse livekit coturn caddy sticker-renderer`
 2. **Run Apps**: `pnpm dev`
 
 ### Matrix (Synapse) Setup
@@ -138,7 +149,7 @@ The project maintains a rigorous testing suite across the "Golden Path" of commu
 
 - **Typecheck**: `pnpm typecheck` (all 3 packages)
 - **Unit & Integration**: `pnpm test`
-- **End-to-End (Playwright)**: 33 specs covering authentication, community orchestration, messaging, moderation, accessibility, voice channels, and visual regression
+- **End-to-End (Playwright)**: 11 specs covering authentication, community orchestration, messaging, moderation, accessibility, voice channels, and visual regression
   ```bash
   pnpm test:env:up        # Start isolated E2E environment
   pnpm test:e2e:run       # Run full suite
